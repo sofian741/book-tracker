@@ -19,7 +19,9 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-      - uses: android-actions/setup-android@v3
+      # GitHub Ubuntu runners already include Android command-line tools.
+      # Avoid setup-android@v3, which currently tries to install removed SDK package 'tools'.
+      - run: sdkmanager --version
       - run: sdkmanager 'platforms;android-35' 'build-tools;34.0.0' 'build-tools;35.0.0'
       - run: npm ci
       - run: npm test

@@ -1,0 +1,8 @@
+{
+  "appId": "com.sufyan.booktracker",
+  "appName": "دفتر الكتب",
+  "webDir": "www",
+  "android": {
+    "adjustMarginsForEdgeToEdge": "auto"
+  }
+}

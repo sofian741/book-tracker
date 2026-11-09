@@ -156,3 +156,26 @@ test("delete unsold book requires explicit confirmation", async ({ page }) => {
   await page.getByRole("button", { name: "تأكيد", exact: true }).click();
   await expect(page.getByText("لا توجد كتب هنا بعد")).toBeVisible();
 });
+
+test("serving source files directly shows startup help instead of a blank page", async ({
+  page,
+}) => {
+  const { createServer } = await import("node:http");
+  const { readFile } = await import("node:fs/promises");
+  const server = createServer(async (request, response) => {
+    const source = ["/src/app.js", "/src/boot.js"].includes(request.url);
+    response.setHeader(
+      "Content-Type",
+      source ? "text/javascript" : "text/html",
+    );
+    response.end(await readFile(source ? `.${request.url}` : "index.html"));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  try {
+    await page.goto(`http://127.0.0.1:${server.address().port}`);
+    await expect(page.locator("#boot-help")).toBeVisible();
+    await expect(page.locator("#boot-help")).toContainText("npm start");
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});

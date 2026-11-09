@@ -7,7 +7,8 @@
     "build": "vite build",
     "test": "node --test tests/*.test.js",
     "cap:sync": "npm run build && cap sync android",
-    "test:ui": "npm run build && playwright test"
+    "test:ui": "npm run build && playwright test",
+    "start": "npm run build && vite preview --host 0.0.0.0 --port 3000"
   },
   "dependencies": {
     "@capacitor-community/sqlite": "^7.0.0",

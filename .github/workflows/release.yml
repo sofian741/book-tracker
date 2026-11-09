@@ -1,0 +1,56 @@
+name: Android Signed Release APK
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Locate Android SDK
+        shell: bash
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager -print -quit 2>/dev/null || true)"
+          test -n "$SDKMANAGER"
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+      - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - run: npm ci
+      - run: npm test
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:ui
+      - run: npm run cap:sync
+      - name: Restore signing key from GitHub secrets
+        shell: bash
+        env:
+          SIGNING_KEY_BASE64: ${{ secrets.BOOKTRACKER_KEYSTORE_BASE64 }}
+          SIGNING_PASSWORD: ${{ secrets.BOOKTRACKER_KEYSTORE_PASSWORD }}
+        run: |
+          test -n "$SIGNING_KEY_BASE64" || { echo "Missing BOOKTRACKER_KEYSTORE_BASE64 secret"; exit 1; }
+          test -n "$SIGNING_PASSWORD" || { echo "Missing BOOKTRACKER_KEYSTORE_PASSWORD secret"; exit 1; }
+          printf '%s' "$SIGNING_KEY_BASE64" | base64 --decode > "$RUNNER_TEMP/booktracker-release.jks"
+          echo "BOOKTRACKER_KEYSTORE_PATH=$RUNNER_TEMP/booktracker-release.jks" >> "$GITHUB_ENV"
+      - name: Build signed release APK
+        working-directory: android
+        env:
+          BOOKTRACKER_KEYSTORE_PASSWORD: ${{ secrets.BOOKTRACKER_KEYSTORE_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleRelease
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: daftar-al-kutub-1.0.1-release
+          path: android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error

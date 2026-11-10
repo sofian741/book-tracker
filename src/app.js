@@ -206,14 +206,15 @@ function bookFields(b = {}) {
   return `${field("اسم الكتاب *", "title", b.title || "", "text", true)}${field("عدد أجزاء الكتاب بالكامل *", "partsTotal", b.partsTotal || 1, "number", true)}<details ${b.id ? "open" : ""}><summary>تفاصيل إضافية</summary>${field("دار النشر", "publisher", b.publisher || "")}${field("سعر بيع مقترح للجزء (ج)", "suggested", (b.suggested || 0) / 100)}${field("ملاحظة قصيرة", "note", b.note || "")}</details>`;
 }
 function purchaseFields(b = {}, editing = false, book = {}) {
-  return (editing
+  const fields = editing
     ? field("رقم الجزء", "part", b.part || 1, "number", true) + field("عدد النسخ من الجزء *", "qty", b.qty || 1, "number", true)
-    : field("أرقام الأجزاء اللي اشتريتها *", "parts", "1", "text", true) + '<input type="hidden" name="partsTotal" value="' + (book.partsTotal || 1) + '">') +
-    field("سعر شراء الجزء الواحد (ج) *", "unit", b.unit === undefined ? "" : b.unit / 100, "text", true) +
-    (!editing ? field("أسعار مختلفة لبعض الأجزاء (اختياري)", "partPrices", "", "text") : "") +
+    : '<input type="hidden" name="parts" value=""><input type="hidden" name="partPrices" value="{}">' +
+      '<section class="part-entry"><label for="part-entry-input">أضف الأجزاء اللي اشتريتها</label><div class="part-entry-row"><input id="part-entry-input" type="number" min="1" max="' + (book.partsTotal || 1000) + '" inputmode="numeric" placeholder="رقم الجزء ثم Enter"><button type="button" data-add-part>إضافة</button></div><p class="hint">اكتب رقم الجزء واضغط Enter. كل رقم هيتحول لمربع تقدر تحدده.</p><div id="purchase-parts" class="parts-grid interactive-parts"><p class="hint">لسه مضافش أجزاء.</p></div><div class="selection-tools"><button type="button" data-select-all>تحديد الكل</button><button type="button" data-clear-selection>إلغاء التحديد</button></div><div class="group-price"><label>سعر الأجزاء المحددة (اختياري)<input id="group-part-price" inputmode="decimal" placeholder="اكتب السعر للمجموعة المحددة"></label><button type="button" data-apply-price>تطبيق السعر على المحدد</button><p class="hint">حدد جزءًا أو أكثر، اكتب السعر، واضغط تطبيق. الأجزاء بدون سعر خاص تستخدم السعر الأساسي بالأسفل.</p></div></section>';
+  return fields +
+    field(editing ? "سعر شراء الجزء الواحد (ج) *" : "السعر الأساسي للجزء (ج) *", "unit", b.unit === undefined ? "" : b.unit / 100, "text", true) +
     field("تاريخ الشراء *", "date", b.date || M.today(), "date", true) +
     '<details><summary>مصاريف الشراء</summary>' + field("تكاليف شراء إضافية للدفعة بالكامل (ج)", "extra", (b.extra || 0) / 100) + '</details>' +
-    '<p class="hint">' + (editing ? "يمكن تصحيح رقم الجزء والكمية إذا لم تتعارض مع المبيعات المسجلة." : "اكتب أرقام الأجزاء مفصولة بفاصلة. مثال: 2، 4، 5. ولو عندك نسختين من الجزء الأول اكتب: 1، 1. ولتحديد سعر مختلف اكتب مثلًا: 2=50، 4=75.") + '</p><p id="preview" class="preview"></p>';
+    '<p class="hint">' + (editing ? "يمكن تصحيح رقم الجزء والكمية إذا لم تتعارض مع المبيعات المسجلة." : "السعر الأساسي يطبق على كل الأجزاء. تقدر تخصص سعرًا مختلفًا لأي مجموعة بتحديد مربعاتها.") + '</p><p id="preview" class="preview"></p>';
 }
 function readBook(f, b = { id: M.id() }) {
   return {
@@ -240,26 +241,21 @@ function parseParts(raw, total) {
 function purchaseBatches(f, bookId, book, old = null) {
   const unit = amount(f, "unit"), date = f.get("date"), extra = amount(f, "extra");
   if (old) return [{ ...old, part: int(f.get("part")), qty: int(f.get("qty")), unit, date, extra }];
-  const parts = parseParts(f.get("parts"), Number(f.get("partsTotal") || book.partsTotal)), counts = new Map();
+  const parts = parseParts(f.get("parts"), book.partsTotal), counts = new Map();
   for (const part of parts) counts.set(part, (counts.get(part) || 0) + 1);
-  const overrides = new Map();
-  const rawPrices = String(f.get("partPrices") || "").trim();
-  if (rawPrices) {
-    for (const item of rawPrices.split(/[,،]+/).map((x) => x.trim()).filter(Boolean)) {
-      const match = item.match(/^(\\d+)\\s*=\\s*(.+)$/);
-      if (!match) throw Error("اكتب السعر المختلف بهذا الشكل: 2=50، 4=75");
-      const part = Number(match[1]);
-      if (!counts.has(part)) throw Error("حدد سعرًا فقط لجزء موجود في قائمة الأجزاء المشتراة");
-      if (overrides.has(part)) throw Error("لا تكرر رقم الجزء في قائمة الأسعار");
-      overrides.set(part, M.money(match[2]));
-    }
+  let rawPrices = {};
+  try { rawPrices = JSON.parse(f.get("partPrices") || "{}"); } catch { throw Error("تعذر قراءة أسعار الأجزاء المحددة"); }
+  for (const [key, value] of Object.entries(rawPrices)) {
+    const part = Number(key);
+    if (!counts.has(part) || !Number.isSafeInteger(value) || value < 0)
+      throw Error("راجع أسعار الأجزاء المحددة");
   }
   const base = Math.floor(extra / parts.length);
   let remainder = extra % parts.length, index = 0;
   return [...counts.entries()].map(([part, qty]) => {
     const bonus = Math.max(0, Math.min(qty, remainder - index));
     index += qty;
-    return { id: M.id(), book: bookId, part, qty, unit: overrides.get(part) ?? unit, date, extra: base * qty + bonus };
+    return { id: M.id(), book: bookId, part, qty, unit: rawPrices[part] ?? unit, date, extra: base * qty + bonus };
   });
 }
 async function commit(next, message = "تم الحفظ") {

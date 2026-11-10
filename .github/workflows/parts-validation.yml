@@ -3,7 +3,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main, feature/parts-inventory]
+    branches: ["**"]
 permissions:
   contents: read
 jobs:

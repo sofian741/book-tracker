@@ -240,6 +240,7 @@ test("multi-part sale transaction allocates each part separately and keeps combi
   assert.equal(s.sales.filter(x => x.transaction === transaction).length, 3);
   assert.equal(M.totals(s).revenue, 60000);
   assert.equal(M.totals(s).profit, 23549);
+  assert.equal(M.totals(s).count, 1);
   assert.equal(M.available(s, "book"), 0);
   M.validate(s);
 });

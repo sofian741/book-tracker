@@ -265,7 +265,7 @@ async function commit(next, message = "تم الحفظ") {
   render();
   toast(message);
 }
-function previewPurchase(d) {
+function previewPurchase(d, book = null) {
   const update = () => {
     try {
       const f = new FormData(d.querySelector("form")),
@@ -273,7 +273,7 @@ function previewPurchase(d) {
         extra = amount(f, "extra");
       let qty, total;
       if (f.has("parts")) {
-        const batches = purchaseBatches(f, "preview", { partsTotal: Number(f.get("partsTotal") || 1) });
+        const batches = purchaseBatches(f, "preview", book || { partsTotal: Number(f.get("partsTotal") || 1) });
         qty = batches.reduce((n, batch) => n + batch.qty, 0);
         total = batches.reduce((n, batch) => n + batch.unit * batch.qty + batch.extra, 0);
       } else {
@@ -405,7 +405,7 @@ function batch(bookId, batchId) {
       );
     },
   );
-  previewPurchase(d);
+  previewPurchase(d, state.books.find((x) => x.id === (old?.book || bookId)));
   if (!old) setupPurchaseParts(d);
 }
 function sell(bookId, saleId) {

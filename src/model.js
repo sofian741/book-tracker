@@ -123,7 +123,7 @@ export function totals(s, from = "", to = "9999") {
 export function validate(s) {
   if (
     !s ||
-    s.version !== 1 ||
+    s.version !== 2 ||
     !["books", "batches", "sales"].every(
       (k) => Array.isArray(s[k]) && s[k].length <= 50000,
     )

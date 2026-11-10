@@ -63,7 +63,7 @@ test("edit and delete sale returns inventory, search, HTML injection", async ({
   await add(page, "<img src=x onerror=alert(1)> عنوان عربي طويل جدًا");
   await sell(page);
   await page.getByRole("button", { name: "الرئيسية", exact: true }).click();
-  await page.getByRole("button", { name: "تعديل", exact: true }).click();
+  await page.getByRole("button", { name: /تعديل الجزء/ }).first().click();
   await page.getByLabel("سعر بيع النسخة الواحدة (ج) *").fill("800");
   await page.getByRole("button", { name: "حفظ", exact: true }).click();
   await expect(page.locator(".stat.green")).toContainText("٢٢٠");
@@ -140,6 +140,7 @@ test("additional purchase, historical correction, book edit and validation", asy
   await page.locator('[data-sale-part="1"]').click();
   await page.locator('[data-sale-qty="1"][data-delta="1"]').click();
   await expect(page.locator('[data-sale-qty="1"][data-delta="1"]')).toBeDisabled();
+  await page.locator('[data-sale-qty="1"][data-delta="-1"]').click();
   await page.getByLabel("سعر بيع النسخة الواحدة (ج) *").fill("750");
   await page.getByRole("button", { name: "حفظ", exact: true }).click();
   await page
@@ -149,7 +150,7 @@ test("additional purchase, historical correction, book edit and validation", asy
   await page.getByLabel("سعر شراء الجزء الواحد (ج) *").fill("510");
   await page.getByRole("button", { name: "حفظ", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("إعادة حساب");
-  await expect(page.locator("main")).toContainText("١٩٠");
+  await expect(page.locator("main")).toContainText("١٦٠");
 });
 test("delete unsold book requires explicit confirmation", async ({ page }) => {
   await page.goto("/");
@@ -196,9 +197,9 @@ test("multi-part book shows owned and missing parts and sells one selected part"
   await page.getByLabel("السعر الأساسي للجزء (ج) (اختياري لو سعّرت كل الأجزاء)").fill("100");
   await page.getByRole("button", { name: "حفظ", exact: true }).click();
   await page.getByRole("button", { name: "التفاصيل", exact: true }).click();
-  await expect(page.locator("main")).toContainText("الجزء 1");
-  await expect(page.locator("main")).toContainText("الجزء 3");
-  await expect(page.locator("main")).toContainText("الأجزاء الناقصة: 2، 4، 5، 6");
+  await expect(page.locator("main")).toContainText("الجزء ١");
+  await expect(page.locator("main")).toContainText("الجزء ٣");
+  await expect(page.locator("main")).toContainText("الأجزاء الناقصة: ٢، ٤، ٥، ٦");
   await page.getByRole("button", { name: "تسجيل بيع", exact: true }).click();
   await page.locator('[data-sale-part="3"]').click();
   await page.getByLabel("سعر بيع النسخة الواحدة (ج) *").fill("150");
@@ -214,5 +215,5 @@ test("multi-part book shows owned and missing parts and sells one selected part"
   await page.getByLabel("السعر الأساسي للجزء (ج) (اختياري لو سعّرت كل الأجزاء)").fill("120");
   await page.getByRole("button", { name: "حفظ", exact: true }).click();
   await expect(page.locator("main")).toContainText("الأجزاء المتاحة");
-  await expect(page.locator("main")).toContainText("3 من 6");
+  await expect(page.locator("main")).toContainText("٣ من ٦");
 });

@@ -342,7 +342,7 @@ function sell(bookId, saleId) {
     : field("أرقام الأجزاء المباعة *", "parts", "", "text", true);
   const html = '<p>' + esc(b.title) + '</p>' + partField +
     (old ? '<p class="notice">تعديل هذا السطر من عملية البيع. لو العملية تضم أكثر من جزء، ستظل بقية الأجزاء كما هي.</p>' : "") +
-    field("عدد النسخ المباعة *", "qty", old?.qty || 1, "number", true) +
+    (old ? field("عدد النسخ المباعة *", "qty", old.qty, "number", true) : "") +
     field("سعر بيع النسخة الواحدة (ج) *", "unit", old ? old.unit / 100 : b.suggested ? b.suggested / 100 : "", "text", true) +
     '<p class="hint">' + (old ? "اكتب رقم الجزء والكمية." : "اكتب أرقام الأجزاء التي تبيعها مفصولة بفواصل. مثال: 1، 2، 3. لو بعت نسختين من الجزء الأول اكتب: 1، 1. السعر المدخل يطبق على كل نسخة في العملية.") + '</p>' +
     field("تاريخ البيع *", "date", old?.date || M.today(), "date", true) +

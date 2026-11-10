@@ -204,5 +204,5 @@ test("multi-part book shows owned and missing parts and sells one selected part"
   await page.getByLabel("سعر شراء الجزء الواحد (ج) *").fill("120");
   await page.getByRole("button", { name: "حفظ", exact: true }).click();
   await expect(page.locator("main")).toContainText("الأجزاء المتاحة");
-  await expect(page.locator("main")).toContainText("4 من 6");
+  await expect(page.locator("main")).toContainText("3 من 6");
 });

@@ -677,3 +677,26 @@ details {
   font-weight: 700;
   font-size: .85rem;
 }
+
+.part-entry-chip {
+  position: relative;
+  min-width: 0;
+}
+.part-entry-chip .part-pick {
+  width: 100%;
+  padding-left: 30px;
+}
+.remove-part {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  min-height: 28px;
+  min-width: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #f1eee8;
+  color: #8b5548;
+  font-size: 1rem;
+  line-height: 1;
+}

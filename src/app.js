@@ -411,14 +411,13 @@ function batch(bookId, batchId) {
 function sell(bookId, saleId) {
   const old = state.sales.find((x) => x.id === saleId),
     b = state.books.find((x) => x.id === (old?.book || bookId));
-  const partField = old
-    ? field("رقم الجزء", "part", old.part, "number", true)
-    : field("أرقام الأجزاء المباعة *", "parts", "", "text", true);
-  const html = '<p>' + esc(b.title) + '</p>' + partField +
-    (old ? '<p class="notice">تعديل هذا السطر من عملية البيع. لو العملية تضم أكثر من جزء، ستظل بقية الأجزاء كما هي.</p>' : "") +
-    (old ? field("عدد النسخ المباعة *", "qty", old.qty, "number", true) : "") +
+  const selection = old
+    ? field("رقم الجزء", "part", old.part, "number", true) + field("عدد النسخ المباعة *", "qty", old.qty, "number", true)
+    : '<input type="hidden" name="parts" value=""><section class="part-entry"><p class="hint">اضغط على الأجزاء اللي هتبيعها. تقدر تختار جزء واحد أو كذا جزء أو تحدد الكل.</p><div id="sale-parts" class="parts-grid interactive-parts"></div><div class="selection-tools"><button type="button" data-sale-all>تحديد كل المتاح</button><button type="button" data-sale-clear>إلغاء التحديد</button></div></section>';
+  const html = '<p>' + esc(b.title) + '</p>' + selection +
+    (old ? '<p class="notice">تعديل سطر البيع ده فقط. باقي الأجزاء في نفس العملية مش هتتغير.</p>' : "") +
     field("سعر بيع النسخة الواحدة (ج) *", "unit", old ? old.unit / 100 : b.suggested ? b.suggested / 100 : "", "text", true) +
-    '<p class="hint">' + (old ? "اكتب رقم الجزء والكمية." : "اكتب أرقام الأجزاء التي تبيعها مفصولة بفواصل. مثال: 1، 2، 3. لو بعت نسختين من الجزء الأول اكتب: 1، 1. السعر المدخل يطبق على كل نسخة في العملية.") + '</p>' +
+    '<p class="hint">' + (old ? "تقدر تصحح رقم الجزء والكمية." : "السعر ده هيتطبق على كل النسخ المختارة في العملية.") + '</p>' +
     field("تاريخ البيع *", "date", old?.date || M.today(), "date", true) +
     '<details><summary>مصاريف وتفاصيل إضافية</summary>' +
     field("مصاريف البيع للعملية بالكامل (ج)", "expenses", (old?.expenses || 0) / 100) +
@@ -442,10 +441,7 @@ function sell(bookId, saleId) {
     const counts = new Map();
     for (const part of parts) counts.set(part, (counts.get(part) || 0) + 1);
     if (old) {
-      const x = {
-        id: old.id, transaction, book: b.id, part: parts[0],
-        qty, unit, expenses, shipping, date, note,
-      };
+      const x = { id: old.id, transaction, book: b.id, part: parts[0], qty, unit, expenses, shipping, date, note };
       n.sales[n.sales.findIndex((sale) => sale.id === old.id)] = x;
       M.recalculate(n);
       M.validate(n);
@@ -455,20 +451,18 @@ function sell(bookId, saleId) {
     for (const [part, count] of counts) {
       const lineExpenses = expBase * count + Math.max(0, Math.min(index + count, expRest) - index);
       const lineShipping = shipBase * count + Math.max(0, Math.min(index + count, shipRest) - index);
-      const x = {
-        id: M.id(), transaction, book: b.id, part, qty: count,
-        unit, expenses: lineExpenses, shipping: lineShipping, date, note,
-      };
+      const x = { id: M.id(), transaction, book: b.id, part, qty: count, unit, expenses: lineExpenses, shipping: lineShipping, date, note };
       M.addSale(n, x);
       index += count;
     }
     M.validate(n);
     return [n, n.sales.filter((sale) => sale.transaction === transaction)];
   };
-  const d = modal(old ? "تعديل بيع جزء" : "تسجيل بيع أجزاء", html, async (f) => {
+  const d = modal(old ? "تعديل بيع جزء" : "بيع أجزاء من الكتاب", html, async (f) => {
     const [n] = getNext(f);
     await commit(n, "تم حفظ عملية البيع وحساب المخزون");
   });
+  if (!old) setupSaleParts(d, b);
   d.oninput = () => {
     const p = d.querySelector("#preview");
     try {
@@ -480,6 +474,37 @@ function sell(bookId, saleId) {
     } catch (e) { p.textContent = errorMessage(e); }
   };
   d.oninput();
+}
+function setupSaleParts(d, book) {
+  const grid = d.querySelector("#sale-parts"),
+    hidden = d.querySelector('[name="parts"]'),
+    available = new Map(M.availableParts(state, book.id).map((x) => [x.part, x.qty])),
+    selected = new Map();
+  const sync = () => {
+    hidden.value = [...selected.entries()].flatMap(([part, qty]) => Array(qty).fill(part)).join(",");
+    grid.innerHTML = [...available.entries()].sort((a,b)=>a[0]-b[0]).map(([part, stock]) => {
+      const qty = selected.get(part) || 0;
+      return '<div class="sale-part-card ' + (qty ? "selected" : "") + '"><button type="button" class="sale-part-main" data-sale-part="' + part + '"><b>الجزء ' + num(part) + '</b><small>متاح: ' + num(stock) + '</small><strong>' + (qty ? "محدد · " + num(qty) : "اضغط للاختيار") + '</strong></button>' +
+        (qty ? '<div class="part-quantity"><button type="button" data-sale-qty="' + part + '" data-delta="-1" aria-label="تقليل">−</button><span>' + num(qty) + '</span><button type="button" data-sale-qty="' + part + '" data-delta="1" aria-label="زيادة" ' + (qty >= stock ? "disabled" : "") + '>+</button></div>' : "") + '</div>';
+    }).join("");
+  };
+  grid.onclick = (e) => {
+    const adjust = e.target.closest("[data-sale-qty]");
+    if (adjust) {
+      const part = Number(adjust.dataset.saleQty), next = (selected.get(part) || 0) + Number(adjust.dataset.delta);
+      if (next <= 0) selected.delete(part);
+      else if (next <= available.get(part)) selected.set(part, next);
+      sync(); d.oninput(); return;
+    }
+    const tile = e.target.closest("[data-sale-part]");
+    if (!tile) return;
+    const part = Number(tile.dataset.salePart);
+    if (selected.has(part)) selected.delete(part); else selected.set(part, 1);
+    sync(); d.oninput();
+  };
+  d.querySelector("[data-sale-all]").onclick = () => { available.forEach((qty, part) => selected.set(part, qty)); sync(); d.oninput(); };
+  d.querySelector("[data-sale-clear]").onclick = () => { selected.clear(); sync(); d.oninput(); };
+  sync();
 }
 function confirmAction(title, message, fn) {
   const d = modal(title, `<p>${esc(message)}</p>`, async () => fn());

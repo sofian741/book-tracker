@@ -96,41 +96,23 @@ function home() {
 function books() {
   let list = state.books
     .filter((b) => (b.title + " " + b.publisher).includes(query))
-    .filter(
-      (b) =>
-        filter === "all" ||
-        (filter === "available"
-          ? M.available(state, b.id) > 0
-          : M.available(state, b.id) === 0),
-    );
-  if (sort === "name")
-    list.sort((a, b) => a.title.localeCompare(b.title, "ar"));
+    .filter((b) => filter === "all" || (filter === "available" ? M.available(state, b.id) > 0 : M.available(state, b.id) === 0));
+  if (sort === "name") list.sort((a, b) => a.title.localeCompare(b.title, "ar"));
   else list = list.slice().reverse();
-  return `<div class="heading"><p class="eyebrow">مكتبتك التجارية</p><h1>الكتب</h1><p>كل عنوان ونسخه، في مكان واحد.</p></div>${button("+ إضافة كتاب", "add", 'class="primary wide"')}<label class="search">بحث بالعنوان أو دار النشر<input id="search" type="search" placeholder="ابحث عن كتاب…" value="${esc(query)}"></label><div class="toolbar"><select id="filter" aria-label="حالة المخزون">${[
-    ["all", "كل الكتب"],
-    ["available", "المتاح"],
-    ["sold", "المباع بالكامل"],
-  ]
-    .map(
-      ([v, l]) =>
-        `<option value="${v}" ${v === filter ? "selected" : ""}>${l}</option>`,
-    )
-    .join(
-      "",
-    )}</select><select id="sort" aria-label="ترتيب الكتب"><option value="new">الأحدث</option><option value="name" ${sort === "name" ? "selected" : ""}>الاسم</option></select></div><div id="book-list">${
-    list.length
-      ? list
-          .map((b) => {
-            const q = M.available(state, b.id),
-              total = state.batches
-                .filter((x) => x.book === b.id)
-                .reduce((n, x) => n + x.qty, 0),
-              cost = bookStock(b.id);
-            return `<article class="book"><button class="book-title" data-book="${b.id}"><span class="book-mark">${icon("books")}</span><span><strong>${esc(b.title)}</strong><small>${esc(b.publisher) || "بدون دار نشر"}${b.volumes > 1 ? " · " + num(b.volumes) + " مجلد لكل نسخة" : ""}</small></span></button><div class="book-info"><span class="badge ${q ? "" : "muted"}">${!q ? "نفد" : q < total ? "بيع جزئيًا" : "متاح"} · ${num(q)} نسخة</span><span>تكلفة المتبقي ${cash(cost)}</span></div><div class="actions">${q ? button("تسجيل بيع", "sell", `data-id="${b.id}" class="primary"`) : ""}${button("التفاصيل", "detail", `data-id="${b.id}" class="subtle"`)}</div></article>`;
-          })
-          .join("")
-      : '<div class="empty"><h2>لا توجد كتب هنا بعد</h2><p>أضف كتابك الأول أو غيّر البحث والفلتر.</p></div>'
-  }</div>`;
+  return '<div class="heading"><p class="eyebrow">مكتبتك التجارية</p><h1>الكتب</h1><p>كل عنوان وأجزاؤه، في مكان واحد.</p></div>' +
+    button("+ إضافة كتاب", "add", 'class="primary wide"') +
+    '<label class="search">بحث بالعنوان أو دار النشر<input id="search" type="search" placeholder="ابحث عن كتاب…" value="' + esc(query) + '"></label>' +
+    '<div class="toolbar"><select id="filter" aria-label="حالة المخزون">' +
+    [["all", "كل الكتب"], ["available", "المتاح"], ["sold", "المباع بالكامل"]].map(([v,l]) => '<option value="' + v + '" ' + (v === filter ? "selected" : "") + '>' + l + '</option>').join("") +
+    '</select><select id="sort" aria-label="ترتيب الكتب"><option value="new">الأحدث</option><option value="name" ' + (sort === "name" ? "selected" : "") + '>الاسم</option></select></div><div id="book-list">' +
+    (list.length ? list.map((b) => {
+      const q = M.available(state, b.id),
+        total = state.batches.filter((x) => x.book === b.id).reduce((n, x) => n + x.qty, 0),
+        present = M.availableParts(state, b.id),
+        complete = present.length === b.partsTotal,
+        cost = bookStock(b.id);
+      return '<article class="book"><button class="book-title" data-book="' + b.id + '"><span class="book-mark">' + icon("books") + '</span><span><strong>' + esc(b.title) + '</strong><small>' + (esc(b.publisher) || "بدون دار نشر") + (b.partsTotal > 1 ? " · " + num(b.partsTotal) + " أجزاء" : "") + (b.volumes > 1 ? " · " + num(b.volumes) + " مجلد لكل نسخة" : "") + '</small></span></button><div class="book-info"><span class="badge ' + (complete ? "" : "muted") + '">' + (present.length ? "معايا " + num(present.length) + " من " + num(b.partsTotal) + " أجزاء" : "لا توجد أجزاء متاحة") + " · " + (complete ? "مكتمل" : "غير مكتمل") + '</span><span>' + num(q) + ' قطعة متاحة · تكلفة المتبقي ' + cash(cost) + '</span></div><div class="actions">' + (q ? button("تسجيل بيع", "sell", 'data-id="' + b.id + '" class="primary"') : "") + button("التفاصيل", "detail", 'data-id="' + b.id + '" class="subtle") + '</div><small class="hint">' + num(total) + ' قطعة تم شراؤها إجمالًا</small></article>';
+    }).join("") : '<div class="empty"><h2>لا توجد كتب هنا بعد</h2><p>أضف كتابك الأول أو غيّر البحث والفلتر.</p></div>') + '</div>';
 }
 function bookStock(id) {
   return (
@@ -147,7 +129,7 @@ function saleList(sales) {
     ? sales
         .map(
           (x) =>
-            `<article class="row"><div><strong>${esc(state.books.find((b) => b.id === x.book)?.title)}</strong><small>${x.date} · ${num(x.qty)} نسخة · إيراد ${cash(x.unit * x.qty)}</small>${x.note ? `<small>${esc(x.note)}</small>` : ""}<span class="${M.profit(x) < 0 ? "red-text" : "good-text"}">${M.profit(x) < 0 ? "خسارة" : "ربح"} ${cash(Math.abs(M.profit(x)))}</span></div><div class="row-buttons">${button("تعديل", "edit-sale", `data-id="${x.id}"`)}${button("حذف", "delete-sale", `data-id="${x.id}" class="danger"`)}</div></article>`,
+            `<article class="row"><div><strong>${esc(state.books.find((b) => b.id === x.book)?.title)}</strong><small>${x.date} · الجزء ${num(x.part)} · ${num(x.qty)} نسخة · إيراد ${cash(x.unit * x.qty)}</small>${x.note ? `<small>${esc(x.note)}</small>` : ""}<span class="${M.profit(x) < 0 ? "red-text" : "good-text"}">${M.profit(x) < 0 ? "خسارة" : "ربح"} ${cash(Math.abs(M.profit(x)))}</span></div><div class="row-buttons">${button("تعديل", "edit-sale", `data-id="${x.id}"`)}${button("حذف", "delete-sale", `data-id="${x.id}" class="danger"`)}</div></article>`,
         )
         .join("")
     : '<div class="empty compact"><p>لا توجد مبيعات في هذه الفترة. سجّل بيعًا من بطاقة الكتاب عندما يتم البيع فعلًا.</p></div>';
@@ -155,8 +137,25 @@ function saleList(sales) {
 function detail() {
   const b = state.books.find((b) => b.id === selected),
     batches = state.batches.filter((x) => x.book === b.id),
-    sales = state.sales.filter((x) => x.book === b.id);
-  return `${button("‹ العودة للكتب", "back", 'class="subtle"')}<h1>${esc(b.title)}</h1><p>${esc(b.publisher)} · ${num(b.volumes)} مجلد لكل نسخة</p>${b.note ? `<p>${esc(b.note)}</p>` : ""}<div class="panel"><dl><dt>النسخ المشتراة</dt><dd>${num(batches.reduce((a, x) => a + x.qty, 0))}</dd><dt>النسخ المتبقية</dt><dd>${num(M.available(state, b.id))}</dd><dt>تكلفة المتبقي</dt><dd>${cash(bookStock(b.id))}</dd><dt>${sales.reduce((n, x) => n + M.profit(x), 0) < 0 ? "الخسارة المحققة" : "صافي الربح المحقق"}</dt><dd>${cash(Math.abs(sales.reduce((n, x) => n + M.profit(x), 0)))}</dd>${b.suggested ? `<dt>سعر البيع المقترح للنسخة · ليس إيرادًا</dt><dd>${cash(b.suggested)}</dd>` : ""}</dl></div><div class="actions">${M.available(state, b.id) ? button("تسجيل بيع", "sell", `data-id="${b.id}" class="primary"`) : ""}${button("إضافة نسخ", "batch", `data-id="${b.id}"`)}${button("تعديل الكتاب", "edit-book", `data-id="${b.id}"`)}${!sales.length ? button("حذف الكتاب", "delete-book", `data-id="${b.id}" class="danger"`) : ""}</div><h2>دفعات الشراء</h2>${batches.map((x) => `<article class="row"><div><strong>${num(x.qty)} نسخة · ${cash(x.unit)} للنسخة</strong><small>${x.date} · إضافات الدفعة ${cash(x.extra)}</small><small>الإجمالي ${cash(x.unit * x.qty + x.extra)}</small></div>${button("تصحيح", "edit-batch", `data-id="${x.id}"`)}</article>`).join("")}<h2>سجل المبيعات</h2>${saleList(sales)}`;
+    sales = state.sales.filter((x) => x.book === b.id),
+    present = M.availableParts(state, b.id),
+    owned = new Map(present.map((x) => [x.part, x.qty])),
+    missing = Array.from({ length: b.partsTotal }, (_, i) => i + 1).filter((part) => !owned.has(part));
+  const partRows = Array.from({ length: b.partsTotal }, (_, i) => i + 1).map((part) => {
+    const qty = owned.get(part) || 0;
+    return '<span class="part-chip ' + (qty ? "owned" : "missing") + '"><b>الجزء ' + num(part) + '</b><small>' + (qty ? "متاح · " + num(qty) + (qty === 1 ? " نسخة" : " نسخ") : "غير موجود") + '</small></span>';
+  }).join("");
+  return button("‹ العودة للكتب", "back", 'class="subtle"') +
+    '<h1>' + esc(b.title) + '</h1><p>' + esc(b.publisher) + ' · ' + num(b.partsTotal) + ' أجزاء إجمالًا' + (b.volumes > 1 ? " · " + num(b.volumes) + " مجلد لكل نسخة" : "") + '</p>' +
+    (b.note ? '<p>' + esc(b.note) + '</p>' : "") +
+    '<div class="panel"><dl><dt>الأجزاء المتاحة</dt><dd>' + num(present.length) + ' من ' + num(b.partsTotal) + '</dd><dt>حالة المجموعة</dt><dd>' + (missing.length ? "غير مكتملة" : "مكتملة") + '</dd><dt>عدد القطع المتاحة</dt><dd>' + num(M.available(state, b.id)) + '</dd><dt>تكلفة المخزون المتبقي</dt><dd>' + cash(bookStock(b.id)) + '</dd><dt>' + (sales.reduce((n, x) => n + M.profit(x), 0) < 0 ? "الخسارة المحققة" : "صافي الربح المحقق") + '</dt><dd>' + cash(Math.abs(sales.reduce((n, x) => n + M.profit(x), 0))) + '</dd>' + (b.suggested ? '<dt>سعر البيع المقترح للجزء · ليس إيرادًا</dt><dd>' + cash(b.suggested) + '</dd>' : "") + '</dl></div>' +
+    '<h2>الأجزاء عندي</h2><div class="parts-grid">' + partRows + '</div>' +
+    (missing.length ? '<p class="hint">الأجزاء الناقصة: ' + missing.map(num).join("، ") + ' من أصل ' + num(b.partsTotal) + '</p>' : '<p class="good-text">كل أجزاء الكتاب متوفرة عندك 🎉</p>') +
+    '<div class="actions">' + (M.available(state, b.id) ? button("تسجيل بيع جزء", "sell", 'data-id="' + b.id + '" class="primary"') : "") +
+    button("إضافة أجزاء", "batch", 'data-id="' + b.id + '"') + button("تعديل الكتاب", "edit-book", 'data-id="' + b.id + '"') +
+    (!sales.length ? button("حذف الكتاب", "delete-book", 'data-id="' + b.id + '" class="danger"') : "") + '</div>' +
+    '<h2>دفعات الشراء</h2>' + batches.map((x) => '<article class="row"><div><strong>الجزء ' + num(x.part) + ' · ' + num(x.qty) + ' نسخة · ' + cash(x.unit) + ' للنسخة</strong><small>' + x.date + ' · إضافات الدفعة ' + cash(x.extra) + '</small><small>الإجمالي ' + cash(x.unit * x.qty + x.extra) + '</small></div>' + button("تصحيح", "edit-batch", 'data-id="' + x.id + '"') + '</article>').join("") +
+    '<h2>سجل المبيعات</h2>' + saleList(sales);
 }
 function settings() {
   return `<p class="eyebrow">دفترك في أمان</p><h1>الإعدادات</h1><section class="panel"><h2>نسخة معك، خارج التطبيق</h2><p>بياناتك محلية على هذا الجهاز. احفظ نسخة احتياطية بانتظام، وقبل حذف التطبيق أو تغيير الهاتف.</p>${button("تصدير نسخة احتياطية", "export", 'class="primary wide"')}<p class="hint">على Android اختر مكان حفظ النسخة أو شاركها من نافذة المشاركة. تأكد من الاحتفاظ بالملف خارج التطبيق.</p><label class="file-button">استرجاع نسخة احتياطية<input id="import" type="file" accept="application/json,.json"></label><p class="hint">الاسترجاع يستبدل كل البيانات بعد التحقق من الملف والتأكيد.</p></section><section class="panel"><h2>كيف تُحسب الأرباح؟</h2><p>تُباع النسخ الأقدم شراءً أولًا (FIFO). توزّع مصاريف دفعة الشراء على نسخها بالقروش دون فقد. الربح = قيمة الكتب المباعة − تكلفتها − مصاريف البيع وشحن البائع.</p><p>سعر البيع هو قيمة الكتب فقط. لا تدخل شحنًا دفعه العميل ضمنه.</p></section><section class="panel"><h2>دفتر الكتب <bdi>1.0.0</bdi></h2><p>بسيط، خاص، ويعمل دون إنترنت. بلا حسابات مستخدمين أو تتبع.</p><p class="hint">${Capacitor.isNativePlatform() ? "التخزين: SQLite على الجهاز" : "التخزين في المتصفح: IndexedDB. مسح بيانات الموقع يحذف الدفتر."}</p></section>`;
@@ -190,10 +189,16 @@ function modal(title, html, submit) {
 const int = (v) => M.integer(Number(v), 1);
 const amount = (f, key) => M.money(f.get(key) || "0");
 function bookFields(b = {}) {
-  return `${field("اسم الكتاب *", "title", b.title || "", "text", true)}<details ${b.id ? "open" : ""}><summary>تفاصيل إضافية</summary>${field("عدد المجلدات لكل نسخة", "volumes", b.volumes || 1, "number", true)}${field("دار النشر", "publisher", b.publisher || "")}${field("سعر بيع مقترح للنسخة (ج)", "suggested", (b.suggested || 0) / 100)}${field("ملاحظة قصيرة", "note", b.note || "")}</details>`;
+  return `${field("اسم الكتاب *", "title", b.title || "", "text", true)}<details ${b.id ? "open" : ""}><summary>تفاصيل إضافية</summary>${field("عدد أجزاء الكتاب بالكامل *", "partsTotal", b.partsTotal || 1, "number", true)}${field("عدد المجلدات لكل نسخة (اختياري)", "volumes", b.volumes || 1, "number", true)}${field("دار النشر", "publisher", b.publisher || "")}${field("سعر بيع مقترح للنسخة (ج)", "suggested", (b.suggested || 0) / 100)}${field("ملاحظة قصيرة", "note", b.note || "")}</details>`;
 }
-function purchaseFields(b = {}) {
-  return `${field("سعر شراء النسخة (ج) *", "unit", b.unit === undefined ? "" : b.unit / 100, "text", true)}${field("عدد النسخ *", "qty", b.qty || 1, "number", true)}${field("تاريخ الشراء *", "date", b.date || M.today(), "date", true)}<details><summary>مصاريف الشراء</summary>${field("تكاليف شراء إضافية للدفعة بالكامل (ج)", "extra", (b.extra || 0) / 100)}</details><p id="preview" class="preview"></p>`;
+function purchaseFields(b = {}, editing = false, book = {}) {
+  return (editing
+    ? field("رقم الجزء", "part", b.part || 1, "number", true) + field("عدد النسخ من الجزء *", "qty", b.qty || 1, "number", true)
+    : field("أرقام الأجزاء اللي اشتريتها *", "parts", "1", "text", true) + '<input type="hidden" name="partsTotal" value="' + (book.partsTotal || 1) + '">') +
+    field("سعر شراء الجزء الواحد (ج) *", "unit", b.unit === undefined ? "" : b.unit / 100, "text", true) +
+    field("تاريخ الشراء *", "date", b.date || M.today(), "date", true) +
+    '<details><summary>مصاريف الشراء</summary>' + field("تكاليف شراء إضافية للدفعة بالكامل (ج)", "extra", (b.extra || 0) / 100) + '</details>' +
+    '<p class="hint">' + (editing ? "يمكن تصحيح رقم الجزء والكمية إذا لم تتعارض مع المبيعات المسجلة." : "اكتب أرقام الأجزاء مفصولة بفاصلة. مثال: 1, 3. ولو عندك نسختين من الجزء الأول اكتب: 1, 1.") + '</p><p id="preview" class="preview"></p>';
 }
 function readBook(f, b = { id: M.id() }) {
   return {
@@ -202,17 +207,32 @@ function readBook(f, b = { id: M.id() }) {
     publisher: f.get("publisher").trim(),
     note: f.get("note").trim(),
     volumes: int(f.get("volumes")),
+    partsTotal: int(f.get("partsTotal")),
     suggested: amount(f, "suggested"),
   };
 }
-function readBatch(f, b = { id: M.id() }) {
-  return {
-    ...b,
-    unit: amount(f, "unit"),
-    qty: int(f.get("qty")),
-    date: f.get("date"),
-    extra: amount(f, "extra"),
-  };
+function parseParts(raw, total) {
+  const values = String(raw || "").split(/[,،\s]+/).filter(Boolean).map((x) => {
+    if (!/^\d+$/.test(x)) throw Error("اكتب أرقام الأجزاء مفصولة بفاصلة");
+    const n = Number(x);
+    if (!Number.isSafeInteger(n) || n < 1 || n > total) throw Error("رقم الجزء لازم يكون من 1 إلى " + total);
+    return n;
+  });
+  if (!values.length) throw Error("اكتب رقم جزء واحد على الأقل");
+  return values;
+}
+function purchaseBatches(f, bookId, book, old = null) {
+  const unit = amount(f, "unit"), date = f.get("date"), extra = amount(f, "extra");
+  if (old) return [{ ...old, part: int(f.get("part")), qty: int(f.get("qty")), unit, date, extra }];
+  const parts = parseParts(f.get("parts"), Number(f.get("partsTotal") || book.partsTotal)), counts = new Map();
+  for (const part of parts) counts.set(part, (counts.get(part) || 0) + 1);
+  const base = Math.floor(extra / parts.length);
+  let remainder = extra % parts.length, index = 0;
+  return [...counts.entries()].map(([part, qty]) => {
+    const bonus = Math.max(0, Math.min(qty, remainder - index));
+    index += qty;
+    return { id: M.id(), book: bookId, part, qty, unit, date, extra: base * qty + bonus };
+  });
 }
 async function commit(next, message = "تم الحفظ") {
   M.validate(next);
@@ -225,9 +245,11 @@ function previewPurchase(d) {
   const update = () => {
     try {
       const f = new FormData(d.querySelector("form")),
-        b = readBatch(f);
+        unit = amount(f, "unit"),
+        qty = f.has("parts") ? parseParts(f.get("parts"), Number(f.get("partsTotal") || 1)).length : int(f.get("qty")),
+        extra = amount(f, "extra");
       d.querySelector("#preview").innerHTML =
-        "إجمالي الدفعة: " + cash(b.unit * b.qty + b.extra);
+        "إجمالي الدفعة: " + cash(unit * qty + extra) + " · عدد القطع: " + num(qty);
     } catch {
       d.querySelector("#preview").textContent =
         "أدخل السعر والكمية لعرض الإجمالي";
@@ -241,7 +263,7 @@ function addBook() {
     const n = structuredClone(state),
       b = readBook(f);
     n.books.push(b);
-    n.batches.push({ ...readBatch(f), book: b.id });
+    n.batches.push(...purchaseBatches(f, b.id, b));
     tab = "books";
     await commit(n);
   });
@@ -260,11 +282,13 @@ function batch(bookId, batchId) {
   const d = modal(
     old ? "تصحيح دفعة شراء" : "إضافة دفعة شراء",
     `<p>${esc(state.books.find((b) => b.id === (old?.book || bookId)).title)}</p>${old ? '<p class="notice">تصحيح دفعة قديمة يعيد تخصيص تكلفة المبيعات؛ قد تتغير الأرباح السابقة. لا يمكن خفض الكمية عن النسخ المخصصة لهذه الدفعة.</p>' : ""}` +
-      purchaseFields(old),
+      purchaseFields(old, Boolean(old), state.books.find((b) => b.id === (old?.book || bookId))),
     async (f) => {
       const n = structuredClone(state),
-        b = { ...readBatch(f, old), book: old?.book || bookId };
+        book = state.books.find((x) => x.id === (old?.book || bookId)),
+        newBatches = purchaseBatches(f, book.id, book, old);
       if (old) {
+        const b = newBatches[0];
         const sold = state.sales.reduce(
           (n, x) =>
             n +
@@ -277,10 +301,10 @@ function batch(bookId, batchId) {
           throw Error("الكمية أقل من النسخ المباعة من هذه الدفعة");
         n.batches[n.batches.findIndex((x) => x.id === old.id)] = b;
         M.recalculate(n);
-      } else n.batches.push(b);
+      } else n.batches.push(...newBatches);
       await commit(
         n,
-        old ? "تم التصحيح وإعادة حساب الأرباح" : "تمت إضافة النسخ",
+        old ? "تم التصحيح وإعادة حساب الأرباح" : "تمت إضافة الأجزاء للمخزون",
       );
     },
   );
@@ -288,20 +312,32 @@ function batch(bookId, batchId) {
 }
 function sell(bookId, saleId) {
   const old = state.sales.find((x) => x.id === saleId),
-    b = state.books.find((x) => x.id === (old?.book || bookId));
-  const html = `<p>${esc(b.title)} · المتاح ${num(M.available(state, b.id) + (old?.qty || 0))} نسخة</p>${old ? '<p class="notice">التصحيح يعيد ترتيب تخصيصات FIFO وقد يغير أرباح عمليات أخرى.</p>' : ""}${field("عدد النسخ المباعة *", "qty", old?.qty || 1, "number", true)}${field("سعر بيع النسخة (ج) *", "unit", old ? old.unit / 100 : b.suggested ? b.suggested / 100 : "", "text", true)}<p class="hint">قيمة الكتاب فقط، بدون الشحن الذي يدفعه العميل.</p>${field("تاريخ البيع *", "date", old?.date || M.today(), "date", true)}<details><summary>مصاريف وتفاصيل إضافية</summary>${field("مصاريف البيع للعملية بالكامل (ج)", "expenses", (old?.expenses || 0) / 100)}${field("شحن يتحمله البائع للعملية بالكامل (ج)", "shipping", (old?.shipping || 0) / 100)}${field("ملاحظة قصيرة", "note", old?.note || "")}</details><p id="preview" class="preview"></p>`;
+    b = state.books.find((x) => x.id === (old?.book || bookId)),
+    currentPart = old?.part || M.availableParts(state, b.id)[0]?.part || 1,
+    partOptions = Array.from({ length: b.partsTotal }, (_, i) => i + 1)
+      .filter((part) => M.available(state, b.id, part) + (old?.part === part ? old.qty : 0) > 0);
+  const partField = b.partsTotal > 1
+    ? '<label>الجزء المراد بيعه *<select name="part">' + partOptions.map((part) =>
+        '<option value="' + part + '" ' + (part === currentPart ? "selected" : "") + '>الجزء ' + num(part) + ' · المتاح ' + num(M.available(state, b.id, part) + (old?.part === part ? old.qty : 0)) + '</option>'
+      ).join("") + '</select></label>'
+    : '<input type="hidden" name="part" value="1">';
+  const html = '<p>' + esc(b.title) + '</p>' + partField +
+    (old ? '<p class="notice">التصحيح يعيد ترتيب تخصيصات الجزء وقد يغير أرباح عمليات أخرى.</p>' : "") +
+    field("عدد النسخ المباعة *", "qty", old?.qty || 1, "number", true) +
+    field("سعر بيع الجزء (ج) *", "unit", old ? old.unit / 100 : b.suggested ? b.suggested / 100 : "", "text", true) +
+    '<p class="hint">سجّل بيع كل جزء على حدة. قيمة الجزء فقط، بدون الشحن الذي يدفعه العميل.</p>' +
+    field("تاريخ البيع *", "date", old?.date || M.today(), "date", true) +
+    '<details><summary>مصاريف وتفاصيل إضافية</summary>' +
+    field("مصاريف البيع للعملية بالكامل (ج)", "expenses", (old?.expenses || 0) / 100) +
+    field("شحن يتحمله البائع للعملية بالكامل (ج)", "shipping", (old?.shipping || 0) / 100) +
+    field("ملاحظة قصيرة", "note", old?.note || "") + '</details><p id="preview" class="preview"></p>';
   const getNext = (f) => {
-    const n = structuredClone(state),
-      x = {
-        id: old?.id || M.id(),
-        book: b.id,
-        qty: int(f.get("qty")),
-        unit: amount(f, "unit"),
-        expenses: amount(f, "expenses"),
-        shipping: amount(f, "shipping"),
-        date: f.get("date"),
-        note: f.get("note").trim(),
-      };
+    const n = structuredClone(state), x = {
+      id: old?.id || M.id(), book: b.id, part: int(f.get("part")),
+      qty: int(f.get("qty")), unit: amount(f, "unit"),
+      expenses: amount(f, "expenses"), shipping: amount(f, "shipping"),
+      date: f.get("date"), note: f.get("note").trim(),
+    };
     if (old) {
       n.sales[n.sales.findIndex((s) => s.id === old.id)] = x;
       M.recalculate(n);
@@ -309,21 +345,16 @@ function sell(bookId, saleId) {
     M.validate(n);
     return [n, x];
   };
-  const d = modal(old ? "تعديل بيع" : "تسجيل بيع", html, async (f) => {
+  const d = modal(old ? "تعديل بيع" : "تسجيل بيع جزء", html, async (f) => {
     const [n] = getNext(f);
-    await commit(n, "تم حفظ البيع وحساب المخزون");
+    await commit(n, "تم حفظ بيع الجزء وحساب المخزون");
   });
   d.oninput = () => {
     const p = d.querySelector("#preview");
     try {
-      const [, x] = getNext(new FormData(d.querySelector("form")));
-      const v = M.profit(x);
-      p.innerHTML =
-        (v < 0 ? "الخسارة المتوقعة: " : "صافي الربح المتوقع: ") +
-        cash(Math.abs(v));
-    } catch (e) {
-      p.textContent = errorMessage(e);
-    }
+      const [, x] = getNext(new FormData(d.querySelector("form"))), v = M.profit(x);
+      p.innerHTML = (v < 0 ? "الخسارة المتوقعة: " : "صافي الربح المتوقع: ") + cash(Math.abs(v));
+    } catch (e) { p.textContent = errorMessage(e); }
   };
   d.oninput();
 }

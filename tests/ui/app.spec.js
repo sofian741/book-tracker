@@ -138,11 +138,9 @@ test("additional purchase, historical correction, book edit and validation", asy
   ).toBeVisible();
   await page.getByRole("button", { name: "تسجيل بيع", exact: true }).click();
   await page.locator('[data-sale-part="1"]').click();
-  await page.locator('[data-sale-part="1"]').click();
+  await page.locator('[data-sale-qty="1"][data-delta="1"]').click();
+  await expect(page.locator('[data-sale-qty="1"][data-delta="1"]')).toBeDisabled();
   await page.getByLabel("سعر بيع النسخة الواحدة (ج) *").fill("750");
-  await page.getByRole("button", { name: "حفظ", exact: true }).click();
-  await expect(page.locator("#form-error")).toContainText("اختار الأجزاء من المربعات");
-  await page.locator('[data-sale-part="1"]').click();
   await page.getByRole("button", { name: "حفظ", exact: true }).click();
   await page
     .getByRole("button", { name: "تصحيح", exact: true })

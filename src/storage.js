@@ -1,6 +1,6 @@
 import { Capacitor } from "@capacitor/core";
 import { CapacitorSQLite, SQLiteConnection } from "@capacitor-community/sqlite";
-import { empty, validate } from "./model.js";
+import { empty, validate, migrate } from "./model.js";
 let native, db;
 export async function open() {
   if (Capacitor.isNativePlatform()) {
@@ -42,7 +42,7 @@ export async function read() {
       r.onsuccess = () => resolve(r.result);
       r.onerror = () => reject(r.error);
     });
-  return raw ? validate(JSON.parse(raw)) : empty();
+  return raw ? migrate(JSON.parse(raw)) : empty();
 }
 export async function write(state) {
   validate(state);

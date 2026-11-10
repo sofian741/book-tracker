@@ -64,7 +64,7 @@ test("edit and delete sale returns inventory, search, HTML injection", async ({
   await sell(page);
   await page.getByRole("button", { name: "الرئيسية", exact: true }).click();
   await page.getByRole("button", { name: "تعديل", exact: true }).click();
-  await page.getByLabel("سعر بيع الجزء (ج) *").fill("800");
+  await page.getByLabel("سعر بيع النسخة الواحدة (ج) *").fill("800");
   await page.getByRole("button", { name: "حفظ", exact: true }).click();
   await expect(page.locator(".stat.green")).toContainText("٢٢٠");
   await page.getByRole("button", { name: "حذف", exact: true }).click();

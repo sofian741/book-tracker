@@ -525,3 +525,36 @@ details {
     scroll-behavior: auto;
   }
 }
+
+.parts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(105px, 1fr));
+  gap: 9px;
+  margin: 12px 0;
+}
+.part-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+}
+.part-chip b {
+  font-size: 0.8125rem;
+}
+.part-chip small {
+  color: #748077;
+  font-size: 0.6875rem;
+}
+.part-chip.owned {
+  border-color: #c9dccd;
+  background: #edf4ed;
+  color: #285b43;
+}
+.part-chip.missing {
+  background: #f4f2ec;
+  color: #7d7b70;
+}

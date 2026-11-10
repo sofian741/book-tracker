@@ -1,4 +1,4 @@
-export const empty = () => ({ version: 1, books: [], batches: [], sales: [] });
+export const empty = () => ({ version: 2, books: [], batches: [], sales: [] });
 export const today = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -39,17 +39,25 @@ export function unitCost(b, start, count) {
     rest = total % b.qty;
   return base * count + Math.max(0, Math.min(start + count, rest) - start);
 }
-export function available(s, book) {
-  return (
-    s.batches.filter((b) => b.book === book).reduce((a, b) => a + b.qty, 0) -
-    s.sales.filter((x) => x.book === book).reduce((a, x) => a + x.qty, 0)
-  );
+export function available(s, book, part = null) {
+  const batches = s.batches.filter((b) => b.book === book && (part === null || b.part === part));
+  const ids = new Set(batches.map((b) => b.id));
+  return batches.reduce((n, b) => n + b.qty, 0) - s.sales
+    .filter((x) => x.book === book && (part === null || x.part === part))
+    .reduce((n, x) => n + x.allocations.filter((a) => ids.has(a.batch)).reduce((a, b) => a + b.qty, 0), 0);
+}
+export function availableParts(s, book) {
+  const b = s.books.find((x) => x.id === book);
+  if (!b) return [];
+  return Array.from({ length: b.partsTotal }, (_, i) => i + 1)
+    .map((part) => ({ part, qty: available(s, book, part) }))
+    .filter((x) => x.qty > 0);
 }
 function allocate(s, sale, used) {
   let left = sale.qty;
   const allocations = [];
   for (const b of s.batches
-    .filter((b) => b.book === sale.book && b.date <= sale.date)
+    .filter((b) => b.book === sale.book && b.part === sale.part && b.date <= sale.date)
     .sort((a, b) => a.date.localeCompare(b.date))) {
     const start = used.get(b.id) || 0,
       n = Math.min(left, b.qty - start);
@@ -66,7 +74,7 @@ function allocate(s, sale, used) {
     if (!left) break;
   }
   if (left)
-    throw Error("الكمية غير متاحة في تاريخ البيع؛ راجع دفعات الشراء والمبيعات");
+    throw Error("الكمية غير متاحة لهذا الجزء في تاريخ البيع؛ راجع المخزون");
   sale.allocations = allocations;
 }
 export function recalculate(s) {
@@ -135,10 +143,13 @@ export function validate(s) {
     text(b.publisher, 200);
     text(b.note);
     integer(b.volumes, 1);
+    integer(b.partsTotal, 1);
     integer(b.suggested);
   }
   for (const b of s.batches) {
     if (!books.has(b.book)) throw Error("كتاب مفقود");
+    integer(b.part, 1);
+    if (b.part > s.books.find((x) => x.id === b.book).partsTotal) throw Error("رقم الجزء يتجاوز عدد أجزاء الكتاب");
     integer(b.qty, 1);
     integer(b.unit);
     integer(b.extra);
@@ -148,6 +159,8 @@ export function validate(s) {
   const ranges = new Map();
   for (const x of s.sales) {
     if (!books.has(x.book)) throw Error("كتاب مفقود");
+    integer(x.part, 1);
+    if (x.part > s.books.find((b) => b.id === x.book).partsTotal) throw Error("رقم الجزء غير صالح");
     integer(x.qty, 1);
     integer(x.unit, 1);
     integer(x.expenses);
@@ -159,7 +172,7 @@ export function validate(s) {
     let qty = 0;
     for (const a of x.allocations) {
       const b = s.batches.find((b) => b.id === a.batch);
-      if (!b || b.book !== x.book || b.date > x.date)
+      if (!b || b.book !== x.book || b.part !== x.part || b.date > x.date)
         throw Error("تخصيص غير صالح");
       integer(a.start);
       integer(a.qty, 1);
@@ -185,6 +198,17 @@ export function validate(s) {
   totals(s);
   return s;
 }
+export function migrate(s) {
+  if (!s || ![1, 2].includes(s.version))
+    throw Error("ملف النسخة غير صالح أو إصداره غير مدعوم");
+  if (s.version === 2) return validate(s);
+  const next = structuredClone(s);
+  next.version = 2;
+  for (const b of next.books) b.partsTotal = 1;
+  for (const b of next.batches) b.part = 1;
+  for (const x of next.sales) x.part = 1;
+  return validate(next);
+}
 export function restore(raw) {
   let s;
   try {
@@ -192,6 +216,5 @@ export function restore(raw) {
   } catch {
     throw Error("تعذر قراءة الملف؛ اختر نسخة JSON سليمة");
   }
-  validate(s);
-  return structuredClone(s);
+  return structuredClone(migrate(s));
 }

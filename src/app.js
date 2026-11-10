@@ -305,8 +305,9 @@ function setupPurchaseParts(d, book = null) {
     partsField.value = parts.join(",");
     pricesField.value = JSON.stringify(Object.fromEntries(prices));
     grid.innerHTML = parts.length ? [...quantities.entries()].sort((a,b)=>a[0]-b[0]).map(([part,qty]) =>
-      '<button type="button" class="part-pick ' + (selected.has(part) ? "selected" : "") + '" data-purchase-part="' + part + '"><b>الجزء ' + num(part) + '</b><small>' + num(qty) + (qty === 1 ? " نسخة" : " نسخ") + '</small><small>' + (prices.has(part) ? "سعر خاص: " + cash(prices.get(part)) : "السعر الأساسي") + '</small></button>'
+      '<div class="part-entry-chip"><button type="button" class="part-pick ' + (selected.has(part) ? "selected" : "") + '" data-purchase-part="' + part + '"><b>الجزء ' + num(part) + '</b><small>' + num(qty) + (qty === 1 ? " نسخة" : " نسخ") + '</small><small>' + (prices.has(part) ? "سعر خاص: " + cash(prices.get(part)) : "السعر الأساسي") + '</small></button><button type="button" class="remove-part" data-remove-part="' + part + '" aria-label="إزالة الجزء">×</button></div>'
     ).join("") : '<p class="hint">لسه مضافش أجزاء.</p>';
+    if (d.oninput) d.oninput();
   };
   const add = () => {
     const part = Number(input.value);
@@ -326,6 +327,11 @@ function setupPurchaseParts(d, book = null) {
   });
   d.querySelector("[data-add-part]").onclick = add;
   grid.onclick = (e) => {
+    const remove = e.target.closest("[data-remove-part]");
+    if (remove) {
+      const part = Number(remove.dataset.removePart);
+      quantities.delete(part); prices.delete(part); selected.delete(part); sync(); return;
+    }
     const tile = e.target.closest("[data-purchase-part]");
     if (!tile) return;
     const part = Number(tile.dataset.purchasePart);

@@ -196,9 +196,10 @@ function purchaseFields(b = {}, editing = false, book = {}) {
     ? field("رقم الجزء", "part", b.part || 1, "number", true) + field("عدد النسخ من الجزء *", "qty", b.qty || 1, "number", true)
     : field("أرقام الأجزاء اللي اشتريتها *", "parts", "1", "text", true) + '<input type="hidden" name="partsTotal" value="' + (book.partsTotal || 1) + '">') +
     field("سعر شراء الجزء الواحد (ج) *", "unit", b.unit === undefined ? "" : b.unit / 100, "text", true) +
+    (!editing ? field("أسعار مختلفة لبعض الأجزاء (اختياري)", "partPrices", "", "text") : "") +
     field("تاريخ الشراء *", "date", b.date || M.today(), "date", true) +
     '<details><summary>مصاريف الشراء</summary>' + field("تكاليف شراء إضافية للدفعة بالكامل (ج)", "extra", (b.extra || 0) / 100) + '</details>' +
-    '<p class="hint">' + (editing ? "يمكن تصحيح رقم الجزء والكمية إذا لم تتعارض مع المبيعات المسجلة." : "اكتب أرقام الأجزاء مفصولة بفاصلة. مثال: 1, 3. ولو عندك نسختين من الجزء الأول اكتب: 1, 1.") + '</p><p id="preview" class="preview"></p>';
+    '<p class="hint">' + (editing ? "يمكن تصحيح رقم الجزء والكمية إذا لم تتعارض مع المبيعات المسجلة." : "اكتب أرقام الأجزاء مفصولة بفاصلة. مثال: 2، 4، 5. ولو عندك نسختين من الجزء الأول اكتب: 1، 1. ولتحديد سعر مختلف اكتب مثلًا: 2=50، 4=75.") + '</p><p id="preview" class="preview"></p>';
 }
 function readBook(f, b = { id: M.id() }) {
   return {
@@ -227,12 +228,24 @@ function purchaseBatches(f, bookId, book, old = null) {
   if (old) return [{ ...old, part: int(f.get("part")), qty: int(f.get("qty")), unit, date, extra }];
   const parts = parseParts(f.get("parts"), Number(f.get("partsTotal") || book.partsTotal)), counts = new Map();
   for (const part of parts) counts.set(part, (counts.get(part) || 0) + 1);
+  const overrides = new Map();
+  const rawPrices = String(f.get("partPrices") || "").trim();
+  if (rawPrices) {
+    for (const item of rawPrices.split(/[,،]+/).map((x) => x.trim()).filter(Boolean)) {
+      const match = item.match(/^(\\d+)\\s*=\\s*(.+)$/);
+      if (!match) throw Error("اكتب السعر المختلف بهذا الشكل: 2=50، 4=75");
+      const part = Number(match[1]);
+      if (!counts.has(part)) throw Error("حدد سعرًا فقط لجزء موجود في قائمة الأجزاء المشتراة");
+      if (overrides.has(part)) throw Error("لا تكرر رقم الجزء في قائمة الأسعار");
+      overrides.set(part, M.money(match[2]));
+    }
+  }
   const base = Math.floor(extra / parts.length);
   let remainder = extra % parts.length, index = 0;
   return [...counts.entries()].map(([part, qty]) => {
     const bonus = Math.max(0, Math.min(qty, remainder - index));
     index += qty;
-    return { id: M.id(), book: bookId, part, qty, unit, date, extra: base * qty + bonus };
+    return { id: M.id(), book: bookId, part, qty, unit: overrides.get(part) ?? unit, date, extra: base * qty + bonus };
   });
 }
 async function commit(next, message = "تم الحفظ") {

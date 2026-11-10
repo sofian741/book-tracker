@@ -244,3 +244,17 @@ test("multi-part sale transaction allocates each part separately and keeps combi
   assert.equal(M.available(s, "book"), 0);
   M.validate(s);
 });
+
+test("different purchase prices per part keep FIFO cost and profit independent", () => {
+  const s = setup();
+  s.books[0].partsTotal = 2;
+  s.batches.push(
+    { id: "part1-price", book: "book", part: 1, unit: 5000, qty: 1, extra: 0, date: "2026-01-01" },
+    { id: "part2-price", book: "book", part: 2, unit: 9000, qty: 1, extra: 0, date: "2026-01-01" },
+  );
+  M.addSale(s, { id: "sell-part1", book: "book", part: 1, qty: 1, unit: 10000, expenses: 0, shipping: 0, date: "2026-02-01", note: "" });
+  M.addSale(s, { id: "sell-part2", book: "book", part: 2, qty: 1, unit: 10000, expenses: 0, shipping: 0, date: "2026-02-01", note: "" });
+  assert.deepEqual(s.sales.map(M.profit), [5000, 1000]);
+  assert.equal(M.totals(s).profit, 6000);
+  assert.equal(M.totals(s).stock, 0);
+});

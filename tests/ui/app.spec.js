@@ -118,7 +118,7 @@ test("additional purchase, historical correction, book edit and validation", asy
   await page.goto("/");
   await add(page);
   await page.getByRole("button", { name: "التفاصيل", exact: true }).click();
-  await page.getByRole("button", { name: "إضافة نسخ", exact: true }).click();
+  await page.getByRole("button", { name: "إضافة أجزاء", exact: true }).click();
   await page.getByLabel("سعر شراء الجزء الواحد (ج) *").fill("140");
   await page.getByRole("button", { name: "حفظ", exact: true }).click();
   await expect(

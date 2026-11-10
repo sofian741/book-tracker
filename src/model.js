@@ -204,7 +204,7 @@ export function migrate(s) {
   if (s.version === 2) return validate(s);
   const next = structuredClone(s);
   next.version = 2;
-  for (const b of next.books) b.partsTotal = 1;
+  for (const b of next.books) b.partsTotal = Math.max(1, b.volumes || 1);
   for (const b of next.batches) b.part = 1;
   for (const x of next.sales) x.part = 1;
   return validate(next);

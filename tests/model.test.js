@@ -5,7 +5,8 @@ const book = {
   id: "book",
   title: "كتاب عربي طويل للاختبار",
   publisher: "دار المعرفة",
-  volumes: 2,
+  volumes: 1,
+  partsTotal: 1,
   suggested: 99900,
   note: "",
 };
@@ -14,6 +15,7 @@ const batch = (s, unit, qty = 1, extra = 0, date = "2026-01-01") => {
   s.batches.push({
     id: "b" + s.batches.length,
     book: "book",
+    part: 1,
     unit,
     qty,
     extra,
@@ -25,6 +27,7 @@ const sale = (s, unit, qty = 1, expenses = 0, date = "2026-02-01") =>
   M.addSale(s, {
     id: "s" + s.sales.length,
     book: "book",
+    part: 1,
     unit,
     qty,
     expenses,
@@ -154,4 +157,70 @@ test("same day FIFO uses persisted entry order, not random UUID order", () => {
   assert.equal(M.profit(s.sales[0]), 6000);
   M.recalculate(s);
   assert.equal(M.profit(s.sales[0]), 6000);
+});
+
+test("part inventory tracks owned, missing, sold and replenished parts independently", () => {
+  const s = setup();
+  s.books[0].partsTotal = 6;
+  s.batches.push(
+    { id: "part1", book: "book", part: 1, unit: 10000, qty: 1, extra: 0, date: "2026-01-01" },
+    { id: "part3", book: "book", part: 3, unit: 12000, qty: 1, extra: 0, date: "2026-01-01" },
+  );
+  assert.deepEqual(M.availableParts(s, "book"), [{ part: 1, qty: 1 }, { part: 3, qty: 1 }]);
+  assert.equal(M.available(s, "book"), 2);
+  assert.equal(M.available(s, "book", 2), 0);
+  M.addSale(s, { id: "sell3", book: "book", part: 3, qty: 1, unit: 18000, expenses: 0, shipping: 0, date: "2026-02-01", note: "" });
+  assert.deepEqual(M.availableParts(s, "book"), [{ part: 1, qty: 1 }]);
+  assert.equal(M.totals(s).stock, 10000);
+  assert.throws(() => M.addSale(structuredClone(s), { id: "sell2", book: "book", part: 2, qty: 1, unit: 10000, expenses: 0, shipping: 0, date: "2026-02-02", note: "" }));
+  s.batches.push({ id: "part2", book: "book", part: 2, unit: 9000, qty: 1, extra: 0, date: "2026-02-03" });
+  assert.equal(M.available(s, "book", 2), 1);
+  M.validate(s);
+});
+test("repeated part numbers represent duplicate physical copies", () => {
+  const s = setup();
+  s.books[0].partsTotal = 3;
+  s.batches.push(
+    { id: "one-a", book: "book", part: 1, unit: 10000, qty: 2, extra: 0, date: "2026-01-01" },
+    { id: "three", book: "book", part: 3, unit: 30000, qty: 1, extra: 0, date: "2026-01-01" },
+  );
+  M.addSale(s, { id: "sell-one", book: "book", part: 1, qty: 1, unit: 15000, expenses: 0, shipping: 0, date: "2026-02-01", note: "" });
+  assert.equal(M.available(s, "book", 1), 1);
+  assert.equal(M.available(s, "book", 3), 1);
+  assert.equal(M.profit(s.sales[0]), 5000);
+});
+test("version 1 database and backups migrate without changing historical amounts", () => {
+  const s = batch(setup(), 10000, 2);
+  sale(s, 15000);
+  const legacy = structuredClone(s);
+  legacy.version = 1;
+  delete legacy.books[0].partsTotal;
+  for (const b of legacy.batches) delete b.part;
+  for (const x of legacy.sales) delete x.part;
+  const upgraded = M.migrate(legacy);
+  assert.equal(upgraded.version, 2);
+  assert.equal(upgraded.books[0].partsTotal, 1);
+  assert.equal(upgraded.batches[0].part, 1);
+  assert.equal(upgraded.sales[0].part, 1);
+  assert.equal(M.totals(upgraded).profit, M.totals(s).profit);
+  assert.deepEqual(M.restore(JSON.stringify(legacy)), upgraded);
+});
+test("part number cannot exceed the book's declared part count", () => {
+  const s = setup();
+  s.books[0].partsTotal = 2;
+  s.batches.push({ id: "bad-part", book: "book", part: 3, unit: 10000, qty: 1, extra: 0, date: "2026-01-01" });
+  assert.throws(() => M.validate(s));
+});
+
+test("legacy multi-volume sets migrate as one old accounting unit", () => {
+  const s = batch(setup(), 25000, 1);
+  s.books[0].volumes = 6;
+  const legacy = structuredClone(s);
+  legacy.version = 1;
+  delete legacy.books[0].partsTotal;
+  for (const b of legacy.batches) delete b.part;
+  const upgraded = M.migrate(legacy);
+  assert.equal(upgraded.books[0].partsTotal, 1);
+  assert.equal(M.available(upgraded, "book"), 1);
+  assert.equal(M.totals(upgraded).stock, 25000);
 });

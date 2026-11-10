@@ -211,7 +211,7 @@ function purchaseFields(b = {}, editing = false, book = {}) {
     : '<input type="hidden" name="parts" value=""><input type="hidden" name="partPrices" value="{}">' +
       '<section class="part-entry"><label for="part-entry-input">أضف الأجزاء اللي اشتريتها</label><div class="part-entry-row"><input id="part-entry-input" type="number" min="1" max="' + (book.partsTotal || 1000) + '" inputmode="numeric" placeholder="رقم الجزء ثم Enter"><button type="button" data-add-part>إضافة</button></div><p class="hint">اكتب رقم الجزء واضغط Enter. كل رقم هيتحول لمربع تقدر تحدده.</p><div id="purchase-parts" class="parts-grid interactive-parts"><p class="hint">لسه مضافش أجزاء.</p></div><div class="selection-tools"><button type="button" data-select-all>تحديد الكل</button><button type="button" data-clear-selection>إلغاء التحديد</button></div><div class="group-price"><label>سعر الأجزاء المحددة (اختياري)<input id="group-part-price" inputmode="decimal" placeholder="اكتب السعر للمجموعة المحددة"></label><button type="button" data-apply-price>تطبيق السعر على المحدد</button><p class="hint">حدد جزءًا أو أكثر، اكتب السعر، واضغط تطبيق. الأجزاء بدون سعر خاص تستخدم السعر الأساسي بالأسفل.</p></div></section>';
   return fields +
-    field(editing ? "سعر شراء الجزء الواحد (ج) *" : "السعر الأساسي للجزء (ج) *", "unit", b.unit === undefined ? "" : b.unit / 100, "text", true) +
+    field(editing ? "سعر شراء الجزء الواحد (ج) *" : "السعر الأساسي للجزء (ج) (اختياري لو سعّرت كل الأجزاء)", "unit", b.unit === undefined ? "" : b.unit / 100, "text", editing) +
     field("تاريخ الشراء *", "date", b.date || M.today(), "date", true) +
     '<details><summary>مصاريف الشراء</summary>' + field("تكاليف شراء إضافية للدفعة بالكامل (ج)", "extra", (b.extra || 0) / 100) + '</details>' +
     '<p class="hint">' + (editing ? "يمكن تصحيح رقم الجزء والكمية إذا لم تتعارض مع المبيعات المسجلة." : "السعر الأساسي يطبق على كل الأجزاء. تقدر تخصص سعرًا مختلفًا لأي مجموعة بتحديد مربعاتها.") + '</p><p id="preview" class="preview"></p>';
@@ -239,7 +239,7 @@ function parseParts(raw, total) {
   return values;
 }
 function purchaseBatches(f, bookId, book, old = null) {
-  const unit = amount(f, "unit"), date = f.get("date"), extra = amount(f, "extra");
+  const unitRaw = String(f.get("unit") || "").trim(), unit = unitRaw ? M.money(unitRaw) : 0, date = f.get("date"), extra = amount(f, "extra");
   if (old) return [{ ...old, part: int(f.get("part")), qty: int(f.get("qty")), unit, date, extra }];
   const parts = parseParts(f.get("parts"), book.partsTotal), counts = new Map();
   for (const part of parts) counts.set(part, (counts.get(part) || 0) + 1);
@@ -250,6 +250,8 @@ function purchaseBatches(f, bookId, book, old = null) {
     if (!counts.has(part) || !Number.isSafeInteger(value) || value < 0)
       throw Error("راجع أسعار الأجزاء المحددة");
   }
+  if ([...counts.keys()].some((part) => rawPrices[part] === undefined) && !unitRaw)
+    throw Error("حدد سعرًا أساسيًا أو خصص سعرًا لكل الأجزاء");
   const base = Math.floor(extra / parts.length);
   let remainder = extra % parts.length, index = 0;
   return [...counts.entries()].map(([part, qty]) => {

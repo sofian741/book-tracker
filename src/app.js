@@ -299,7 +299,7 @@ function setupPurchaseParts(d, book = null) {
     selected = new Set(),
     quantities = new Map(),
     prices = new Map();
-  const total = () => Number(book?.partsTotal || form.elements.partsTotal?.value || form.querySelector('[name="partsTotal"]')?.value || 1);
+  const total = () => Number(book?.partsTotal || form.querySelector('[name="partsTotal"]')?.value || 1);
   const sync = () => {
     const parts = [...quantities.entries()].flatMap(([part, qty]) => Array(qty).fill(part));
     partsField.value = parts.join(",");

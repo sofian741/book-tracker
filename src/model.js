@@ -109,7 +109,7 @@ export function totals(s, from = "", to = "9999") {
     revenue: sales.reduce((n, x) => n + x.unit * x.qty, 0),
     profit: sales.reduce((n, x) => n + profit(x), 0),
     expenses: sales.reduce((n, x) => n + x.expenses + x.shipping, 0),
-    count: sales.length,
+    count: new Set(sales.map((x) => x.transaction || x.id)).size,
     spent,
     stock: spent - cogs,
     qty: s.books.reduce((n, b) => n + available(s, b.id), 0),

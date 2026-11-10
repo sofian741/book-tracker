@@ -290,7 +290,7 @@ function previewPurchase(d, book = null) {
   d.oninput = update;
   update();
 }
-function setupPurchaseParts(d) {
+function setupPurchaseParts(d, book = null) {
   const form = d.querySelector("form"),
     input = d.querySelector("#part-entry-input"),
     grid = d.querySelector("#purchase-parts"),
@@ -299,7 +299,7 @@ function setupPurchaseParts(d) {
     selected = new Set(),
     quantities = new Map(),
     prices = new Map();
-  const total = () => Number(form.elements.partsTotal?.value || form.querySelector('[name="partsTotal"]')?.value || 1);
+  const total = () => Number(book?.partsTotal || form.elements.partsTotal?.value || form.querySelector('[name="partsTotal"]')?.value || 1);
   const sync = () => {
     const parts = [...quantities.entries()].flatMap(([part, qty]) => Array(qty).fill(part));
     partsField.value = parts.join(",");
@@ -405,8 +405,9 @@ function batch(bookId, batchId) {
       );
     },
   );
-  previewPurchase(d, state.books.find((x) => x.id === (old?.book || bookId)));
-  if (!old) setupPurchaseParts(d);
+  const currentBook = state.books.find((x) => x.id === (old?.book || bookId));
+  previewPurchase(d, currentBook);
+  if (!old) setupPurchaseParts(d, currentBook);
 }
 function sell(bookId, saleId) {
   const old = state.sales.find((x) => x.id === saleId),

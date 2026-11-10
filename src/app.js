@@ -328,48 +328,73 @@ function batch(bookId, batchId) {
 }
 function sell(bookId, saleId) {
   const old = state.sales.find((x) => x.id === saleId),
-    b = state.books.find((x) => x.id === (old?.book || bookId)),
-    currentPart = old?.part || M.availableParts(state, b.id)[0]?.part || 1,
-    partOptions = Array.from({ length: b.partsTotal }, (_, i) => i + 1)
-      .filter((part) => M.available(state, b.id, part) + (old?.part === part ? old.qty : 0) > 0);
-  const partField = b.partsTotal > 1
-    ? '<label>الجزء المراد بيعه *<select name="part">' + partOptions.map((part) =>
-        '<option value="' + part + '" ' + (part === currentPart ? "selected" : "") + '>الجزء ' + num(part) + ' · المتاح ' + num(M.available(state, b.id, part) + (old?.part === part ? old.qty : 0)) + '</option>'
-      ).join("") + '</select></label>'
-    : '<input type="hidden" name="part" value="1">';
+    b = state.books.find((x) => x.id === (old?.book || bookId));
+  const partField = old
+    ? field("رقم الجزء", "part", old.part, "number", true)
+    : field("أرقام الأجزاء المباعة *", "parts", "", "text", true);
   const html = '<p>' + esc(b.title) + '</p>' + partField +
-    (old ? '<p class="notice">التصحيح يعيد ترتيب تخصيصات الجزء وقد يغير أرباح عمليات أخرى.</p>' : "") +
+    (old ? '<p class="notice">تعديل هذا السطر من عملية البيع. لو العملية تضم أكثر من جزء، ستظل بقية الأجزاء كما هي.</p>' : "") +
     field("عدد النسخ المباعة *", "qty", old?.qty || 1, "number", true) +
-    field("سعر بيع الجزء (ج) *", "unit", old ? old.unit / 100 : b.suggested ? b.suggested / 100 : "", "text", true) +
-    '<p class="hint">سجّل بيع كل جزء على حدة. قيمة الجزء فقط، بدون الشحن الذي يدفعه العميل.</p>' +
+    field("سعر بيع النسخة الواحدة (ج) *", "unit", old ? old.unit / 100 : b.suggested ? b.suggested / 100 : "", "text", true) +
+    '<p class="hint">' + (old ? "اكتب رقم الجزء والكمية." : "اكتب أرقام الأجزاء التي تبيعها مفصولة بفواصل. مثال: 1، 2، 3. لو بعت نسختين من الجزء الأول اكتب: 1، 1. السعر المدخل يطبق على كل نسخة في العملية.") + '</p>' +
     field("تاريخ البيع *", "date", old?.date || M.today(), "date", true) +
     '<details><summary>مصاريف وتفاصيل إضافية</summary>' +
     field("مصاريف البيع للعملية بالكامل (ج)", "expenses", (old?.expenses || 0) / 100) +
     field("شحن يتحمله البائع للعملية بالكامل (ج)", "shipping", (old?.shipping || 0) / 100) +
     field("ملاحظة قصيرة", "note", old?.note || "") + '</details><p id="preview" class="preview"></p>';
   const getNext = (f) => {
-    const n = structuredClone(state), x = {
-      id: old?.id || M.id(), book: b.id, part: int(f.get("part")),
-      qty: int(f.get("qty")), unit: amount(f, "unit"),
-      expenses: amount(f, "expenses"), shipping: amount(f, "shipping"),
-      date: f.get("date"), note: f.get("note").trim(),
-    };
+    const n = structuredClone(state),
+      parts = old ? Array(int(f.get("qty"))).fill(int(f.get("part"))) : parseParts(f.get("parts"), b.partsTotal),
+      qty = parts.length,
+      unit = amount(f, "unit"),
+      expenses = amount(f, "expenses"),
+      shipping = amount(f, "shipping"),
+      transaction = old?.transaction || M.id(),
+      date = f.get("date"),
+      note = f.get("note").trim();
+    const totalUnits = parts.length,
+      expBase = Math.floor(expenses / totalUnits),
+      expRest = expenses % totalUnits,
+      shipBase = Math.floor(shipping / totalUnits),
+      shipRest = shipping % totalUnits;
+    const counts = new Map();
+    for (const part of parts) counts.set(part, (counts.get(part) || 0) + 1);
     if (old) {
-      n.sales[n.sales.findIndex((s) => s.id === old.id)] = x;
+      const x = {
+        id: old.id, transaction, book: b.id, part: parts[0],
+        qty, unit, expenses, shipping, date, note,
+      };
+      n.sales[n.sales.findIndex((sale) => sale.id === old.id)] = x;
       M.recalculate(n);
-    } else M.addSale(n, x);
+      M.validate(n);
+      return [n, x];
+    }
+    let index = 0;
+    for (const [part, count] of counts) {
+      const lineExpenses = expBase * count + Math.max(0, Math.min(index + count, expRest) - index);
+      const lineShipping = shipBase * count + Math.max(0, Math.min(index + count, shipRest) - index);
+      const x = {
+        id: M.id(), transaction, book: b.id, part, qty: count,
+        unit, expenses: lineExpenses, shipping: lineShipping, date, note,
+      };
+      M.addSale(n, x);
+      index += count;
+    }
     M.validate(n);
-    return [n, x];
+    return [n, n.sales.filter((sale) => sale.transaction === transaction)];
   };
-  const d = modal(old ? "تعديل بيع" : "تسجيل بيع جزء", html, async (f) => {
+  const d = modal(old ? "تعديل بيع جزء" : "تسجيل بيع أجزاء", html, async (f) => {
     const [n] = getNext(f);
-    await commit(n, "تم حفظ بيع الجزء وحساب المخزون");
+    await commit(n, "تم حفظ عملية البيع وحساب المخزون");
   });
   d.oninput = () => {
     const p = d.querySelector("#preview");
     try {
-      const [, x] = getNext(new FormData(d.querySelector("form"))), v = M.profit(x);
-      p.innerHTML = (v < 0 ? "الخسارة المتوقعة: " : "صافي الربح المتوقع: ") + cash(Math.abs(v));
+      const [, result] = getNext(new FormData(d.querySelector("form")));
+      const sales = Array.isArray(result) ? result : [result],
+        profit = sales.reduce((n, x) => n + M.profit(x), 0);
+      p.innerHTML = (profit < 0 ? "الخسارة المتوقعة: " : "صافي الربح المتوقع: ") + cash(Math.abs(profit)) +
+        (sales.length > 1 ? " · عدد الأجزاء: " + num(sales.length) : "");
     } catch (e) { p.textContent = errorMessage(e); }
   };
   d.oninput();

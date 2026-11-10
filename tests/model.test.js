@@ -211,3 +211,16 @@ test("part number cannot exceed the book's declared part count", () => {
   s.batches.push({ id: "bad-part", book: "book", part: 3, unit: 10000, qty: 1, extra: 0, date: "2026-01-01" });
   assert.throws(() => M.validate(s));
 });
+
+test("legacy multi-volume sets migrate as one old accounting unit", () => {
+  const s = batch(setup(), 25000, 1);
+  s.books[0].volumes = 6;
+  const legacy = structuredClone(s);
+  legacy.version = 1;
+  delete legacy.books[0].partsTotal;
+  for (const b of legacy.batches) delete b.part;
+  const upgraded = M.migrate(legacy);
+  assert.equal(upgraded.books[0].partsTotal, 1);
+  assert.equal(M.available(upgraded, "book"), 1);
+  assert.equal(M.totals(upgraded).stock, 25000);
+});

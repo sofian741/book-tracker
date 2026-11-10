@@ -125,14 +125,28 @@ function bookStock(id) {
   );
 }
 function saleList(sales) {
-  return sales.length
-    ? sales
-        .map(
-          (x) =>
-            `<article class="row"><div><strong>${esc(state.books.find((b) => b.id === x.book)?.title)}</strong><small>${x.date} · الجزء ${num(x.part)} · ${num(x.qty)} قطعة · إيراد ${cash(x.unit * x.qty)}</small>${x.note ? `<small>${esc(x.note)}</small>` : ""}<span class="${M.profit(x) < 0 ? "red-text" : "good-text"}">${M.profit(x) < 0 ? "خسارة" : "ربح"} ${cash(Math.abs(M.profit(x)))}</span></div><div class="row-buttons">${button("تعديل", "edit-sale", `data-id="${x.id}"`)}${button("حذف", "delete-sale", `data-id="${x.id}" class="danger"`)}</div></article>`,
-        )
-        .join("")
-    : '<div class="empty compact"><p>لا توجد مبيعات في هذه الفترة. سجّل بيعًا من بطاقة الكتاب عندما يتم البيع فعلًا.</p></div>';
+  if (!sales.length)
+    return '<div class="empty compact"><p>لا توجد مبيعات في هذه الفترة. سجّل بيعًا من بطاقة الكتاب عندما يتم البيع فعلًا.</p></div>';
+  const groups = new Map();
+  for (const sale of sales) {
+    const key = sale.transaction || sale.id;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(sale);
+  }
+  return [...groups.values()].map((items) => {
+    const first = items[0],
+      title = state.books.find((b) => b.id === first.book)?.title || "كتاب",
+      qty = items.reduce((n, x) => n + x.qty, 0),
+      revenue = items.reduce((n, x) => n + x.unit * x.qty, 0),
+      profit = items.reduce((n, x) => n + M.profit(x), 0),
+      parts = items.map((x) => "الجزء " + num(x.part) + (x.qty > 1 ? " × " + num(x.qty) : "")).join("، ");
+    return '<article class="row"><div><strong>' + esc(title) + '</strong><small>' + first.date + ' · ' + parts + ' · إجمالي ' + num(qty) + ' نسخة · إيراد ' + cash(revenue) + '</small>' +
+      (first.note ? '<small>' + esc(first.note) + '</small>' : '') +
+      '<span class="' + (profit < 0 ? "red-text" : "good-text") + '">' + (profit < 0 ? "خسارة" : "ربح") + ' ' + cash(Math.abs(profit)) + '</span></div><div class="row-buttons">' +
+      items.map((x) => button("تعديل الجزء " + num(x.part), "edit-sale", 'data-id="' + x.id + '"')).join("") +
+      button("حذف العملية", "delete-sale", 'data-id="' + first.id + '" class="danger"') +
+      '</div></article>';
+  }).join("");
 }
 function detail() {
   const b = state.books.find((b) => b.id === selected),

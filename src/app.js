@@ -260,10 +260,18 @@ function previewPurchase(d) {
     try {
       const f = new FormData(d.querySelector("form")),
         unit = amount(f, "unit"),
-        qty = f.has("parts") ? parseParts(f.get("parts"), Number(f.get("partsTotal") || 1)).length : int(f.get("qty")),
         extra = amount(f, "extra");
+      let qty, total;
+      if (f.has("parts")) {
+        const batches = purchaseBatches(f, "preview", { partsTotal: Number(f.get("partsTotal") || 1) });
+        qty = batches.reduce((n, batch) => n + batch.qty, 0);
+        total = batches.reduce((n, batch) => n + batch.unit * batch.qty + batch.extra, 0);
+      } else {
+        qty = int(f.get("qty"));
+        total = unit * qty + extra;
+      }
       d.querySelector("#preview").innerHTML =
-        "إجمالي الدفعة: " + cash(unit * qty + extra) + " · عدد القطع: " + num(qty);
+        "إجمالي الدفعة: " + cash(total) + " · عدد القطع: " + num(qty);
     } catch {
       d.querySelector("#preview").textContent =
         "أدخل السعر والكمية لعرض الإجمالي";
@@ -519,8 +527,10 @@ function bind() {
               "حذف عملية البيع؟",
               "ستعود النسخ للمخزون وتُعاد حسابات الأرباح والتخصيصات للعمليات المتبقية.",
               async () => {
-                const n = structuredClone(state);
-                n.sales = n.sales.filter((x) => x.id !== id);
+                const n = structuredClone(state),
+                  target = state.sales.find((x) => x.id === id),
+                  transaction = target?.transaction || target?.id;
+                n.sales = n.sales.filter((x) => (x.transaction || x.id) !== transaction);
                 M.recalculate(n);
                 await commit(n, "تم حذف البيع وإعادة المخزون");
               },

@@ -290,6 +290,68 @@ function previewPurchase(d) {
   d.oninput = update;
   update();
 }
+function setupPurchaseParts(d) {
+  const form = d.querySelector("form"),
+    input = d.querySelector("#part-entry-input"),
+    grid = d.querySelector("#purchase-parts"),
+    partsField = form.elements.parts,
+    pricesField = form.elements.partPrices,
+    selected = new Set(),
+    quantities = new Map(),
+    prices = new Map();
+  const total = () => Number(form.elements.partsTotal?.value || form.querySelector('[name="partsTotal"]')?.value || 1);
+  const sync = () => {
+    const parts = [...quantities.entries()].flatMap(([part, qty]) => Array(qty).fill(part));
+    partsField.value = parts.join(",");
+    pricesField.value = JSON.stringify(Object.fromEntries(prices));
+    grid.innerHTML = parts.length ? [...quantities.entries()].sort((a,b)=>a[0]-b[0]).map(([part,qty]) =>
+      '<button type="button" class="part-pick ' + (selected.has(part) ? "selected" : "") + '" data-purchase-part="' + part + '"><b>الجزء ' + num(part) + '</b><small>' + num(qty) + (qty === 1 ? " نسخة" : " نسخ") + '</small><small>' + (prices.has(part) ? "سعر خاص: " + cash(prices.get(part)) : "السعر الأساسي") + '</small></button>'
+    ).join("") : '<p class="hint">لسه مضافش أجزاء.</p>';
+  };
+  const add = () => {
+    const part = Number(input.value);
+    if (!Number.isSafeInteger(part) || part < 1 || part > total()) {
+      toast("رقم الجزء لازم يكون من 1 إلى " + num(total()));
+      input.focus();
+      return;
+    }
+    quantities.set(part, (quantities.get(part) || 0) + 1);
+    selected.add(part);
+    input.value = "";
+    sync();
+    input.focus();
+  };
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); add(); }
+  });
+  d.querySelector("[data-add-part]").onclick = add;
+  grid.onclick = (e) => {
+    const tile = e.target.closest("[data-purchase-part]");
+    if (!tile) return;
+    const part = Number(tile.dataset.purchasePart);
+    if (selected.has(part)) selected.delete(part); else selected.add(part);
+    sync();
+  };
+  d.querySelector("[data-select-all]").onclick = () => {
+    quantities.forEach((_, part) => selected.add(part));
+    sync();
+  };
+  d.querySelector("[data-clear-selection]").onclick = () => { selected.clear(); sync(); };
+  d.querySelector("[data-apply-price]").onclick = () => {
+    if (!selected.size) { toast("حدد الأجزاء اللي عايز تطبق عليها السعر الأول"); return; }
+    const raw = form.querySelector("#group-part-price").value.trim();
+    if (!raw) { toast("اكتب السعر الأول"); return; }
+    try {
+      const price = M.money(raw);
+      selected.forEach((part) => prices.set(part, price));
+      form.querySelector("#group-part-price").value = "";
+      sync();
+      toast("تم تطبيق السعر على " + num(selected.size) + " جزء");
+    } catch (e) { toast(errorMessage(e)); }
+  };
+  sync();
+}
+
 function addBook() {
   const d = modal("إضافة كتاب", bookFields() + purchaseFields(), async (f) => {
     const n = structuredClone(state),
@@ -300,6 +362,7 @@ function addBook() {
     await commit(n);
   });
   previewPurchase(d);
+  setupPurchaseParts(d);
 }
 function editBook(id) {
   const b = state.books.find((x) => x.id === id);
@@ -343,6 +406,7 @@ function batch(bookId, batchId) {
     },
   );
   previewPurchase(d);
+  if (!old) setupPurchaseParts(d);
 }
 function sell(bookId, saleId) {
   const old = state.sales.find((x) => x.id === saleId),

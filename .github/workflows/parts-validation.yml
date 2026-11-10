@@ -1,9 +1,9 @@
 name: Parts inventory validation
 on:
-  push:
-    branches: [feature/parts-inventory]
   pull_request:
     branches: [main]
+  push:
+    branches: [main, feature/parts-inventory]
 permissions:
   contents: read
 jobs:

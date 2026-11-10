@@ -111,7 +111,7 @@ function books() {
         present = M.availableParts(state, b.id),
         complete = present.length === b.partsTotal,
         cost = bookStock(b.id);
-      return '<article class="book"><button class="book-title" data-book="' + b.id + '"><span class="book-mark">' + icon("books") + '</span><span><strong>' + esc(b.title) + '</strong><small>' + (esc(b.publisher) || "بدون دار نشر") + (b.partsTotal > 1 ? " · " + num(b.partsTotal) + " أجزاء" : "") +  + '</small></span></button><div class="book-info"><span class="badge ' + (complete ? "" : "muted") + '">' + (present.length ? "معايا " + num(present.length) + " من " + num(b.partsTotal) + " أجزاء" : "لا توجد أجزاء متاحة") + " · " + (complete ? "مكتمل" : "غير مكتمل") + '</span><span>' + num(q) + ' قطعة متاحة · تكلفة المتبقي ' + cash(cost) + '</span></div><div class="actions">' + (q ? button("تسجيل بيع", "sell", 'data-id="' + b.id + '" class="primary"') : "") + button("التفاصيل", "detail", 'data-id="' + b.id + '" class="subtle") + '</div><small class="hint">' + num(total) + ' قطعة تم شراؤها إجمالًا</small></article>';
+      return '<article class="book"><button class="book-title" data-book="' + b.id + '"><span class="book-mark">' + icon("books") + '</span><span><strong>' + esc(b.title) + '</strong><small>' + (esc(b.publisher) || "بدون دار نشر") + (b.partsTotal > 1 ? " · " + num(b.partsTotal) + " أجزاء" : "") + '</small></span></button><div class="book-info"><span class="badge ' + (complete ? "" : "muted") + '">' + (present.length ? "معايا " + num(present.length) + " من " + num(b.partsTotal) + " أجزاء" : "لا توجد أجزاء متاحة") + " · " + (complete ? "مكتمل" : "غير مكتمل") + '</span><span>' + num(q) + ' قطعة متاحة · تكلفة المتبقي ' + cash(cost) + '</span></div><div class="actions">' + (q ? button("تسجيل بيع", "sell", 'data-id="' + b.id + '" class="primary"') : "") + button("التفاصيل", "detail", 'data-id="' + b.id + '" class="subtle") + '</div><small class="hint">' + num(total) + ' قطعة تم شراؤها إجمالًا</small></article>';
     }).join("") : '<div class="empty"><h2>لا توجد كتب هنا بعد</h2><p>أضف كتابك الأول أو غيّر البحث والفلتر.</p></div>') + '</div>';
 }
 function bookStock(id) {
@@ -146,7 +146,7 @@ function detail() {
     return '<span class="part-chip ' + (qty ? "owned" : "missing") + '"><b>الجزء ' + num(part) + '</b><small>' + (qty ? "متاح · " + num(qty) + (qty === 1 ? " نسخة" : " نسخ") : "غير موجود") + '</small></span>';
   }).join("");
   return button("‹ العودة للكتب", "back", 'class="subtle"') +
-    '<h1>' + esc(b.title) + '</h1><p>' + esc(b.publisher) + ' · ' + num(b.partsTotal) + ' أجزاء إجمالًا' +  + '</p>' +
+    '<h1>' + esc(b.title) + '</h1><p>' + esc(b.publisher) + ' · ' + num(b.partsTotal) + ' أجزاء إجمالًا' + '</p>' +
     (b.note ? '<p>' + esc(b.note) + '</p>' : "") +
     '<div class="panel"><dl><dt>الأجزاء المتاحة</dt><dd>' + num(present.length) + ' من ' + num(b.partsTotal) + '</dd><dt>حالة المجموعة</dt><dd>' + (missing.length ? "غير مكتملة" : "مكتملة") + '</dd><dt>عدد القطع المتاحة</dt><dd>' + num(M.available(state, b.id)) + '</dd><dt>تكلفة المخزون المتبقي</dt><dd>' + cash(bookStock(b.id)) + '</dd><dt>' + (sales.reduce((n, x) => n + M.profit(x), 0) < 0 ? "الخسارة المحققة" : "صافي الربح المحقق") + '</dt><dd>' + cash(Math.abs(sales.reduce((n, x) => n + M.profit(x), 0))) + '</dd>' + (b.suggested ? '<dt>سعر البيع المقترح للجزء · ليس إيرادًا</dt><dd>' + cash(b.suggested) + '</dd>' : "") + '</dl></div>' +
     '<h2>الأجزاء عندي</h2><div class="parts-grid">' + partRows + '</div>' +

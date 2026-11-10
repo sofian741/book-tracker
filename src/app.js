@@ -230,7 +230,7 @@ function readBook(f, b = { id: M.id() }) {
 function parseParts(raw, total) {
   const normalized = String(raw || "").replace(/[٠-٩]/g, (c) => "٠١٢٣٤٥٦٧٨٩".indexOf(c)).replace(/[۰-۹]/g, (c) => "۰۱۲۳۴۵۶۷۸۹".indexOf(c));
   const values = normalized.split(/[,،\s]+/).filter(Boolean).map((x) => {
-    if (!/^\d+$/.test(x)) throw Error("اكتب أرقام الأجزاء مفصولة بفاصلة");
+    if (!/^\d+$/.test(x)) throw Error("اختار الأجزاء من المربعات");
     const n = Number(x);
     if (!Number.isSafeInteger(n) || n < 1 || n > total) throw Error("رقم الجزء لازم يكون من 1 إلى " + total);
     return n;

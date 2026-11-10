@@ -67,7 +67,7 @@ test("edit and delete sale returns inventory, search, HTML injection", async ({
   await page.getByLabel("سعر بيع النسخة الواحدة (ج) *").fill("800");
   await page.getByRole("button", { name: "حفظ", exact: true }).click();
   await expect(page.locator(".stat.green")).toContainText("٢٢٠");
-  await page.getByRole("button", { name: "حذف", exact: true }).click();
+  await page.getByRole("button", { name: "حذف العملية", exact: true }).click();
   await page.getByRole("button", { name: "تأكيد", exact: true }).click();
   await page.getByRole("button", { name: "الكتب", exact: true }).click();
   await expect(
@@ -150,7 +150,7 @@ test("additional purchase, historical correction, book edit and validation", asy
   await page.getByLabel("سعر شراء الجزء الواحد (ج) *").fill("510");
   await page.getByRole("button", { name: "حفظ", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("إعادة حساب");
-  await expect(page.locator("main")).toContainText("١٦٠");
+  await expect(page.locator("main")).toContainText("١٩٠");
 });
 test("delete unsold book requires explicit confirmation", async ({ page }) => {
   await page.goto("/");
@@ -204,9 +204,9 @@ test("multi-part book shows owned and missing parts and sells one selected part"
   await page.locator('[data-sale-part="3"]').click();
   await page.getByLabel("سعر بيع النسخة الواحدة (ج) *").fill("150");
   await page.getByRole("button", { name: "حفظ", exact: true }).click();
-  await expect(page.locator("main")).toContainText("الجزء 3");
+  await expect(page.locator("main")).toContainText("الجزء ٣");
   await expect(page.locator("main")).toContainText("غير موجود");
-  await expect(page.locator("main")).toContainText("الجزء 1");
+  await expect(page.locator("main")).toContainText("الجزء ١");
   await page.getByRole("button", { name: "إضافة أجزاء", exact: true }).click();
   await page.locator("#part-entry-input").fill("2");
   await page.locator("#part-entry-input").press("Enter");

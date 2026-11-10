@@ -144,6 +144,7 @@ export function validate(s) {
     text(b.note);
     integer(b.volumes, 1);
     integer(b.partsTotal, 1);
+    if (b.partsTotal > 1000) throw Error("عدد أجزاء الكتاب لا يمكن أن يتجاوز 1000");
     integer(b.suggested);
   }
   for (const b of s.batches) {
@@ -204,7 +205,7 @@ export function migrate(s) {
   if (s.version === 2) return validate(s);
   const next = structuredClone(s);
   next.version = 2;
-  for (const b of next.books) b.partsTotal = Math.max(1, b.volumes || 1);
+  for (const b of next.books) b.partsTotal = 1;
   for (const b of next.batches) b.part = 1;
   for (const x of next.sales) x.part = 1;
   return validate(next);

@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 async function add(page, title = "رحلة في عالم الكتب") {
   await page.getByRole("button", { name: "+ إضافة كتاب" }).click();
   await page.getByLabel("اسم الكتاب *").fill(title);
-  await page.getByLabel("سعر شراء النسخة (ج) *").fill("500");
+  await page.getByLabel("سعر شراء الجزء الواحد (ج) *").fill("500");
   await page.getByText("مصاريف الشراء", { exact: true }).click();
   await page.getByLabel("تكاليف شراء إضافية").fill("50");
   await page.getByRole("button", { name: "حفظ", exact: true }).click();
@@ -12,7 +12,7 @@ async function add(page, title = "رحلة في عالم الكتب") {
 }
 async function sell(page) {
   await page.getByRole("button", { name: "تسجيل بيع", exact: true }).click();
-  await page.getByLabel("سعر بيع النسخة (ج) *").fill("750");
+  await page.getByLabel("سعر بيع الجزء (ج) *").fill("750");
   await page.getByText("مصاريف وتفاصيل إضافية").click();
   await page.getByLabel("شحن يتحمله البائع").fill("30");
   await expect(page.locator("#preview")).toContainText("١٧٠");
@@ -61,7 +61,7 @@ test("edit and delete sale returns inventory, search, HTML injection", async ({
   await sell(page);
   await page.getByRole("button", { name: "الرئيسية", exact: true }).click();
   await page.getByRole("button", { name: "تعديل", exact: true }).click();
-  await page.getByLabel("سعر بيع النسخة (ج) *").fill("800");
+  await page.getByLabel("سعر بيع الجزء (ج) *").fill("800");
   await page.getByRole("button", { name: "حفظ", exact: true }).click();
   await expect(page.locator(".stat.green")).toContainText("٢٢٠");
   await page.getByRole("button", { name: "حذف", exact: true }).click();
@@ -119,7 +119,7 @@ test("additional purchase, historical correction, book edit and validation", asy
   await add(page);
   await page.getByRole("button", { name: "التفاصيل", exact: true }).click();
   await page.getByRole("button", { name: "إضافة نسخ", exact: true }).click();
-  await page.getByLabel("سعر شراء النسخة (ج) *").fill("140");
+  await page.getByLabel("سعر شراء الجزء الواحد (ج) *").fill("140");
   await page.getByRole("button", { name: "حفظ", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "تصحيح", exact: true }),
@@ -133,7 +133,7 @@ test("additional purchase, historical correction, book edit and validation", asy
   ).toBeVisible();
   await page.getByRole("button", { name: "تسجيل بيع", exact: true }).click();
   await page.getByLabel("عدد النسخ المباعة *").fill("3");
-  await page.getByLabel("سعر بيع النسخة (ج) *").fill("750");
+  await page.getByLabel("سعر بيع الجزء (ج) *").fill("750");
   await page.getByRole("button", { name: "حفظ", exact: true }).click();
   await expect(page.locator("#form-error")).toContainText("الكمية غير متاحة");
   await page.getByLabel("عدد النسخ المباعة *").fill("1");
@@ -142,7 +142,7 @@ test("additional purchase, historical correction, book edit and validation", asy
     .getByRole("button", { name: "تصحيح", exact: true })
     .first()
     .click();
-  await page.getByLabel("سعر شراء النسخة (ج) *").fill("510");
+  await page.getByLabel("سعر شراء الجزء الواحد (ج) *").fill("510");
   await page.getByRole("button", { name: "حفظ", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("إعادة حساب");
   await expect(page.locator("main")).toContainText("١٩٠");
@@ -178,4 +178,31 @@ test("serving source files directly shows startup help instead of a blank page",
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
+});
+
+test("multi-part book shows owned and missing parts and sells one selected part", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "+ إضافة كتاب" }).click();
+  await page.getByLabel("اسم الكتاب *").fill("موسوعة العلوم");
+  await page.getByLabel("عدد أجزاء الكتاب بالكامل *").fill("6");
+  await page.getByLabel("أرقام الأجزاء اللي اشتريتها *").fill("1, 3");
+  await page.getByLabel("سعر شراء الجزء الواحد (ج) *").fill("100");
+  await page.getByRole("button", { name: "حفظ", exact: true }).click();
+  await page.getByRole("button", { name: "التفاصيل", exact: true }).click();
+  await expect(page.locator("main")).toContainText("الجزء 1");
+  await expect(page.locator("main")).toContainText("الجزء 3");
+  await expect(page.locator("main")).toContainText("الأجزاء الناقصة: 2، 4، 5، 6");
+  await page.getByRole("button", { name: "تسجيل بيع", exact: true }).click();
+  await page.getByLabel("الجزء المراد بيعه *").selectOption("3");
+  await page.getByLabel("سعر بيع الجزء (ج) *").fill("150");
+  await page.getByRole("button", { name: "حفظ", exact: true }).click();
+  await expect(page.locator("main")).toContainText("الجزء 3");
+  await expect(page.locator("main")).toContainText("غير موجود");
+  await expect(page.locator("main")).toContainText("الجزء 1");
+  await page.getByRole("button", { name: "إضافة أجزاء", exact: true }).click();
+  await page.getByLabel("أرقام الأجزاء اللي اشتريتها *").fill("2, 3");
+  await page.getByLabel("سعر شراء الجزء الواحد (ج) *").fill("120");
+  await page.getByRole("button", { name: "حفظ", exact: true }).click();
+  await expect(page.locator("main")).toContainText("الأجزاء المتاحة");
+  await expect(page.locator("main")).toContainText("4 من 6");
 });

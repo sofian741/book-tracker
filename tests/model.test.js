@@ -224,3 +224,22 @@ test("legacy multi-volume sets migrate as one old accounting unit", () => {
   assert.equal(M.available(upgraded, "book"), 1);
   assert.equal(M.totals(upgraded).stock, 25000);
 });
+
+test("multi-part sale transaction allocates each part separately and keeps combined costs exact", () => {
+  const s = setup();
+  s.books[0].partsTotal = 3;
+  s.batches.push(
+    { id: "part1", book: "book", part: 1, unit: 10000, qty: 1, extra: 0, date: "2026-01-01" },
+    { id: "part2", book: "book", part: 2, unit: 12000, qty: 1, extra: 0, date: "2026-01-01" },
+    { id: "part3", book: "book", part: 3, unit: 14000, qty: 1, extra: 0, date: "2026-01-01" },
+  );
+  const transaction = "sale-set";
+  M.addSale(s, { id: "sale-1", transaction, book: "book", part: 1, qty: 1, unit: 20000, expenses: 101, shipping: 50, date: "2026-02-01", note: "" });
+  M.addSale(s, { id: "sale-2", transaction, book: "book", part: 2, qty: 1, unit: 20000, expenses: 100, shipping: 50, date: "2026-02-01", note: "" });
+  M.addSale(s, { id: "sale-3", transaction, book: "book", part: 3, qty: 1, unit: 20000, expenses: 100, shipping: 50, date: "2026-02-01", note: "" });
+  assert.equal(s.sales.filter(x => x.transaction === transaction).length, 3);
+  assert.equal(M.totals(s).revenue, 60000);
+  assert.equal(M.totals(s).profit, 9600);
+  assert.equal(M.available(s, "book"), 0);
+  M.validate(s);
+});

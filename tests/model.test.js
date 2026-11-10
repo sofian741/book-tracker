@@ -5,7 +5,7 @@ const book = {
   id: "book",
   title: "كتاب عربي طويل للاختبار",
   publisher: "دار المعرفة",
-  volumes: 2,
+  volumes: 1,
   partsTotal: 1,
   suggested: 99900,
   note: "",

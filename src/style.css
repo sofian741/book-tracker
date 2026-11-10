@@ -558,3 +558,122 @@ details {
   background: #f4f2ec;
   color: #7d7b70;
 }
+
+.part-entry {
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  padding: 14px;
+  margin: 12px 0 18px;
+  background: #fff;
+}
+.part-entry-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.part-entry-row input {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+.part-entry-row button,
+.selection-tools button,
+.group-price > button {
+  min-height: 48px;
+  white-space: nowrap;
+}
+.interactive-parts {
+  min-height: 54px;
+  padding: 4px 0;
+}
+.part-pick {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  text-align: right;
+  min-height: 84px;
+  padding: 11px;
+  background: #f7f8f3;
+}
+.part-pick.selected {
+  border: 2px solid var(--green);
+  background: #e8f1e8;
+  box-shadow: inset 0 0 0 1px #fff;
+}
+.part-pick small {
+  font-size: .68rem;
+  color: #718076;
+}
+.selection-tools {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 8px 0 16px;
+}
+.selection-tools button {
+  flex: 1;
+  font-size: .75rem;
+  padding: 8px 10px;
+}
+.group-price {
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+.group-price label {
+  margin-bottom: 8px;
+}
+.group-price > button {
+  width: 100%;
+  background: #edf3eb;
+  border-color: #d4e1d2;
+}
+.sale-part-card {
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: #fff;
+  overflow: hidden;
+  min-width: 0;
+}
+.sale-part-card.selected {
+  border: 2px solid var(--green);
+  background: #edf4ed;
+}
+.sale-part-main {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: right;
+  gap: 4px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  min-height: 95px;
+  padding: 12px;
+}
+.sale-part-main small {
+  color: #748077;
+  font-size: .68rem;
+}
+.sale-part-main strong {
+  font-size: .72rem;
+  color: var(--green);
+}
+.part-quantity {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 10px;
+  border-top: 1px solid #dce7dc;
+}
+.part-quantity button {
+  min-height: 34px;
+  min-width: 38px;
+  padding: 3px 10px;
+  font-size: 1.1rem;
+}
+.part-quantity span {
+  font-weight: 700;
+  font-size: .85rem;
+}

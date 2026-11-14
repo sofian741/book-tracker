@@ -578,7 +578,7 @@ function sellNew(bookId) {
     : '<input type="hidden" name="parts" value=""><section class="part-entry"><p class="hint">' + (fullSets ? "الافتراضي بيع مجموعة كاملة من كل الأجزاء المتاحة. تقدر تعدل الكميات أو تختار أجزاء منفصلة." : "المجموعة غير مكتملة أو بعض الأجزاء محجوزة. اختار الأجزاء المتاحة اللي هتبيعها.") + '</p><div id="sale-parts" class="parts-grid interactive-parts"></div><div class="selection-tools">' + (fullSets ? '<button type="button" data-sale-full>بيع الكتاب كاملًا (' + num(fullSets) + ' مجموعة)</button>' : '') + '<button type="button" data-sale-clear>بيع أجزاء منه</button></div></section>';
   const manualUI = isSingle ? "" : '<input type="hidden" name="salePartPrices" value="{}"><details><summary>المزيد: تخصيص سعر جزء</summary><label>سعر النسخة للأجزاء المحددة (ج)<input id="group-sale-price" inputmode="numeric"></label><button type="button" data-apply-sale-price>تطبيق السعر على المحدد</button><button type="button" data-clear-sale-prices>إلغاء الأسعار الخاصة</button><p class="hint">أي مبلغ متبقٍ من الإجمالي يتوزع تلقائيًا على الأجزاء غير المسعّرة يدويًا.</p></details>';
   const html = '<p>' + esc(b.title) + '</p>' + selection + manualUI +
-    field("إجمالي سعر البيع لكل النسخ المحددة (ج) *", "totalPrice", b.suggested ? (b.suggested * defaultQty) / 100 : "", "text", true) +
+    field("إجمالي سعر البيع لكل النسخ المحددة (ج) *", "totalPrice", b.suggested ? Math.round(b.suggested / 100) * defaultQty : "", "text", true) +
     '<p class="hint">السعر الإجمالي بيتوزع تلقائيًا على النسخ المختارة، مع الحفاظ على إجمالي المبلغ بدون كسور ضائعة.</p>' +
     field("تاريخ البيع أو الحجز *", "date", M.today(), "date", true) +
     '<label class="check-line"><input type="checkbox" name="reserveSale" id="reserveSale"> إضافة كمحجوز للعميل</label>' +
@@ -670,7 +670,8 @@ function sellNew(bookId) {
         totalInput.readOnly=allManual;
         if(allManual) totalInput.value=String(parts.reduce((n,part)=>n+prices[part],0)/100);
         else if(totalInput.dataset.dirty!=="1" && b.suggested) {
-          const suggestedTotal=parts.reduce((n,part)=>n+(prices[part]??b.suggested),0);
+          const suggestedPerCopy=Math.round(b.suggested/100)*100;
+          const suggestedTotal=parts.reduce((n,part)=>n+(prices[part]??suggestedPerCopy),0);
           totalInput.value=String(suggestedTotal/100);
         }
       }

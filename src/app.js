@@ -309,20 +309,13 @@ function purchaseFields(b = {}, editing = false, book = {}) {
   const fields = editing
     ? field("رقم الجزء", "part", b.part || 1, "number", true) + field("عدد النسخ من الجزء *", "qty", b.qty || 1, "number", true)
     : '<input type="hidden" name="parts" value=""><input type="hidden" name="partPrices" value="{}"><section class="part-entry"><label for="part-entry-input">اختار الأجزاء اللي اشتريتها</label><div class="part-entry-row"><input id="part-entry-input" type="number" min="1" max="' + (book.partsTotal || 1000) + '" inputmode="numeric" placeholder="رقم الجزء ثم Enter"><button type="button" data-add-part>إضافة جزء</button></div><p class="hint">لو عندك أكتر من نسخة من نفس الجزء، أضفه أكتر من مرة.</p><div id="purchase-parts" class="parts-grid interactive-parts"></div><div class="selection-tools"><button type="button" data-select-all>تحديد الكل</button><button type="button" data-clear-selection>إلغاء التحديد</button></div><details class="group-price"><summary>تخصيص سعر لبعض الأجزاء</summary><label>سعر النسخة للأجزاء المحددة (ج)<input id="group-part-price" inputmode="numeric" placeholder="سعر النسخة"></label><button type="button" data-apply-price>تطبيق السعر على المحدد</button><p class="hint">الإجمالي يتوزع تلقائيًا على باقي النسخ بعد خصم الأسعار المخصصة.</p></details></section>';
-  const price = editing ? field("سعر شراء الجزء الواحد (ج) *", "unit", b.unit / 100, "text", true) : field("إجمالي سعر الشراء لكل الأجزاء (ج) *", "purchaseTotal", "", "text", true);
+  const price = editing
+    ? field("سعر شراء الجزء الواحد (ج) *", "unit", b.unit / 100, "text", true)
+    : field("إجمالي سعر الشراء لكل الأجزاء (ج) *", "purchaseTotal", "", "text", true);
   const reserve = editing ? "" : '<label class="check-line"><input type="checkbox" name="reservePurchase" id="reservePurchase"> إضافة كمحجوز من المورد</label><details id="supplier-details"><summary>بيانات المورد والحجز</summary>' + field("اسم المورد أو الشخص *", "supplierName") + field("رقم الهاتف", "supplierPhone") + field("تاريخ الحجز *", "supplierDate", M.today(), "date", false) + '</details>';
   return fields + price + field("تاريخ الشراء *", "date", b.date || M.today(), "date", true) + '<details><summary>تفاصيل شراء إضافية</summary>' + field("مصاريف الشراء الإضافية لكل الدفعة (ج)", "extra", (b.extra || 0) / 100) + '</details>' + reserve + '<p class="hint">' + (editing ? "تصحيح هذه الدفعة قد يعيد حساب تكلفة المبيعات." : "المبلغ الإجمالي هيتوزع بدقة على النسخ بدون فقد.") + '</p><p id="preview" class="preview"></p>';
-}, editing = false, book = {}) {
-  const fields = editing
-    ? field("رقم الجزء", "part", b.part || 1, "number", true) + field("عدد النسخ من الجزء *", "qty", b.qty || 1, "number", true)
-    : '<input type="hidden" name="parts" value=""><input type="hidden" name="partPrices" value="{}">' +
-      '<section class="part-entry"><label for="part-entry-input">أضف الأجزاء اللي اشتريتها</label><div class="part-entry-row"><input id="part-entry-input" type="number" min="1" max="' + (book.partsTotal || 1000) + '" inputmode="numeric" placeholder="رقم الجزء ثم Enter"><button type="button" data-add-part>إضافة</button></div><p class="hint">اكتب رقم الجزء واضغط Enter. كل رقم هيتحول لمربع تقدر تحدده.</p><div id="purchase-parts" class="parts-grid interactive-parts"><p class="hint">لسه مضافش أجزاء.</p></div><div class="selection-tools"><button type="button" data-select-all>تحديد الكل</button><button type="button" data-clear-selection>إلغاء التحديد</button></div><div class="group-price"><label>سعر الأجزاء المحددة (اختياري)<input id="group-part-price" inputmode="numeric" placeholder="اكتب السعر للمجموعة المحددة"></label><button type="button" data-apply-price>تطبيق السعر على المحدد</button><p class="hint">حدد جزءًا أو أكثر، اكتب السعر، واضغط تطبيق. الأجزاء بدون سعر خاص تستخدم السعر الأساسي بالأسفل.</p></div></section>';
-  return fields +
-    field(editing ? "سعر شراء الجزء الواحد (ج) *" : "السعر الأساسي للجزء (ج) (اختياري لو سعّرت كل الأجزاء)", "unit", b.unit === undefined ? "" : b.unit / 100, "text", editing) +
-    field("تاريخ الشراء *", "date", b.date || M.today(), "date", true) +
-    '<details><summary>مصاريف الشراء</summary>' + field("تكاليف شراء إضافية للدفعة بالكامل (ج)", "extra", (b.extra || 0) / 100) + '</details>' +
-    '<p class="hint">' + (editing ? "يمكن تصحيح رقم الجزء والكمية إذا لم تتعارض مع المبيعات المسجلة." : "السعر الأساسي يطبق على كل الأجزاء. تقدر تخصص سعرًا مختلفًا لأي مجموعة بتحديد مربعاتها.") + '</p><p id="preview" class="preview"></p>';
 }
+
 function readBook(f, b = { id: M.id() }) {
   return {
     ...b,

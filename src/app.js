@@ -37,6 +37,8 @@ const icon = (name) => {
     home: "M3 10 12 3l9 7v11h-6v-7H9v7H3Z",
     books: "M3 4h7l2 2 2-2h7v16h-7l-2 2-2-2H3Z M12 6v16",
     settings: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM19 12a7 7 0 1 0-14 0 7 7 0 0 0 14 0Z",
+    shortages: "M4 5h16v14H4z M8 9h8 M8 13h5 M8 17h3",
+    reservations: "M5 4h14v16H5z M8 8h8 M8 12h8 M8 16h5",
   };
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"> <path d="${paths[name]}"/></svg>`;
 };
@@ -54,9 +56,9 @@ function bounds() {
 }
 function render() {
   if (!state) return;
-  app.innerHTML = `<header><div class="brand">${icon("books")}<div><strong>تاجر</strong><small>كل كتاب… وحسابه</small></div></div><button class="icon-button" data-tab="settings" aria-label="الإعدادات" title="الإعدادات">${icon("settings")}</button><span class="local">محفوظ على جهازك</span></header><main>${selected ? detail() : tab === "home" ? home() : tab === "books" ? books() : tab === "shortages" ? shortages() : tab === "reservations" ? reservations() : settings()}</main><nav aria-label="التنقل الرئيسي">${[
+  app.innerHTML = `<header><div class="brand">${icon("books")}<div><strong>تاجر</strong><small>كل كتاب… وحسابه</small></div></div><span class="local">محفوظ على جهازك</span><button class="icon-button" data-tab="settings" aria-label="الإعدادات" title="الإعدادات">${icon("settings")}</button></header><main>${selected ? detail() : tab === "home" ? home() : tab === "books" ? books() : tab === "shortages" ? shortages() : tab === "reservations" ? reservations() : settings()}</main><nav aria-label="التنقل الرئيسي">${[
     ["home", "الرئيسية"], ["books", "الكتب"], ["shortages", "النواقص"], ["reservations", "المحجوزات"],
-  ].map(([key, label]) => `<button data-tab="${key}" class="${tab === key && !selected ? "active" : ""}">${icon(key === "shortages" || key === "reservations" ? "books" : key)}<span>${label}</span></button>`).join("")}</nav><div id="toast" role="status"></div><dialog id="modal"></dialog>`;
+  ].map(([key, label]) => `<button data-tab="${key}" class="${tab === key && !selected ? "active" : ""}">${icon(key)}<span>${label}</span></button>`).join("")}</nav><div id="toast" role="status"></div><dialog id="modal"></dialog>`;
   bind();
 }
 function home() {
@@ -603,7 +605,7 @@ function bind() {
             break;
           case "back":
             selected = null;
-            tab = "books";
+            tab = "home";
             render();
             break;
           case "detail":

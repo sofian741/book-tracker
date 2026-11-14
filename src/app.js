@@ -550,7 +550,7 @@ function sellNew(bookId) {
   const b = state.books.find((x) => x.id === bookId);
   const available = M.availableParts(state, b.id);
   const isSingle = b.partsTotal === 1;
-  const defaultQty = available.reduce((n,x) => n+x.qty,0);
+  const defaultQty = isSingle ? 1 : available.reduce((n,x) => n+x.qty,0);
   const selection = isSingle
     ? '<input type="hidden" name="parts" value="1">' + field("عدد النسخ المباعة *", "singleQty", 1, "number", true)
     : '<input type="hidden" name="parts" value=""><section class="part-entry"><p class="hint">الافتراضي بيع الكتاب كاملًا. تقدر تلغي التحديد وتختار أجزاء معينة.</p><div id="sale-parts" class="parts-grid interactive-parts"></div><div class="selection-tools"><button type="button" data-sale-full>بيع الكتاب كاملًا</button><button type="button" data-sale-clear>بيع أجزاء محددة</button></div></section>';
@@ -634,15 +634,20 @@ function sellNew(bookId) {
   d.oninput=()=>{
     const p=d.querySelector("#preview");
     try {
-      const f=new FormData(d.querySelector("form"));
-      const result=build(f);
+      const totalInput=d.querySelector('[name="totalPrice"]');
       if (!isSingle) {
-        const prices=JSON.parse(f.get("salePartPrices")||"{}"), parts=parseParts(f.get("parts"),b.partsTotal);
+        const parts=parseParts(d.querySelector('[name="parts"]').value,b.partsTotal);
+        const prices=JSON.parse(d.querySelector('[name="salePartPrices"]').value||"{}");
         const allManual=parts.length>0 && parts.every((part)=>prices[part]!==undefined);
-        const totalInput=d.querySelector('[name="totalPrice"]');
         totalInput.readOnly=allManual;
         if(allManual) totalInput.value=String(parts.reduce((n,part)=>n+prices[part],0)/100);
+        else if(totalInput.dataset.dirty!=="1" && b.suggested) {
+          const suggestedTotal=parts.reduce((n,part)=>n+(prices[part]??b.suggested),0);
+          totalInput.value=String(suggestedTotal/100);
+        }
       }
+      const f=new FormData(d.querySelector("form"));
+      const result=build(f);
       const profit=result.sales.reduce((n,x)=>n+M.profit(x),0);
       p.textContent=(f.get("reserveSale")?"الربح المتوقع عند التأكيد: ":"صافي الربح: ")+cash(profit)+" · الإجمالي: "+cash(result.total);
     } catch(e) {p.textContent=errorMessage(e);}

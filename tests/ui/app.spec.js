@@ -86,7 +86,7 @@ test("customer reservation holds stock without revenue until confirmed", async (
   await page.locator('button[data-action="reservation-detail"]').click();
   await expect(page.getByRole("dialog")).toContainText("صافي الربح المتوقع");
   await expect(page.getByRole("dialog")).toContainText("01111111111");
-  await page.getByRole("button", { name: "إغلاق", exact: true }).click();
+  await page.getByRole("button", { name: "إغلاق", exact: true }).last().click();
   await page.getByRole("button", { name: "تأكيد البيع", exact: true }).click();
   await page.getByRole("button", { name: "تأكيد", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("الربح الفعلي");
@@ -135,7 +135,7 @@ test("multi-part shortages, repeated copies and partial sale", async ({ page }) 
   await expect(page.locator("main")).toContainText("الجزء 1");
   await expect(page.locator("main")).toContainText("2 نسخ");
   await page.getByRole("button", { name: "تسجيل بيع", exact: true }).click();
-  await page.getByRole("button", { name: "بيع أجزاء محددة", exact: true }).click();
+  await page.getByRole("button", { name: "اختيار أجزاء محددة", exact: true }).click();
   await page.locator('[data-sale-part="3"]').click();
   await page.getByLabel("إجمالي سعر البيع لكل النسخ المحددة (ج) *").fill("150");
   await page.getByRole("button", { name: "حفظ", exact: true }).click();
@@ -157,8 +157,9 @@ test("whole-pound purchase total splits 100 across three copies as 34, 33 and 33
   await addBook(page, { title: "كتاب التقسيم", parts: 1, quantity: 3, total: 100 });
   await page.getByRole("button", { name: "التفاصيل", exact: true }).click();
   const purchaseRows = page.locator("main .row");
-  await expect(purchaseRows).toContainText("34 ج");
-  await expect(purchaseRows).toContainText("33 ج");
+  await expect(purchaseRows.nth(0)).toContainText("34 ج");
+  await expect(purchaseRows.nth(1)).toContainText("33 ج");
+  await expect(purchaseRows.nth(2)).toContainText("33 ج");
   await expect(page.locator("main")).toContainText("3 نسخ");
 });
 
@@ -189,6 +190,6 @@ test("manual prices for selected purchase parts redistribute the remaining total
   await page.getByRole("button", { name: "تطبيق السعر على المحدد" }).click();
   await page.getByRole("button", { name: "حفظ", exact: true }).click();
   await page.getByRole("button", { name: "التفاصيل", exact: true }).click();
-  await expect(page.locator("main .row")).toContainText("150 ج");
-  await expect(page.locator("main .row")).toContainText("100 ج");
+  await expect(page.locator("main .row").nth(1)).toContainText("150 ج");
+  await expect(page.locator("main .row").first()).toContainText("100 ج");
 });

@@ -321,11 +321,12 @@ function purchaseFields(b = {}, editing = false, book = {}) {
   const fields = editing
     ? field("رقم الجزء", "part", b.part || 1, "number", true) + field("عدد النسخ من الجزء *", "qty", b.qty || 1, "number", true)
     : '<input type="hidden" name="parts" value=""><input type="hidden" name="partPrices" value="{}"><section class="part-entry"><label for="part-entry-input">اختار الأجزاء اللي اشتريتها</label><div class="part-entry-row"><input id="part-entry-input" type="number" min="1" max="' + (book.partsTotal || 1000) + '" inputmode="numeric" placeholder="رقم الجزء ثم Enter"><button type="button" data-add-part>إضافة جزء</button></div><p class="hint">لو عندك أكتر من نسخة من نفس الجزء، أضفه أكتر من مرة.</p><div id="purchase-parts" class="parts-grid interactive-parts"></div><div class="selection-tools"><button type="button" data-select-all>تحديد الكل</button><button type="button" data-clear-selection>إلغاء التحديد</button></div><details class="group-price"><summary>تخصيص سعر لبعض الأجزاء</summary><label>سعر النسخة للأجزاء المحددة (ج)<input id="group-part-price" inputmode="numeric" placeholder="سعر النسخة"></label><button type="button" data-apply-price>تطبيق السعر على المحدد</button><button type="button" data-clear-prices>إلغاء الأسعار الخاصة</button><p class="hint">الإجمالي يتوزع تلقائيًا على باقي النسخ بعد خصم الأسعار المخصصة.</p></details></section>';
+  const quantity = editing ? "" : field("عدد النسخ (للكتاب ذي المجلد الواحد)", "singleQty", 1, "number", false);
   const price = editing
     ? field("سعر شراء الجزء الواحد (ج) *", "unit", Math.round(b.unit / 100), "text", true)
     : field("إجمالي سعر الشراء لكل الأجزاء (ج) *", "purchaseTotal", "", "text", true);
   const reserve = editing ? "" : '<label class="check-line"><input type="checkbox" name="reservePurchase" id="reservePurchase"> إضافة كمحجوز من المورد</label><details id="supplier-details"><summary>بيانات المورد والحجز</summary>' + field("اسم المورد أو الشخص *", "supplierName") + field("رقم الهاتف", "supplierPhone") + field("تاريخ الحجز *", "supplierDate", M.today(), "date", false) + '</details>';
-  return fields + price + field("تاريخ الشراء *", "date", b.date || M.today(), "date", true) + '<details><summary>تفاصيل شراء إضافية</summary>' + field("مصاريف الشراء الإضافية لكل الدفعة (ج)", "extra", Math.round((b.extra || 0) / 100)) + '</details>' + reserve + '<p class="hint">' + (editing ? "تصحيح هذه الدفعة قد يعيد حساب تكلفة المبيعات." : "المبلغ الإجمالي هيتوزع بدقة على النسخ بدون فقد.") + '</p><p id="preview" class="preview"></p>';
+  return fields + quantity + price + field("تاريخ الشراء *", "date", b.date || M.today(), "date", true) + '<details><summary>تفاصيل شراء إضافية</summary>' + field("مصاريف الشراء الإضافية لكل الدفعة (ج)", "extra", Math.round((b.extra || 0) / 100)) + '</details>' + reserve + '<p class="hint">' + (editing ? "تصحيح هذه الدفعة قد يعيد حساب تكلفة المبيعات." : "المبلغ الإجمالي هيتوزع بدقة على النسخ بدون فقد.") + '</p><p id="preview" class="preview"></p>';
 }
 
 function readBook(f, b = { id: M.id() }) {
@@ -353,7 +354,10 @@ function parseParts(raw, total) {
 function purchaseBatches(f, bookId, book, old = null) {
   const date = f.get("date"), extra = amount(f, "extra");
   if (old) return [{ ...old, part: int(f.get("part")), qty: int(f.get("qty")), unit: amountOrOriginal(f, "unit", old.unit), date, extra: amountOrOriginal(f, "extra", old.extra || 0) }];
-  const parts = parseParts(f.get("parts"), book.partsTotal), counts = new Map();
+  const parts = book.partsTotal === 1
+    ? Array(int(f.get("singleQty"))).fill(1)
+    : parseParts(f.get("parts"), book.partsTotal);
+  const counts = new Map();
   if (!parts.length) throw Error("اختار جزءًا واحدًا على الأقل");
   for (const part of parts) counts.set(part, (counts.get(part) || 0) + 1);
   let prices = {};
@@ -408,13 +412,14 @@ function setupPurchaseParts(d, book = null) {
     grid = d.querySelector("#purchase-parts"),
     partsField = form.elements.parts,
     pricesField = form.elements.partPrices,
+    singleQty = form.elements.singleQty,
     selected = new Set(),
     quantities = new Map(),
     prices = new Map();
   const total = () => Number(book?.partsTotal || form.querySelector('[name="partsTotal"]')?.value || 1);
   let lastTotal = total(), autoSingle = !book && lastTotal === 1;
   const sync = () => {
-    const parts = [...quantities.entries()].flatMap(([part, qty]) => Array(qty).fill(part));
+    const parts = total() === 1 ? Array(Math.max(1, Number(singleQty?.value) || 1)).fill(1) : [...quantities.entries()].flatMap(([part, qty]) => Array(qty).fill(part));
     partsField.value = parts.join(",");
     pricesField.value = JSON.stringify(Object.fromEntries(prices));
     grid.innerHTML = parts.length ? [...quantities.entries()].sort((a,b)=>a[0]-b[0]).map(([part,qty]) =>
@@ -438,6 +443,7 @@ function setupPurchaseParts(d, book = null) {
     }
     lastTotal = current;
     section.hidden = current === 1;
+    if (singleQty) singleQty.closest("label").hidden = current !== 1;
     sync();
   };
   const add = () => {
@@ -480,7 +486,7 @@ function setupPurchaseParts(d, book = null) {
   const partsTotalInput = form.elements.partsTotal;
   if (partsTotalInput) partsTotalInput.addEventListener("input", updateMode);
   if (total() === 1) {
-    quantities.set(1,1); selected.add(1); section.hidden=true; autoSingle = !book;
+    quantities.set(1,1); selected.add(1); section.hidden=true; if (singleQty) singleQty.closest("label").hidden=false; autoSingle = !book;
   } else updateMode();
   const reserveCheck = form.querySelector("#reservePurchase");
   if (reserveCheck) reserveCheck.onchange = () => { form.querySelector("#supplier-details").open = reserveCheck.checked; };

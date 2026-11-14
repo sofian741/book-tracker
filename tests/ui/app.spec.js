@@ -184,6 +184,7 @@ test("manual prices for selected purchase parts redistribute the remaining total
   }
   await page.getByLabel("إجمالي سعر الشراء لكل الأجزاء (ج) *").fill("350");
   await page.locator('[data-purchase-part="2"]').click();
+  await page.locator("#modal summary").filter({ hasText: "تخصيص سعر لبعض الأجزاء" }).click();
   await page.locator("#group-part-price").fill("100");
   await page.getByRole("button", { name: "تطبيق السعر على المحدد" }).click();
   await page.getByRole("button", { name: "حفظ", exact: true }).click();

@@ -9,6 +9,7 @@ async function launch(page) {
 }
 async function addBook(page, { title = "كتاب تجريبي", parts = 1, selected = [1], quantity = 1, total = 500, extra = 0, supplierReservation = false } = {}) {
   await page.getByRole("button", { name: "+ إضافة كتاب" }).click();
+  await expect(page.locator("#modal .form-section")).toHaveCount(2);
   await page.getByLabel("اسم الكتاب *").fill(title);
   await page.getByLabel("عدد أجزاء أو مجلدات الكتاب بالكامل *").fill(String(parts));
   if (parts === 1) await page.getByLabel("عدد النسخ (للكتاب ذي المجلد الواحد)").fill(String(quantity));
@@ -35,9 +36,11 @@ async function addBook(page, { title = "كتاب تجريبي", parts = 1, selec
     await page.getByLabel("رقم الهاتف").fill("01000000000");
   }
   await page.getByRole("button", { name: "حفظ", exact: true }).click();
+  await expect(page.locator("main")).toContainText(title);
 }
 async function sellSingle(page, { total = 750, reserve = false } = {}) {
   await page.getByRole("button", { name: "تسجيل بيع", exact: true }).click();
+  await expect(page.locator("#modal .form-section")).toHaveCount(3);
   await page.getByLabel("إجمالي سعر البيع لكل النسخ المحددة (ج) *").fill(String(total));
   if (reserve) {
     await page.getByLabel("إضافة كمحجوز للعميل").check();
@@ -158,7 +161,6 @@ test("small screens and offline use remain supported", async ({ page, context })
 test("whole-pound purchase total splits 100 across three copies as 34, 33 and 33", async ({ page }) => {
   await launch(page);
   await addBook(page, { title: "كتاب التقسيم", parts: 1, quantity: 3, total: 100 });
-  await page.getByRole("button", { name: "التفاصيل", exact: true }).click();
   const purchaseRows = page.locator("main .row");
   await expect(purchaseRows.nth(0)).toContainText("34 ج");
   await expect(purchaseRows.nth(1)).toContainText("33 ج");
@@ -189,7 +191,6 @@ test("manual prices for selected purchase parts redistribute the remaining total
   await page.locator("#group-part-price").fill("100");
   await page.getByRole("button", { name: "تطبيق السعر على المحدد" }).click();
   await page.getByRole("button", { name: "حفظ", exact: true }).click();
-  await page.getByRole("button", { name: "التفاصيل", exact: true }).click();
   await expect(page.locator("main .row").nth(1)).toContainText("150 ج");
   await expect(page.locator("main .row").first()).toContainText("100 ج");
 });

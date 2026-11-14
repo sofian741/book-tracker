@@ -66,6 +66,7 @@ function render() {
 function home() {
   const t = M.totals(state, ...bounds());
   return `<div class="home-intro"><p class="eyebrow">دفتر تجارتك</p><h1>أهلاً أ/ ${esc(state.profile?.name || "بك")}</h1><p>اختار هتعمل إيه، وكل خطوة هتلاقيها قدامك بوضوح.</p></div>
+    <div class="workflow-guide"><h2>طريقة الشغل</h2><ol><li>أضف الكتاب وسجّل سعر شرائه.</li><li>تابع الأجزاء الموجودة والناقصة.</li><li>سجّل البيع، وراجع الربح بعد كل عملية.</li></ol></div>
     <div class="home-actions">${button("+ إضافة كتاب", "add", 'class="primary wide"')}
       <div class="quick-links"><button data-tab="books">فتح سجل الكتب ومتابعة المخزون</button><button data-tab="shortages">مراجعة الأجزاء الناقصة</button><button data-tab="reservations">متابعة حجوزات العملاء والموردين</button></div>
     </div>
@@ -521,17 +522,17 @@ function addBook() {
   const d = modal("إضافة كتاب", html, async (f) => {
     const n = structuredClone(state), b = readBook(f);
     n.books.push(b);
+    selected = b.id;
+    tab = "books";
     const batches = purchaseBatches(f, b.id, b);
     if (f.get("reservePurchase")) {
       const reservation = supplierReservation(b.id, batches, f);
       if (!reservation.name) throw Error("اكتب اسم المورد");
       n.reservations.push(reservation);
-      tab = "books";
-      await commit(n, "تم حفظ الكتاب وحجز الشراء دون إضافة المخزون");
+      await commit(n, "تم حفظ الكتاب. راجع تفاصيله، ثم أكد الاستلام من صفحة المحجوزات");
     } else {
       n.batches.push(...batches);
-      tab = "books";
-      await commit(n, "تمت إضافة الكتاب والمخزون");
+      await commit(n, "تمت إضافة الكتاب والمخزون. تقدر تراجع الأجزاء من صفحته");
     }
   });
   previewPurchase(d); setupPurchaseParts(d);
@@ -558,15 +559,18 @@ function batch(bookId, batchId) {
       if (b.qty < sold) throw Error("الكمية أقل من النسخ المباعة من هذه الدفعة");
       if (b.part !== old.part && sold) throw Error("لا يمكن تغيير رقم جزء له مبيعات مسجلة");
       n.batches[n.batches.findIndex((x) => x.id === old.id)] = b; M.recalculate(n);
-      await commit(n, "تم التصحيح وإعادة حساب الأرباح");
+      selected = book.id; tab = "books";
+      await commit(n, "تم التصحيح. راجع المخزون بعد التعديل");
     } else if (f.get("reservePurchase")) {
       const reservation = supplierReservation(book.id, batches, f);
       if (!reservation.name) throw Error("اكتب اسم المورد");
       n.reservations.push(reservation);
-      await commit(n, "تم تسجيل حجز المورد دون إضافة المخزون");
+      selected = book.id; tab = "books";
+      await commit(n, "تم تسجيل حجز المورد. افتح المحجوزات لتأكيد الاستلام");
     } else {
       n.batches.push(...batches);
-      await commit(n, "تمت إضافة الأجزاء للمخزون");
+      selected = book.id; tab = "books";
+      await commit(n, "تمت إضافة الأجزاء. راجع حالة المجموعة الآن");
     }
   });
   previewPurchase(d, book);
@@ -631,8 +635,9 @@ function sellNew(bookId) {
         name,phone:String(f.get("customerPhone")||"").trim(),date:f.get("date"),
         expenses:amount(f,"expenses"),shipping:amount(f,"shipping"),note:String(f.get("note")||"").trim()};
       const n=structuredClone(state); n.reservations.push(reservation);
-      await commit(n,"تم حجز الكمية للعميل دون تسجيل بيع أو ربح محقق");
-    } else await commit(result.n,"تم تسجيل البيع وخصم المخزون وحساب الربح");
+      selected=b.id; tab="books";
+      await commit(n,"تم حجز الكمية للعميل. راجع صفحة الكتاب أو أكّد الحجز من المحجوزات");
+    } else { selected=b.id; tab="books"; await commit(result.n,"تم تسجيل البيع وتحديث مخزون الكتاب وحساب الربح"); }
   });
   if (!isSingle) {
     setupSaleParts(d,b,fullSets);

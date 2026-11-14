@@ -367,6 +367,7 @@ function purchaseBatches(f, bookId, book, old = null) {
     : parseParts(f.get("parts"), book.partsTotal);
   const counts = new Map();
   if (!parts.length) throw Error("اختار جزءًا واحدًا على الأقل");
+  if (parts.length > 50000) throw Error("الدفعة الواحدة لا يمكن أن تتجاوز 50000 نسخة");
   for (const part of parts) counts.set(part, (counts.get(part) || 0) + 1);
   let prices = {};
   try { prices = JSON.parse(f.get("partPrices") || "{}"); } catch { throw Error("تعذر قراءة أسعار الأجزاء"); }
@@ -594,6 +595,7 @@ function sellNew(bookId) {
       parts = Array(qty).fill(1);
     }
     if (!parts.length) throw Error("اختار جزءًا واحدًا على الأقل");
+    if (parts.length > 50000) throw Error("عملية البيع لا يمكن أن تتجاوز 50000 نسخة");
     const total = amount(f,"totalPrice"), expenses = amount(f,"expenses"), shipping = amount(f,"shipping");
     if (total / 100 < parts.length) throw Error("إجمالي البيع بالجنيه أقل من عدد النسخ المحددة");
     let manual = {};

@@ -149,13 +149,18 @@ function detail() {
     const qty = owned.get(part) || 0, held = present.find((x) => x.part === part)?.reserved || 0;
     return '<span class="part-chip ' + (qty ? "owned" : "missing") + '"><b>الجزء ' + num(part) + '</b><small>' + (qty ? "عندي " + num(qty) + (qty === 1 ? " نسخة" : " نسخ") + (held ? " · محجوز " + num(held) : "") : "غير موجود") + '</small></span>';
   }).join("");
+  const pending = state.reservations.filter((r) => r.book === b.id && r.status === "active");
+  const nextSteps = pending.map((r) => r.type === "supplier"
+    ? '<p class="notice">طلب شراء منتظر من المورد. الخطوة التالية: افتح «المحجوزات» ثم اضغط «تأكيد الاستلام» بعد وصول الأجزاء. لن تدخل المخزون قبل التأكيد.</p>'
+    : '<p class="notice">فيه كمية محجوزة للعميل. الخطوة التالية: افتح «المحجوزات» ثم أكّد البيع بعد إتمام التسليم. الربح لن يُسجّل قبل التأكيد.</p>').join("");
   return button("‹ الرئيسية", "back", 'class="subtle"') +
     '<h1>' + esc(b.title) + '</h1><p>' + esc(b.publisher) + ' · ' + num(b.partsTotal) + ' أجزاء إجمالًا' + '</p>' +
-    (b.note ? '<p>' + esc(b.note) + '</p>' : "") +
+    (b.note ? '<p>' + esc(b.note) + '</p>' : "") + nextSteps +
     '<div class="panel"><dl><dt>الأجزاء الموجودة عندي</dt><dd>' + num(present.length) + ' من ' + num(b.partsTotal) + '</dd><dt>حالة المجموعة</dt><dd>' + (missing.length ? "غير مكتملة" : "مكتملة") + '</dd><dt>عدد القطع المتاحة</dt><dd>' + num(M.available(state, b.id)) + '</dd><dt>تكلفة المخزون المتبقي</dt><dd>' + cash(bookStock(b.id)) + '</dd><dt>' + (sales.reduce((n, x) => n + M.profit(x), 0) < 0 ? "الخسارة المحققة" : "صافي الربح المحقق") + '</dt><dd>' + cash(Math.abs(sales.reduce((n, x) => n + M.profit(x), 0))) + '</dd>' + (b.suggested ? '<dt>سعر البيع المقترح للجزء · ليس إيرادًا</dt><dd>' + cash(b.suggested) + '</dd>' : "") + '</dl></div>' +
     '<h2>الأجزاء عندي</h2><div class="parts-grid">' + partRows + '</div>' +
     (missing.length ? '<p class="hint">الأجزاء الناقصة: ' + missing.map(num).join("، ") + ' من أصل ' + num(b.partsTotal) + '</p>' : '<p class="good-text">كل أجزاء الكتاب متوفرة عندك 🎉</p>') +
     '<div class="actions">' + (M.available(state, b.id) ? button("تسجيل بيع", "sell", 'data-id="' + b.id + '" class="primary"') : "") +
+    (missing.length ? button("إضافة الأجزاء الناقصة", "batch", 'data-id="' + b.id + '" class="primary"') : "") +
     button("تعديل الكتاب", "edit-book", 'data-id="' + b.id + '"') +
     (!sales.length && !state.reservations.some((r) => r.book === b.id) ? button("حذف الكتاب", "delete-book", 'data-id="' + b.id + '" class="danger"') : "") + '</div>' +
     '<h2>دفعات الشراء</h2>' + batches.map((x) => '<article class="row"><div><strong>الجزء ' + num(x.part) + ' · ' + num(x.qty) + ' نسخة · ' + cash(x.unit) + ' للنسخة</strong><small>' + x.date + ' · إضافات الدفعة ' + cash(x.extra) + '</small><small>الإجمالي ' + cash(x.unit * x.qty + x.extra) + '</small></div>' + button("تصحيح", "edit-batch", 'data-id="' + x.id + '"') + '</article>').join("") +

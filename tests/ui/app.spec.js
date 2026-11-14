@@ -10,7 +10,7 @@ async function launch(page) {
 async function addBook(page, { title = "كتاب تجريبي", parts = 1, selected = [1], total = 500, extra = 0, supplierReservation = false } = {}) {
   await page.getByRole("button", { name: "+ إضافة كتاب" }).click();
   await page.getByLabel("اسم الكتاب *").fill(title);
-  await page.getByLabel("عدد أجزاء الكتاب بالكامل *").fill(String(parts));
+  await page.getByLabel("عدد أجزاء أو مجلدات الكتاب بالكامل *").fill(String(parts));
   if (parts > 1) {
     for (const part of selected) {
       await page.locator("#part-entry-input").fill(String(part));
@@ -82,7 +82,10 @@ test("customer reservation holds stock without revenue until confirmed", async (
   await expect(page.locator("main")).toContainText("0 قطعة متاحة");
   await page.getByRole("button", { name: "المحجوزات", exact: true }).click();
   await expect(page.locator("main")).toContainText("عميل تجريبي");
-  await expect(page.locator("main")).toContainText("صافي الربح المتوقع");
+  await page.locator('button[data-action="reservation-detail"]').click();
+  await expect(page.getByRole("dialog")).toContainText("صافي الربح المتوقع");
+  await expect(page.getByRole("dialog")).toContainText("01111111111");
+  await page.getByRole("button", { name: "إغلاق", exact: true }).click();
   await page.getByRole("button", { name: "تأكيد البيع", exact: true }).click();
   await page.getByRole("button", { name: "تأكيد", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("الربح الفعلي");

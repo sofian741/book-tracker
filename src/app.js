@@ -196,13 +196,13 @@ function reservationEstimate(r) {
   target.status = "confirmed";
   const transaction = "estimate-" + r.id;
   let index = 0, qty = r.items.reduce((a,x) => a+x.qty,0);
-  const ebase = Math.floor((r.expenses || 0)/qty), erest = (r.expenses || 0)%qty;
-  const sbase = Math.floor((r.shipping || 0)/qty), srest = (r.shipping || 0)%qty;
+  const ebase = Math.floor(((r.expenses || 0)/100)/qty), erest = ((r.expenses || 0)/100)%qty;
+  const sbase = Math.floor(((r.shipping || 0)/100)/qty), srest = ((r.shipping || 0)/100)%qty;
   const sales = [];
   for (const item of r.items) {
     const sale = {id:M.id(),transaction,book:r.book,part:item.part,qty:item.qty,unit:item.unit,
-      expenses: ebase*item.qty + Math.max(0,Math.min(index+item.qty,erest)-index),
-      shipping: sbase*item.qty + Math.max(0,Math.min(index+item.qty,srest)-index),
+      expenses: (ebase*item.qty + Math.max(0,Math.min(index+item.qty,erest)-index))*100,
+      shipping: (sbase*item.qty + Math.max(0,Math.min(index+item.qty,srest)-index))*100,
       date:r.date,note:r.note || ""};
     M.addSale(n,sale); sales.push(sale); index += item.qty;
   }
@@ -231,13 +231,13 @@ function confirmReservation(id) {
     if (r.type === "customer") {
       r.status = "confirmed";
       const totalQty = r.items.reduce((a,x) => a+x.qty,0);
-      const ebase=Math.floor((r.expenses||0)/totalQty), erest=(r.expenses||0)%totalQty;
-      const sbase=Math.floor((r.shipping||0)/totalQty), srest=(r.shipping||0)%totalQty;
+      const ebase=Math.floor(((r.expenses||0)/100)/totalQty), erest=((r.expenses||0)/100)%totalQty;
+      const sbase=Math.floor(((r.shipping||0)/100)/totalQty), srest=((r.shipping||0)/100)%totalQty;
       let index=0; const transaction="reservation-"+r.id;
       for (const item of r.items) {
         const sale={id:M.id(),transaction,book:r.book,part:item.part,qty:item.qty,unit:item.unit,
-          expenses:ebase*item.qty+Math.max(0,Math.min(index+item.qty,erest)-index),
-          shipping:sbase*item.qty+Math.max(0,Math.min(index+item.qty,srest)-index),
+          expenses:(ebase*item.qty+Math.max(0,Math.min(index+item.qty,erest)-index))*100,
+          shipping:(sbase*item.qty+Math.max(0,Math.min(index+item.qty,srest)-index))*100,
           date:r.date,note:r.note||""};
         M.addSale(n,sale); index+=item.qty;
       }
@@ -359,7 +359,9 @@ function purchaseBatches(f, bookId, book, old = null) {
   const manualTotal = [...counts].reduce((n, [part,qty]) => n + (prices[part] ?? 0) * qty, 0);
   const autoQty = parts.length - manualQty;
   if (manualTotal > total || (!autoQty && manualTotal !== total)) throw Error("إجمالي الأسعار المخصصة لا يطابق إجمالي الشراء");
-  const restPounds = (total - manualTotal) / 100, base = autoQty ? Math.floor(restPounds / autoQty) : 0;
+  const restPounds = (total - manualTotal) / 100;
+  if (autoQty && restPounds < autoQty) throw Error("المبلغ المتبقي أقل من جنيه لكل نسخة غير مسعّرة");
+  const base = autoQty ? Math.floor(restPounds / autoQty) : 0;
   let priceRemainder = autoQty ? restPounds % autoQty : 0;
   const extraPounds = extra / 100, extraBase = Math.floor(extraPounds / parts.length); let extraRemainder = extraPounds % parts.length;
   const result = [];
@@ -411,6 +413,12 @@ function setupPurchaseParts(d, book = null) {
     grid.innerHTML = parts.length ? [...quantities.entries()].sort((a,b)=>a[0]-b[0]).map(([part,qty]) =>
       '<div class="part-entry-chip"><button type="button" class="part-pick ' + (selected.has(part) ? "selected" : "") + '" data-purchase-part="' + part + '"><b>الجزء ' + num(part) + '</b><small>' + num(qty) + (qty === 1 ? " نسخة" : " نسخ") + '</small><small>' + (prices.has(part) ? "سعر خاص: " + cash(prices.get(part)) : "السعر الأساسي") + '</small></button><button type="button" class="remove-part" data-remove-part="' + part + '" aria-label="إزالة الجزء">×</button></div>'
     ).join("") : '<p class="hint">لسه مضافش أجزاء.</p>';
+    const allManual = quantities.size > 0 && [...quantities.keys()].every((part) => prices.has(part));
+    const totalInput = form.elements.purchaseTotal;
+    if (totalInput) {
+      totalInput.readOnly = allManual;
+      if (allManual) totalInput.value = String([...quantities].reduce((n,[part,qty]) => n + prices.get(part)*qty,0)/100);
+    }
     if (d.oninput) d.oninput();
   };
   const add = () => {
@@ -566,6 +574,7 @@ function sellNew(bookId) {
     const autoQty = parts.length-manualQty;
     if (manualTotal > total || (!autoQty && manualTotal !== total)) throw Error("إجمالي الأسعار الخاصة لا يطابق إجمالي البيع");
     const remainingPounds = (total-manualTotal)/100;
+    if (autoQty && remainingPounds < autoQty) throw Error("المبلغ المتبقي أقل من جنيه لكل نسخة غير مسعّرة");
     const base = autoQty ? Math.floor(remainingPounds/autoQty) : 0; let rem = autoQty ? remainingPounds%autoQty : 0;
     const ebase = Math.floor((expenses/100)/parts.length); let erem=(expenses/100)%parts.length;
     const sbase = Math.floor((shipping/100)/parts.length); let srem=(shipping/100)%parts.length;
@@ -616,6 +625,13 @@ function sellNew(bookId) {
     try {
       const f=new FormData(d.querySelector("form"));
       const result=build(f);
+      if (!isSingle) {
+        const prices=JSON.parse(f.get("salePartPrices")||"{}"), parts=parseParts(f.get("parts"),b.partsTotal);
+        const allManual=parts.length>0 && parts.every((part)=>prices[part]!==undefined);
+        const totalInput=d.querySelector('[name="totalPrice"]');
+        totalInput.readOnly=allManual;
+        if(allManual) totalInput.value=String(parts.reduce((n,part)=>n+prices[part],0)/100);
+      }
       const profit=result.sales.reduce((n,x)=>n+M.profit(x),0);
       p.textContent=(f.get("reserveSale")?"الربح المتوقع عند التأكيد: ":"صافي الربح: ")+cash(profit)+" · الإجمالي: "+cash(result.total);
     } catch(e) {p.textContent=errorMessage(e);}

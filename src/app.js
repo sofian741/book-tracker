@@ -149,8 +149,8 @@ function detail() {
     owned = new Map(present.map((x) => [x.part, x.qty])),
     missing = Array.from({ length: b.partsTotal }, (_, i) => i + 1).filter((part) => !owned.has(part));
   const partRows = Array.from({ length: b.partsTotal }, (_, i) => i + 1).map((part) => {
-    const qty = owned.get(part) || 0;
-    return '<span class="part-chip ' + (qty ? "owned" : "missing") + '"><b>الجزء ' + num(part) + '</b><small>' + (qty ? "متاح · " + num(qty) + (qty === 1 ? " نسخة" : " نسخ") : "غير موجود") + '</small></span>';
+    const qty = owned.get(part) || 0, held = present.find((x) => x.part === part)?.reserved || 0;
+    return '<span class="part-chip ' + (qty ? "owned" : "missing") + '"><b>الجزء ' + num(part) + '</b><small>' + (qty ? "عندي " + num(qty) + (qty === 1 ? " نسخة" : " نسخ") + (held ? " · محجوز " + num(held) : "") : "غير موجود") + '</small></span>';
   }).join("");
   return button("‹ الرئيسية", "back", 'class="subtle"') +
     '<h1>' + esc(b.title) + '</h1><p>' + esc(b.publisher) + ' · ' + num(b.partsTotal) + ' أجزاء إجمالًا' + '</p>' +

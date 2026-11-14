@@ -15,7 +15,8 @@ let state,
   period = "all",
   from = "",
   to = "",
-  busy = false;
+  busy = false,
+  navStatePushed = false;
 const errorMessage = (error) =>
   /[\u0600-\u06ff]/.test(error?.message || "")
     ? error.message
@@ -768,7 +769,13 @@ function bind() {
   document.querySelectorAll("[data-tab]").forEach(
     (e) =>
       (e.onclick = () => {
-        tab = e.dataset.tab;
+        const next = e.dataset.tab;
+        if (next === "home" && navStatePushed) { history.back(); return; }
+        if (tab === "home" && next !== "home" && !navStatePushed) {
+          history.pushState({ tager: "subpage" }, "", "#tager");
+          navStatePushed = true;
+        }
+        tab = next;
         selected = null;
         render();
       }),
@@ -796,6 +803,7 @@ function bind() {
             addBook();
             break;
           case "back":
+            if (navStatePushed) { history.back(); break; }
             selected = null;
             tab = "home";
             render();
@@ -916,6 +924,13 @@ function bind() {
       }
     };
 }
+window.addEventListener("popstate", () => {
+  if (!navStatePushed) return;
+  navStatePushed = false;
+  selected = null;
+  tab = "home";
+  render();
+});
 app.innerHTML =
   '<div class="empty"><h1>تاجر</h1><p>جارٍ فتح دفترك…</p></div>';
 async function init() {

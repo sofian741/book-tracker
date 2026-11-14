@@ -7,7 +7,7 @@ async function launch(page) {
   await page.getByLabel("تحب نناديك بإيه؟ *").fill("مستخدم");
   await dialog.getByRole("button", { name: "حفظ", exact: true }).click();
 }
-async function addBook(page, { title = "كتاب تجريبي", parts = 1, selected = [1], total = 500, supplierReservation = false } = {}) {
+async function addBook(page, { title = "كتاب تجريبي", parts = 1, selected = [1], total = 500, extra = 0, supplierReservation = false } = {}) {
   await page.getByRole("button", { name: "+ إضافة كتاب" }).click();
   await page.getByLabel("اسم الكتاب *").fill(title);
   await page.getByLabel("عدد أجزاء الكتاب بالكامل *").fill(String(parts));
@@ -18,6 +18,10 @@ async function addBook(page, { title = "كتاب تجريبي", parts = 1, selec
     }
   }
   await page.getByLabel("إجمالي سعر الشراء لكل الأجزاء (ج) *").fill(String(total));
+  if (extra) {
+    await page.locator("#modal summary").filter({ hasText: "تفاصيل شراء إضافية" }).click();
+    await page.getByLabel("مصاريف الشراء الإضافية لكل الدفعة (ج)").fill(String(extra));
+  }
   if (supplierReservation) {
     await page.getByLabel("إضافة كمحجوز من المورد").check();
     await page.getByLabel("اسم المورد أو الشخص *").fill("مورد الكتب");
@@ -50,7 +54,7 @@ test("first launch profile is saved and editable from settings", async ({ page }
 });
 test("single-volume purchase and actual sale keep exact profit and backup works", async ({ page }) => {
   await launch(page);
-  await addBook(page, { total: 500 });
+  await addBook(page, { total: 500, extra: 50 });
   await page.getByRole("button", { name: "تسجيل بيع", exact: true }).click();
   await page.getByLabel("إجمالي سعر البيع لكل النسخ المحددة (ج) *").fill("750");
   await page.locator("#modal summary").filter({ hasText: "تفاصيل إضافية" }).click();
@@ -75,7 +79,7 @@ test("customer reservation holds stock without revenue until confirmed", async (
   await launch(page);
   await addBook(page, { total: 500 });
   await sellSingle(page, { total: 750, reserve: true });
-  await expect(page.locator("main")).toContainText("لا توجد أجزاء متاحة");
+  await expect(page.locator("main")).toContainText("0 قطعة متاحة");
   await page.getByRole("button", { name: "المحجوزات", exact: true }).click();
   await expect(page.locator("main")).toContainText("عميل تجريبي");
   await expect(page.locator("main")).toContainText("صافي الربح المتوقع");

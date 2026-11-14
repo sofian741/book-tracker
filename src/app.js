@@ -443,7 +443,76 @@ function batch(bookId, batchId) {
   previewPurchase(d, book);
   if (!old) setupPurchaseParts(d, book);
 }
+function sellNew(bookId) {
+
+  const b = state.books.find((x) => x.id === bookId);
+  const available = M.availableParts(state, b.id);
+  const isSingle = b.partsTotal === 1;
+  const defaultQty = available.reduce((n,x) => n+x.qty,0);
+  const selection = isSingle
+    ? '<input type="hidden" name="parts" value="1">' + field("عدد النسخ المباعة *", "singleQty", 1, "number", true)
+    : '<input type="hidden" name="parts" value=""><section class="part-entry"><p class="hint">الافتراضي بيع الكتاب كاملًا. تقدر تلغي التحديد وتختار أجزاء معينة.</p><div id="sale-parts" class="parts-grid interactive-parts"></div><div class="selection-tools"><button type="button" data-sale-full>بيع الكتاب كاملًا</button><button type="button" data-sale-clear>بيع أجزاء محددة</button></div></section>';
+  const html = '<p>' + esc(b.title) + '</p>' + selection +
+    field("إجمالي سعر البيع لكل النسخ المحددة (ج) *", "totalPrice", b.suggested ? (b.suggested * defaultQty) / 100 : "", "text", true) +
+    '<p class="hint">السعر الإجمالي بيتوزع تلقائيًا على النسخ المختارة، مع الحفاظ على إجمالي المبلغ بدون كسور ضائعة.</p>' +
+    field("تاريخ البيع أو الحجز *", "date", M.today(), "date", true) +
+    '<label class="check-line"><input type="checkbox" name="reserveSale" id="reserveSale"> إضافة كمحجوز للعميل</label>' +
+    '<details id="customer-details"><summary>بيانات العميل والحجز</summary>' +
+    field("اسم العميل *", "customerName") + field("رقم هاتف العميل", "customerPhone") +
+    field("تاريخ الحجز *", "customerDate", M.today(), "date", true) + '</details>' +
+    '<details><summary>تفاصيل إضافية</summary>' +
+    field("مصاريف البيع (ج)", "expenses", 0) + field("شحن يتحمله البائع (ج)", "shipping", 0) +
+    field("ملاحظة", "note") + '</details><p id="preview" class="preview"></p>';
+  const build = (f) => {
+    let parts = parseParts(f.get("parts"), b.partsTotal);
+    if (isSingle) {
+      const qty = int(f.get("singleQty"));
+      if (qty > M.available(state,b.id,1)) throw Error("الكمية أكبر من المخزون المتاح");
+      parts = Array(qty).fill(1);
+    }
+    if (!parts.length) throw Error("اختار جزءًا واحدًا على الأقل");
+    const total = amount(f,"totalPrice"), expenses = amount(f,"expenses"), shipping = amount(f,"shipping");
+    const base = Math.floor(total/parts.length); let rem = total%parts.length;
+    const ebase = Math.floor(expenses/parts.length); let erem=expenses%parts.length;
+    const sbase = Math.floor(shipping/parts.length); let srem=shipping%parts.length;
+    const transaction = M.id(), date = f.get("date"), note = String(f.get("note")||"").trim();
+    const items = parts.map((part) => ({part,qty:1,unit:base+(rem-->0?1:0)}));
+    const sales = items.map((item) => ({id:M.id(),transaction,book:b.id,part:item.part,qty:1,unit:item.unit,
+      expenses:ebase+(erem-->0?1:0),shipping:sbase+(srem-->0?1:0),date,note}));
+    const n = structuredClone(state);
+    for (const sale of sales) M.addSale(n,sale);
+    M.validate(n);
+    return {n,sales,items,total};
+  };
+  const d = modal("تسجيل بيع",html,async(f) => {
+    const result = build(f);
+    if (f.get("reserveSale")) {
+      const name = String(f.get("customerName")||"").trim();
+      if (!name) throw Error("اكتب اسم العميل");
+      const reservation = {id:M.id(),type:"customer",status:"active",book:b.id,items:result.items,total:result.total,
+        name,phone:String(f.get("customerPhone")||"").trim(),date:f.get("customerDate")||M.today(),
+        expenses:amount(f,"expenses"),shipping:amount(f,"shipping"),note:String(f.get("note")||"").trim()};
+      const n=structuredClone(state); n.reservations.push(reservation);
+      await commit(n,"تم حجز الكمية للعميل دون تسجيل بيع أو ربح محقق");
+    } else await commit(result.n,"تم تسجيل البيع وخصم المخزون وحساب الربح");
+  });
+  if (!isSingle) setupSaleParts(d,b);
+  const check=d.querySelector("#reserveSale");
+  check.onchange=()=>{d.querySelector("#customer-details").open=check.checked;};
+  d.oninput=()=>{
+    const p=d.querySelector("#preview");
+    try {
+      const f=new FormData(d.querySelector("form"));
+      const result=build(f);
+      const profit=result.sales.reduce((n,x)=>n+M.profit(x),0);
+      p.textContent=(f.get("reserveSale")?"الربح المتوقع عند التأكيد: ":"صافي الربح: ")+cash(profit)+" · الإجمالي: "+cash(result.total);
+    } catch(e) {p.textContent=errorMessage(e);}
+  };
+  d.oninput();
+
+}
 function sell(bookId, saleId) {
+  if (!saleId) return sellNew(bookId);
   const old = state.sales.find((x) => x.id === saleId),
     b = state.books.find((x) => x.id === (old?.book || bookId));
   const selection = old

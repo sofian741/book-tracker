@@ -193,3 +193,17 @@ test("manual prices for selected purchase parts redistribute the remaining total
   await expect(page.locator("main .row").nth(1)).toContainText("150 ج");
   await expect(page.locator("main .row").first()).toContainText("100 ج");
 });
+
+test("manual sale prices set the aggregate total automatically when every selected part is priced", async ({ page }) => {
+  await launch(page);
+  await addBook(page, { title: "كتاب البيع المخصص", parts: 2, selected: [1,2], total: 200 });
+  await page.getByRole("button", { name: "تسجيل بيع", exact: true }).click();
+  await page.locator("#modal summary").filter({ hasText: "المزيد: تخصيص سعر جزء" }).click();
+  await page.locator("#group-sale-price").fill("150");
+  await page.getByRole("button", { name: "تطبيق السعر على المحدد" }).click();
+  await expect(page.getByLabel("إجمالي سعر البيع لكل النسخ المحددة (ج) *")).toHaveValue("300");
+  await expect(page.getByLabel("إجمالي سعر البيع لكل النسخ المحددة (ج) *")).toBeDisabled();
+  await page.getByRole("button", { name: "حفظ", exact: true }).click();
+  await page.getByRole("button", { name: "الرئيسية", exact: true }).click();
+  await expect(page.locator(".stat")).toContainText("300");
+});

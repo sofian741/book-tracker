@@ -53,6 +53,13 @@ export function reserved(s, book, part = null) {
 export function available(s, book, part = null) {
   return physicalAvailable(s, book, part) - reserved(s, book, part);
 }
+export function stockParts(s, book) {
+  const b = s.books.find((x) => x.id === book);
+  if (!b) return [];
+  return Array.from({ length: b.partsTotal }, (_, i) => i + 1)
+    .map((part) => ({ part, qty: physicalAvailable(s, book, part), reserved: reserved(s, book, part) }))
+    .filter((x) => x.qty > 0);
+}
 export function availableParts(s, book) {
   const b = s.books.find((x) => x.id === book);
   if (!b) return [];

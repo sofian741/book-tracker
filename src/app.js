@@ -415,7 +415,6 @@ function previewPurchase(d, book = null) {
 }
 function setupPurchaseParts(d, book = null) {
   const form = d.querySelector("form"),
-    input = d.querySelector("#part-entry-input"),
     section = d.querySelector(".part-entry"),
     grid = d.querySelector("#purchase-parts"),
     partsField = form.elements.parts,
@@ -434,7 +433,7 @@ function setupPurchaseParts(d, book = null) {
       const qty=quantities.get(part)||0;
       return '<div class="part-entry-chip ' + (qty ? "active" : "") + '"><label class="part-checkbox"><input type="checkbox" data-toggle-part="' + part + '" ' + (qty ? "checked" : "") + '><span>الجزء ' + num(part) + '</span><small>' + (qty ? num(qty) + (qty===1 ? " نسخة" : " نسخ") : "غير محدد") + '</small></label>' +
         (qty ? '<div class="part-quantity"><button type="button" data-purchase-qty="' + part + '" data-delta="-1" aria-label="تقليل النسخ">−</button><span>' + num(qty) + '</span><button type="button" data-purchase-qty="' + part + '" data-delta="1" aria-label="زيادة النسخ">+</button></div>' : '') +
-        '<button type="button" class="price-select ' + (selected.has(part) ? "selected" : "") + '" data-purchase-part="' + part + '" ' + (qty ? "" : "disabled") + '>سعر خاص</button></div>';
+        '<button type="button" class="price-select ' + (selected.has(part) ? "selected" : "") + '" data-purchase-part="' + part + '" ' + (qty ? "" : "disabled") + '>تحديد سعر خاص</button></div>';
     }).join("");
     const allManual = quantities.size > 0 && [...quantities.keys()].every((part) => prices.has(part));
     const totalInput = form.elements.purchaseTotal;
@@ -457,16 +456,6 @@ function setupPurchaseParts(d, book = null) {
     if (singleQty) singleQty.closest("label").hidden = current !== 1;
     sync();
   };
-  const add = () => {
-    const part = Number(input.value);
-    if (!Number.isSafeInteger(part) || part < 1 || part > total()) {
-      toast("رقم الجزء لازم يكون من 1 إلى " + num(total())); input.focus(); return;
-    }
-    quantities.set(part, (quantities.get(part) || 0) + 1);
-    selected.add(part); input.value = ""; sync(); input.focus();
-  };
-  input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); add(); } });
-  d.querySelector("[data-add-part]").onclick = add;
   grid.onchange = (e) => {
     const checkbox=e.target.closest("[data-toggle-part]");
     if(!checkbox)return;

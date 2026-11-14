@@ -359,13 +359,13 @@ function purchaseBatches(f, bookId, book, old = null) {
   const manualTotal = [...counts].reduce((n, [part,qty]) => n + (prices[part] ?? 0) * qty, 0);
   const autoQty = parts.length - manualQty;
   if (manualTotal > total || (!autoQty && manualTotal !== total)) throw Error("إجمالي الأسعار المخصصة لا يطابق إجمالي الشراء");
-  const restTotal = total - manualTotal, base = autoQty ? Math.floor(restTotal / autoQty) : 0;
-  let priceRemainder = autoQty ? restTotal % autoQty : 0;
-  const extraBase = Math.floor(extra / parts.length); let extraRemainder = extra % parts.length;
+  const restPounds = (total - manualTotal) / 100, base = autoQty ? Math.floor(restPounds / autoQty) : 0;
+  let priceRemainder = autoQty ? restPounds % autoQty : 0;
+  const extraPounds = extra / 100, extraBase = Math.floor(extraPounds / parts.length); let extraRemainder = extraPounds % parts.length;
   const result = [];
   for (const [part, qty] of counts) for (let i = 0; i < qty; i++) {
-    const unit = prices[part] ?? (base + (priceRemainder-- > 0 ? 1 : 0));
-    const copyExtra = extraBase + (extraRemainder-- > 0 ? 1 : 0);
+    const unit = prices[part] ?? ((base + (priceRemainder-- > 0 ? 1 : 0)) * 100);
+    const copyExtra = (extraBase + (extraRemainder-- > 0 ? 1 : 0)) * 100;
     result.push({ id: M.id(), book: bookId, part, qty: 1, unit, date, extra: copyExtra });
   }
   return result;
@@ -555,7 +555,7 @@ function sellNew(bookId) {
     }
     if (!parts.length) throw Error("اختار جزءًا واحدًا على الأقل");
     const total = amount(f,"totalPrice"), expenses = amount(f,"expenses"), shipping = amount(f,"shipping");
-    if (total < parts.length) throw Error("إجمالي البيع أقل من الحد الأدنى لتوزيعه على النسخ");
+    if (total / 100 < parts.length) throw Error("إجمالي البيع بالجنيه أقل من عدد النسخ المحددة");
     let manual = {};
     if (!isSingle) {
       try { manual = JSON.parse(f.get("salePartPrices") || "{}"); } catch { throw Error("تعذر قراءة أسعار البيع المخصصة"); }
@@ -565,14 +565,14 @@ function sellNew(bookId) {
     const manualQty = [...counts].filter(([part]) => manual[part] !== undefined).reduce((n,[,qty])=>n+qty,0);
     const autoQty = parts.length-manualQty;
     if (manualTotal > total || (!autoQty && manualTotal !== total)) throw Error("إجمالي الأسعار الخاصة لا يطابق إجمالي البيع");
-    const remaining = total-manualTotal;
-    const base = autoQty ? Math.floor(remaining/autoQty) : 0; let rem = autoQty ? remaining%autoQty : 0;
-    const ebase = Math.floor(expenses/parts.length); let erem=expenses%parts.length;
-    const sbase = Math.floor(shipping/parts.length); let srem=shipping%parts.length;
+    const remainingPounds = (total-manualTotal)/100;
+    const base = autoQty ? Math.floor(remainingPounds/autoQty) : 0; let rem = autoQty ? remainingPounds%autoQty : 0;
+    const ebase = Math.floor((expenses/100)/parts.length); let erem=(expenses/100)%parts.length;
+    const sbase = Math.floor((shipping/100)/parts.length); let srem=(shipping/100)%parts.length;
     const transaction = M.id(), date = f.get("date"), note = String(f.get("note")||"").trim();
-    const items = parts.map((part) => ({part,qty:1,unit:manual[part] ?? (base+(rem-->0?1:0))}));
+    const items = parts.map((part) => ({part,qty:1,unit:manual[part] ?? ((base+(rem-->0?1:0))*100)}));
     const sales = items.map((item) => ({id:M.id(),transaction,book:b.id,part:item.part,qty:1,unit:item.unit,
-      expenses:ebase+(erem-->0?1:0),shipping:sbase+(srem-->0?1:0),date,note}));
+      expenses:(ebase+(erem-->0?1:0))*100,shipping:(sbase+(srem-->0?1:0))*100,date,note}));
     const n = structuredClone(state);
     for (const sale of sales) M.addSale(n,sale);
     M.validate(n);

@@ -213,12 +213,12 @@ export function validate(s) {
     date(r.date); integer(r.total); integer(r.expenses || 0); integer(r.shipping || 0);
     if (!Array.isArray(r.items) || !r.items.length || r.items.length > 1000) throw Error("أجزاء الحجز غير صالحة");
     for (const item of r.items) {
-      integer(item.part, 1); integer(item.qty, 1); integer(item.unit);
+      integer(item.part, 1); integer(item.qty, 1); integer(item.unit); integer(item.extra || 0);
       if (item.part > s.books.find((b) => b.id === r.book).partsTotal) throw Error("رقم جزء الحجز غير صالح");
     }
     const sum = r.items.reduce((n, item) => n + item.qty * item.unit, 0);
     if (r.type === "customer" && sum !== r.total) throw Error("إجمالي حجز العميل غير متطابق");
-    if (r.type === "supplier" && r.total < 0) throw Error("إجمالي حجز المورد غير صالح");
+    if (r.type === "supplier" && r.items.reduce((n, item) => n + item.qty * item.unit + (item.extra || 0), 0) !== r.total) throw Error("إجمالي حجز المورد غير متطابق");
   }
   const reservedByPart = new Map();
   for (const r of s.reservations.filter((x) => x.type === "customer" && x.status === "active"))

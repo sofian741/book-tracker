@@ -451,6 +451,7 @@ function setupPurchaseParts(d, book = null) {
     } else if (current > 1 && lastTotal === 1 && autoSingle) {
       quantities.delete(1); prices.delete(1); selected.delete(1); autoSingle = false;
     }
+    for (const part of [...quantities.keys()]) if (part > current) { quantities.delete(part); prices.delete(part); selected.delete(part); }
     lastTotal = current;
     section.hidden = current === 1;
     if (singleQty) singleQty.closest("label").hidden = current !== 1;

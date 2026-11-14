@@ -7,10 +7,11 @@ async function launch(page) {
   await page.getByLabel("تحب نناديك بإيه؟ *").fill("مستخدم");
   await dialog.getByRole("button", { name: "حفظ", exact: true }).click();
 }
-async function addBook(page, { title = "كتاب تجريبي", parts = 1, selected = [1], total = 500, extra = 0, supplierReservation = false } = {}) {
+async function addBook(page, { title = "كتاب تجريبي", parts = 1, selected = [1], quantity = 1, total = 500, extra = 0, supplierReservation = false } = {}) {
   await page.getByRole("button", { name: "+ إضافة كتاب" }).click();
   await page.getByLabel("اسم الكتاب *").fill(title);
   await page.getByLabel("عدد أجزاء أو مجلدات الكتاب بالكامل *").fill(String(parts));
+  if (parts === 1) await page.getByLabel("عدد النسخ (للكتاب ذي المجلد الواحد)").fill(String(quantity));
   if (parts > 1) {
     for (const part of selected) {
       await page.locator("#part-entry-input").fill(String(part));
@@ -153,7 +154,7 @@ test("small screens and offline use remain supported", async ({ page, context })
 
 test("whole-pound purchase total splits 100 across three copies as 34, 33 and 33", async ({ page }) => {
   await launch(page);
-  await addBook(page, { title: "كتاب التقسيم", parts: 2, selected: [1,1,1], total: 100 });
+  await addBook(page, { title: "كتاب التقسيم", parts: 1, quantity: 3, total: 100 });
   await page.getByRole("button", { name: "التفاصيل", exact: true }).click();
   const purchaseRows = page.locator("main .row");
   await expect(purchaseRows).toContainText("34 ج");

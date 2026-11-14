@@ -107,6 +107,16 @@ p { margin: 7px 0 16px; color: var(--muted); line-height: 1.9; font-size: .94rem
 .section-title span { color: var(--muted); font-size: .78rem; }
 
 .home-actions { margin: 22px 0 30px; }
+.workflow-guide {
+  margin: 22px 0 26px;
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.workflow-guide h2 { margin-bottom: 7px; font-size: 1.02rem; }
+.workflow-guide ol { margin: 0; padding: 0 23px 0 0; color: var(--muted); }
+.workflow-guide li { padding: 4px 0; line-height: 1.85; font-size: .88rem; }
+.book-context { color: var(--green); font-weight: 800; font-size: 1rem; }
 .quick-links { display: flex; flex-direction: column; }
 .quick-links button {
   width: 100%;

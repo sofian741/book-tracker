@@ -152,10 +152,10 @@ function detail() {
     const qty = owned.get(part) || 0;
     return '<span class="part-chip ' + (qty ? "owned" : "missing") + '"><b>الجزء ' + num(part) + '</b><small>' + (qty ? "متاح · " + num(qty) + (qty === 1 ? " نسخة" : " نسخ") : "غير موجود") + '</small></span>';
   }).join("");
-  return button("‹ العودة للكتب", "back", 'class="subtle"') +
+  return button("‹ الرئيسية", "back", 'class="subtle"') +
     '<h1>' + esc(b.title) + '</h1><p>' + esc(b.publisher) + ' · ' + num(b.partsTotal) + ' أجزاء إجمالًا' + '</p>' +
     (b.note ? '<p>' + esc(b.note) + '</p>' : "") +
-    '<div class="panel"><dl><dt>الأجزاء المتاحة</dt><dd>' + num(present.length) + ' من ' + num(b.partsTotal) + '</dd><dt>حالة المجموعة</dt><dd>' + (missing.length ? "غير مكتملة" : "مكتملة") + '</dd><dt>عدد القطع المتاحة</dt><dd>' + num(M.available(state, b.id)) + '</dd><dt>تكلفة المخزون المتبقي</dt><dd>' + cash(bookStock(b.id)) + '</dd><dt>' + (sales.reduce((n, x) => n + M.profit(x), 0) < 0 ? "الخسارة المحققة" : "صافي الربح المحقق") + '</dt><dd>' + cash(Math.abs(sales.reduce((n, x) => n + M.profit(x), 0))) + '</dd>' + (b.suggested ? '<dt>سعر البيع المقترح للجزء · ليس إيرادًا</dt><dd>' + cash(b.suggested) + '</dd>' : "") + '</dl></div>' +
+    '<div class="panel"><dl><dt>الأجزاء الموجودة عندي</dt><dd>' + num(present.length) + ' من ' + num(b.partsTotal) + '</dd><dt>حالة المجموعة</dt><dd>' + (missing.length ? "غير مكتملة" : "مكتملة") + '</dd><dt>عدد القطع المتاحة</dt><dd>' + num(M.available(state, b.id)) + '</dd><dt>تكلفة المخزون المتبقي</dt><dd>' + cash(bookStock(b.id)) + '</dd><dt>' + (sales.reduce((n, x) => n + M.profit(x), 0) < 0 ? "الخسارة المحققة" : "صافي الربح المحقق") + '</dt><dd>' + cash(Math.abs(sales.reduce((n, x) => n + M.profit(x), 0))) + '</dd>' + (b.suggested ? '<dt>سعر البيع المقترح للجزء · ليس إيرادًا</dt><dd>' + cash(b.suggested) + '</dd>' : "") + '</dl></div>' +
     '<h2>الأجزاء عندي</h2><div class="parts-grid">' + partRows + '</div>' +
     (missing.length ? '<p class="hint">الأجزاء الناقصة: ' + missing.map(num).join("، ") + ' من أصل ' + num(b.partsTotal) + '</p>' : '<p class="good-text">كل أجزاء الكتاب متوفرة عندك 🎉</p>') +
     '<div class="actions">' + (M.available(state, b.id) ? button("تسجيل بيع", "sell", 'data-id="' + b.id + '" class="primary"') : "") +
@@ -309,7 +309,7 @@ function purchaseFields(b = {}, editing = false, book = {}) {
     ? field("رقم الجزء", "part", b.part || 1, "number", true) + field("عدد النسخ من الجزء *", "qty", b.qty || 1, "number", true)
     : '<input type="hidden" name="parts" value=""><input type="hidden" name="partPrices" value="{}"><section class="part-entry"><label for="part-entry-input">اختار الأجزاء اللي اشتريتها</label><div class="part-entry-row"><input id="part-entry-input" type="number" min="1" max="' + (book.partsTotal || 1000) + '" inputmode="numeric" placeholder="رقم الجزء ثم Enter"><button type="button" data-add-part>إضافة جزء</button></div><p class="hint">لو عندك أكتر من نسخة من نفس الجزء، أضفه أكتر من مرة.</p><div id="purchase-parts" class="parts-grid interactive-parts"></div><div class="selection-tools"><button type="button" data-select-all>تحديد الكل</button><button type="button" data-clear-selection>إلغاء التحديد</button></div><details class="group-price"><summary>تخصيص سعر لبعض الأجزاء</summary><label>سعر النسخة للأجزاء المحددة (ج)<input id="group-part-price" inputmode="numeric" placeholder="سعر النسخة"></label><button type="button" data-apply-price>تطبيق السعر على المحدد</button><p class="hint">الإجمالي يتوزع تلقائيًا على باقي النسخ بعد خصم الأسعار المخصصة.</p></details></section>';
   const price = editing ? field("سعر شراء الجزء الواحد (ج) *", "unit", b.unit / 100, "text", true) : field("إجمالي سعر الشراء لكل الأجزاء (ج) *", "purchaseTotal", "", "text", true);
-  const reserve = editing ? "" : '<label class="check-line"><input type="checkbox" name="reservePurchase" id="reservePurchase"> إضافة كمحجوز من المورد</label><details id="supplier-details"><summary>بيانات المورد والحجز</summary>' + field("اسم المورد أو الشخص *", "supplierName") + field("رقم الهاتف", "supplierPhone") + field("تاريخ الحجز *", "supplierDate", M.today(), "date", true) + '</details>';
+  const reserve = editing ? "" : '<label class="check-line"><input type="checkbox" name="reservePurchase" id="reservePurchase"> إضافة كمحجوز من المورد</label><details id="supplier-details"><summary>بيانات المورد والحجز</summary>' + field("اسم المورد أو الشخص *", "supplierName") + field("رقم الهاتف", "supplierPhone") + field("تاريخ الحجز *", "supplierDate", M.today(), "date", false) + '</details>';
   return fields + price + field("تاريخ الشراء *", "date", b.date || M.today(), "date", true) + '<details><summary>تفاصيل شراء إضافية</summary>' + field("مصاريف الشراء الإضافية لكل الدفعة (ج)", "extra", (b.extra || 0) / 100) + '</details>' + reserve + '<p class="hint">' + (editing ? "تصحيح هذه الدفعة قد يعيد حساب تكلفة المبيعات." : "المبلغ الإجمالي هيتوزع بدقة على النسخ بدون فقد.") + '</p><p id="preview" class="preview"></p>';
 }, editing = false, book = {}) {
   const fields = editing
@@ -457,7 +457,7 @@ function setupPurchaseParts(d, book = null) {
       toast("تم تطبيق السعر على " + num(selected.size) + " جزء");
     } catch (e) { toast(errorMessage(e)); }
   };
-  if (total() === 1) { quantities.set(1, 1); selected.add(1); }
+  if (total() === 1) { quantities.set(1, 1); selected.add(1); d.querySelector(".part-entry").hidden = true; }
   const reserveCheck = form.querySelector("#reservePurchase");
   if (reserveCheck) reserveCheck.onchange = () => { form.querySelector("#supplier-details").open = reserveCheck.checked; };
   sync();
@@ -553,6 +553,7 @@ function sellNew(bookId) {
     }
     if (!parts.length) throw Error("اختار جزءًا واحدًا على الأقل");
     const total = amount(f,"totalPrice"), expenses = amount(f,"expenses"), shipping = amount(f,"shipping");
+    if (total < parts.length) throw Error("إجمالي البيع أقل من الحد الأدنى لتوزيعه على النسخ");
     const base = Math.floor(total/parts.length); let rem = total%parts.length;
     const ebase = Math.floor(expenses/parts.length); let erem=expenses%parts.length;
     const sbase = Math.floor(shipping/parts.length); let srem=shipping%parts.length;

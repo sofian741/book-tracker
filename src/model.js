@@ -1,4 +1,4 @@
-export const empty = () => ({ version: 2, books: [], batches: [], sales: [] });
+export const empty = () => ({ version: 2, books: [], batches: [], sales: [], profile: { name: "" } });
 export const today = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -129,6 +129,8 @@ export function validate(s) {
     )
   )
     throw Error("ملف النسخة غير صالح أو إصداره غير مدعوم");
+  if (s.profile !== undefined && (!s.profile || typeof s.profile !== "object" || typeof s.profile.name !== "string" || s.profile.name.length > 80))
+    throw Error("بيانات الملف الشخصي غير صالحة");
   const ids = new Set();
   for (const x of [...s.books, ...s.batches, ...s.sales]) {
     text(x.id, 100);
@@ -202,7 +204,11 @@ export function validate(s) {
 export function migrate(s) {
   if (!s || ![1, 2].includes(s.version))
     throw Error("ملف النسخة غير صالح أو إصداره غير مدعوم");
-  if (s.version === 2) return validate(s);
+  if (s.version === 2) {
+    if (!s.profile || typeof s.profile !== "object") s.profile = { name: "" };
+    if (typeof s.profile.name !== "string") s.profile.name = "";
+    return validate(s);
+  }
   const next = structuredClone(s);
   next.version = 2;
   for (const b of next.books) b.partsTotal = 1;

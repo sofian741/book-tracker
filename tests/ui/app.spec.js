@@ -23,10 +23,11 @@ async function addBook(page, { title = "كتاب تجريبي", parts = 1, selec
     }
   }
   await page.getByLabel("إجمالي سعر الشراء لكل الأجزاء (ج) *").fill(String(total));
-  await expect(page.locator("#preview")).toContainText("إجمالي الشراء: " + (total + extra) + " ج");
+  await expect(page.locator("#preview")).toContainText("إجمالي الشراء: " + total + " ج");
   if (extra) {
     await page.locator("#modal summary").filter({ hasText: "تفاصيل شراء إضافية" }).click();
     await page.getByLabel("مصاريف الشراء الإضافية لكل الدفعة (ج)").fill(String(extra));
+    await expect(page.locator("#preview")).toContainText("إجمالي الشراء: " + (total + extra) + " ج");
   }
   if (supplierReservation) {
     await page.getByLabel("إضافة كمحجوز من المورد").check();

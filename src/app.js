@@ -758,22 +758,23 @@ function setupSaleParts(d, book, fullSets = 0) {
     hidden.value = [...selected.entries()].flatMap(([part, qty]) => Array(qty).fill(part)).join(",");
     grid.innerHTML = [...available.entries()].sort((a,b)=>a[0]-b[0]).map(([part, stock]) => {
       const qty = selected.get(part) || 0;
-      return '<div class="sale-part-card ' + (qty ? "selected" : "") + '"><button type="button" class="sale-part-main" aria-pressed="' + Boolean(qty) + '" data-sale-part="' + part + '"><b>الجزء ' + num(part) + '</b><small>متاح للبيع: ' + num(stock) + '</small><strong>' + (qty ? "محدد · " + num(qty) : "اضغط للاختيار") + '</strong></button>' +
-        (qty ? '<div class="part-quantity"><button type="button" data-sale-qty="' + part + '" data-delta="-1" aria-label="تقليل">−</button><span>' + num(qty) + '</span><button type="button" data-sale-qty="' + part + '" data-delta="1" aria-label="زيادة" ' + (qty >= stock ? "disabled" : "") + '>+</button></div>' : "") + '</div>';
+      return '<div class="sale-part-card ' + (qty ? "selected" : "") + '"><label class="sale-part-main"><input type="checkbox" data-sale-part="' + part + '" ' + (qty ? "checked" : "") + '><span><b>الجزء ' + num(part) + '</b><small>متاح للبيع: ' + num(stock) + '</small></span></label>' +
+        (qty ? '<div class="part-quantity"><button type="button" data-sale-qty="' + part + '" data-delta="-1" aria-label="تقليل">−</button><span>' + num(qty) + '</span><button type="button" data-sale-qty="' + part + '" data-delta="1" aria-label="زيادة" ' + (qty >= stock ? "disabled" : "") + '>+</button></div>' : '') + '</div>';
     }).join("");
+  };
+  grid.onchange = (e) => {
+    const checkbox=e.target.closest("[data-sale-part]");
+    if(!checkbox)return;
+    const part=Number(checkbox.dataset.salePart);
+    if(checkbox.checked)selected.set(part,1);else selected.delete(part);
+    sync(); d.oninput();
   };
   grid.onclick = (e) => {
     const adjust = e.target.closest("[data-sale-qty]");
-    if (adjust) {
-      const part = Number(adjust.dataset.saleQty), next = (selected.get(part) || 0) + Number(adjust.dataset.delta);
-      if (next <= 0) selected.delete(part);
-      else if (next <= available.get(part)) selected.set(part, next);
-      sync(); d.oninput(); return;
-    }
-    const tile = e.target.closest("[data-sale-part]");
-    if (!tile) return;
-    const part = Number(tile.dataset.salePart);
-    if (selected.has(part)) selected.delete(part); else selected.set(part, 1);
+    if (!adjust) return;
+    const part = Number(adjust.dataset.saleQty), next = (selected.get(part) || 0) + Number(adjust.dataset.delta);
+    if (next <= 0) selected.delete(part);
+    else if (next <= available.get(part)) selected.set(part, next);
     sync(); d.oninput();
   };
   const full = d.querySelector("[data-sale-full]");

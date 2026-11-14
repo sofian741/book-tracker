@@ -294,6 +294,7 @@ function modal(title, html, submit) {
     }
   };
   d.showModal();
+  d.querySelectorAll("input").forEach((input) => input.addEventListener("input", () => { input.dataset.dirty = "1"; }));
   d.querySelectorAll('input[type="number"], input[inputmode="numeric"]').forEach((input) => input.addEventListener("focus", () => input.select(), { once: true }));
   return d;
 }

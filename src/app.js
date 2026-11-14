@@ -430,9 +430,12 @@ function setupPurchaseParts(d, book = null) {
     const parts = total() === 1 ? Array(Math.max(1, Number(singleQty?.value) || 1)).fill(1) : [...quantities.entries()].flatMap(([part, qty]) => Array(qty).fill(part));
     partsField.value = parts.join(",");
     pricesField.value = JSON.stringify(Object.fromEntries(prices));
-    grid.innerHTML = parts.length ? [...quantities.entries()].sort((a,b)=>a[0]-b[0]).map(([part,qty]) =>
-      '<div class="part-entry-chip"><button type="button" class="part-pick ' + (selected.has(part) ? "selected" : "") + '" aria-pressed="' + selected.has(part) + '" data-purchase-part="' + part + '"><b>الجزء ' + num(part) + '</b><small>' + num(qty) + (qty === 1 ? " نسخة" : " نسخ") + '</small><small>' + (prices.has(part) ? "سعر خاص: " + cash(prices.get(part)) : "سعر تلقائي") + '</small></button><button type="button" class="remove-part" data-remove-part="' + part + '" aria-label="إزالة الجزء">×</button></div>'
-    ).join("") : '<p class="hint">لسه مضافش أجزاء.</p>';
+    grid.innerHTML = Array.from({length:total()},(_,i)=>i+1).map((part) => {
+      const qty=quantities.get(part)||0;
+      return '<div class="part-entry-chip ' + (qty ? "active" : "") + '"><label class="part-checkbox"><input type="checkbox" data-toggle-part="' + part + '" ' + (qty ? "checked" : "") + '><span>الجزء ' + num(part) + '</span><small>' + (qty ? num(qty) + (qty===1 ? " نسخة" : " نسخ") : "غير محدد") + '</small></label>' +
+        (qty ? '<div class="part-quantity"><button type="button" data-purchase-qty="' + part + '" data-delta="-1" aria-label="تقليل النسخ">−</button><span>' + num(qty) + '</span><button type="button" data-purchase-qty="' + part + '" data-delta="1" aria-label="زيادة النسخ">+</button></div>' : '') +
+        '<button type="button" class="price-select ' + (selected.has(part) ? "selected" : "") + '" data-purchase-part="' + part + '" ' + (qty ? "" : "disabled") + '>سعر خاص</button></div>';
+    }).join("");
     const allManual = quantities.size > 0 && [...quantities.keys()].every((part) => prices.has(part));
     const totalInput = form.elements.purchaseTotal;
     if (totalInput) {
@@ -464,17 +467,28 @@ function setupPurchaseParts(d, book = null) {
   };
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); add(); } });
   d.querySelector("[data-add-part]").onclick = add;
-  grid.onclick = (e) => {
-    const remove = e.target.closest("[data-remove-part]");
-    if (remove) {
-      const part = Number(remove.dataset.removePart);
-      quantities.delete(part); prices.delete(part); selected.delete(part); sync(); return;
-    }
-    const tile = e.target.closest("[data-purchase-part]");
-    if (!tile) return;
-    const part = Number(tile.dataset.purchasePart);
-    if (selected.has(part)) selected.delete(part); else selected.add(part);
+  grid.onchange = (e) => {
+    const checkbox=e.target.closest("[data-toggle-part]");
+    if(!checkbox)return;
+    const part=Number(checkbox.dataset.togglePart);
+    if(checkbox.checked){quantities.set(part,Math.max(1,quantities.get(part)||1));selected.add(part);}
+    else{quantities.delete(part);selected.delete(part);prices.delete(part);}
     sync();
+  };
+  grid.onclick = (e) => {
+    const adjust=e.target.closest("[data-purchase-qty]");
+    if(adjust){
+      const part=Number(adjust.dataset.purchaseQty), next=(quantities.get(part)||0)+Number(adjust.dataset.delta);
+      if(next<=0){quantities.delete(part);selected.delete(part);prices.delete(part);}
+      else quantities.set(part,next);
+      sync(); return;
+    }
+    const pricePart=e.target.closest("[data-purchase-part]");
+    if(pricePart){
+      const part=Number(pricePart.dataset.purchasePart);
+      if(selected.has(part))selected.delete(part);else selected.add(part);
+      sync();
+    }
   };
   d.querySelector("[data-select-all]").onclick = () => { quantities.forEach((_,part)=>selected.add(part)); sync(); };
   d.querySelector("[data-clear-selection]").onclick = () => { selected.clear(); sync(); };

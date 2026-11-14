@@ -217,10 +217,11 @@ export function validate(s) {
       throw Error("نوع أو حالة حجز غير صالحة");
     if (!books.has(r.book)) throw Error("كتاب الحجز غير موجود");
     text(r.name, 200); text(r.phone, 50); text(r.note);
-    date(r.date); integer(r.total); integer(r.expenses || 0); integer(r.shipping || 0);
+    if (!r.name.trim()) throw Error("اسم صاحب الحجز مطلوب");
+    date(r.date); integer(r.total, r.type === "customer" ? 1 : 0); integer(r.expenses || 0); integer(r.shipping || 0);
     if (!Array.isArray(r.items) || !r.items.length || r.items.length > 1000) throw Error("أجزاء الحجز غير صالحة");
     for (const item of r.items) {
-      integer(item.part, 1); integer(item.qty, 1); integer(item.unit); integer(item.extra || 0);
+      integer(item.part, 1); integer(item.qty, 1); integer(item.unit, r.type === "customer" ? 1 : 0); integer(item.extra || 0);
       if (item.part > s.books.find((b) => b.id === r.book).partsTotal) throw Error("رقم جزء الحجز غير صالح");
     }
     const sum = r.items.reduce((n, item) => n + item.qty * item.unit, 0);

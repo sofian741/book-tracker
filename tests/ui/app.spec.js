@@ -160,3 +160,14 @@ test("whole-pound purchase total splits 100 across three copies as 34, 33 and 33
   await expect(purchaseRows).toContainText("33 ج");
   await expect(page.locator("main")).toContainText("3 نسخ");
 });
+
+test("full-book sale only sells complete sets when part quantities differ", async ({ page }) => {
+  await launch(page);
+  await addBook(page, { title: "مجموعة من جزأين", parts: 2, selected: [1,1,2], total: 300 });
+  await page.getByRole("button", { name: "تسجيل بيع", exact: true }).click();
+  await expect(page.locator('[name="parts"]')).toHaveValue("1,2");
+  await page.getByLabel("إجمالي سعر البيع لكل النسخ المحددة (ج) *").fill("200");
+  await page.getByRole("button", { name: "حفظ", exact: true }).click();
+  await page.getByRole("button", { name: "النواقص", exact: true }).click();
+  await expect(page.locator("main")).toContainText("الأجزاء الناقصة: 2");
+});

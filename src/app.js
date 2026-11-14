@@ -301,7 +301,7 @@ function modal(title, html, submit) {
 const int = (v) => M.integer(Number(v), 1);
 const amount = (f, key) => {
   const raw = String(f.get(key) || "0").trim();
-  if (!/^[0-9٠-٩۰-۹]+$/.test(raw)) throw Error("اكتب المبلغ بالجنيه كرقم صحيح بدون كسور");
+  if (!/^[0-9]+$/.test(raw)) throw Error("اكتب المبلغ بالجنيه كرقم صحيح بدون كسور");
   return M.money(raw);
 };
 const amountOrOriginal = (f, key, original) => {

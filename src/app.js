@@ -165,12 +165,13 @@ function detail() {
     '<h2>سجل المبيعات</h2>' + saleList(sales);
 }
 function shortages() {
-  const incomplete = state.books.filter((b) => M.stockParts(state, b.id).length < b.partsTotal);
-  return `<div class="heading"><p class="eyebrow">تابع مجموعاتك</p><h1>النواقص</h1><p>الكتب اللي لسه مش كل أجزائها موجودة عندك.</p></div>${incomplete.length ? incomplete.map((b) => {
-    const owned = M.stockParts(state, b.id), have = new Set(owned.map((x) => x.part));
-    const missing = Array.from({length:b.partsTotal},(_,i)=>i+1).filter((part)=>!have.has(part));
-    return `<article class="book"><div class="book-title"><span class="book-mark">${icon("books")}</span><span><strong>${esc(b.title)}</strong><small>${esc(b.publisher || "بدون دار نشر")}</small></span></div><div class="book-info"><span class="badge muted">${num(missing.length)} أجزاء ناقصة</span><span>معايا ${num(owned.length)} من ${num(b.partsTotal)}</span></div><p class="hint">الأجزاء الناقصة: ${missing.map(num).join("، ")}</p><div class="actions">${button("إضافة", "batch", `data-id="${b.id}" class="primary"`)}${button("تفاصيل", "detail", `data-id="${b.id}" class="subtle"`)}</div></article>`;
-  }).join("") : `<div class="empty"><h2>مفيش نواقص 🎉</h2><p>كل الكتب عندك مكتملة حاليًا.</p></div>`}`;
+  const incomplete = state.books.filter((b) => M.stockParts(state,b.id).length < b.partsTotal && (b.title + " " + b.publisher).toLowerCase().includes(query.toLowerCase()));
+  return '<div class="heading"><p class="eyebrow">تابع مجموعاتك</p><h1>النواقص</h1><p>الكتب اللي لسه مش كل أجزائها موجودة عندك.</p></div><label class="search">بحث بالعنوان أو دار النشر<input id="search" type="search" placeholder="ابحث عن كتاب ناقص…" value="' + esc(query) + '"></label>' +
+    (incomplete.length ? incomplete.map((b) => {
+      const owned=M.stockParts(state,b.id), have=new Set(owned.map((x)=>x.part));
+      const missing=Array.from({length:b.partsTotal},(_,i)=>i+1).filter((part)=>!have.has(part));
+      return '<article class="book"><button class="book-title" data-book="' + b.id + '"><span class="book-mark">' + icon("books") + '</span><span><strong>' + esc(b.title) + '</strong><small>' + esc(b.publisher || "بدون دار نشر") + '</small></span></button><div class="book-info"><span class="badge muted">' + num(missing.length) + ' أجزاء ناقصة</span><span>معايا ' + num(owned.length) + ' من ' + num(b.partsTotal) + '</span></div><p class="hint">الأجزاء الناقصة: ' + missing.map(num).join("، ") + '</p><div class="actions">' + button("إضافة الأجزاء", "batch", 'data-id="' + b.id + '" class="primary"') + button("تفاصيل", "detail", 'data-id="' + b.id + '" class="subtle"') + '</div></article>';
+    }).join("") : '<div class="empty"><h2>' + (state.books.length ? "مفيش نواقص 🎉" : "لسه مفيش كتب") + '</h2><p>كل الكتب مكتملة، أو أضف كتابك الأول.</p></div>');
 }
 function reservations() {
   const active = state.reservations.filter((r) => r.status === "active");

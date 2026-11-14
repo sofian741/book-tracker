@@ -173,7 +173,18 @@ function shortages() {
   }).join("") : `<div class="empty"><h2>مفيش نواقص 🎉</h2><p>كل الكتب عندك مكتملة حاليًا.</p></div>`}`;
 }
 function reservations() {
-  return `<div class="heading"><p class="eyebrow">تابع الاتفاقات قبل إتمامها</p><h1>المحجوزات</h1><p>هنفصل هنا حجوزات العملاء عن حجوزات الموردين.</p></div><section class="panel"><h2>حجوزات العملاء</h2><div class="empty compact"><p>مفيش حجوزات عملاء حاليًا.</p></div></section><section class="panel"><h2>حجوزات الموردين</h2><div class="empty compact"><p>مفيش حجوزات موردين حاليًا.</p></div></section><p class="hint">إدارة الحجوزات وربطها بالمخزون والحسابات هتتضاف في المرحلة التالية.</p>`;
+  const active = state.reservations.filter((r) => r.status === "active");
+  const history = state.reservations.filter((r) => r.status !== "active").slice().reverse();
+  const card = (r) => {
+    const b = state.books.find((x) => x.id === r.book);
+    const title = b?.title || "كتاب محذوف";
+    const parts = r.items.map((x) => "الجزء " + num(x.part) + (x.qty > 1 ? " × " + num(x.qty) : "")).join("، ");
+    return '<article class="book reservation-card"><button class="book-title" data-action="reservation-detail" data-id="' + r.id + '"><span class="book-mark">' + icon("reservations") + '</span><span><strong>' + esc(title) + '</strong><small>' + (r.type === "customer" ? "العميل: " : "المورد: ") + esc(r.name) + '</small></span></button><div class="book-info"><span class="badge muted">' + (r.type === "customer" ? "حجز عميل" : "حجز مورد") + '</span><strong>' + cash(r.total) + '</strong></div><p class="hint">' + esc(parts) + ' · ' + esc(r.date) + (r.phone ? ' · ' + esc(r.phone) : '') + '</p>' + (r.status === "active" ? '<div class="actions">' + button(r.type === "customer" ? "تأكيد البيع" : "تأكيد الاستلام", "confirm-reservation", 'data-id="' + r.id + '" class="primary"') + button("إلغاء الحجز", "cancel-reservation", 'data-id="' + r.id + '" class="danger subtle"') + '</div>' : '<p class="hint">' + (r.status === "confirmed" ? "تم التأكيد" : "تم الإلغاء") + '</p>') + '</article>';
+  };
+  return '<div class="heading"><p class="eyebrow">اتفاقاتك المفتوحة</p><h1>المحجوزات</h1><p>حجوزات العملاء لا تُحسب مبيعات إلا بعد التأكيد، وحجوزات الموردين لا تدخل المخزون إلا بعد الاستلام.</p></div><h2>حجوزات العملاء</h2>' +
+    (active.filter((r) => r.type === "customer").map(card).join("") || '<div class="empty compact"><p>مفيش حجوزات عملاء نشطة.</p></div>') +
+    '<h2>حجوزات الموردين</h2>' + (active.filter((r) => r.type === "supplier").map(card).join("") || '<div class="empty compact"><p>مفيش حجوزات موردين نشطة.</p></div>') +
+    '<details class="panel"><summary>سجل الحجوزات المكتملة والملغاة (' + num(history.length) + ')</summary>' + (history.map(card).join("") || '<p class="hint">السجل لسه فاضي.</p>') + '</details>';
 }
 function editProfile(firstRun = false) {
   const current = state.profile?.name || "";

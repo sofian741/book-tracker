@@ -403,7 +403,7 @@ function previewPurchase(d, book = null) {
       const f = new FormData(d.querySelector("form"));
       let qty, total;
       if (f.has("parts")) {
-        const batches = purchaseBatches(f, "preview", book || { partsTotal: 1 });
+        const batches = purchaseBatches(f, "preview", book || { partsTotal: int(f.get("partsTotal")) });
         qty = batches.reduce((n,b) => n+b.qty,0);
         total = batches.reduce((n,b) => n+b.unit*b.qty+b.extra,0);
       } else {

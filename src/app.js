@@ -691,15 +691,15 @@ function sell(bookId, saleId) {
   const selection = old
     ? field("رقم الجزء", "part", old.part, "number", true) + field("عدد النسخ المباعة *", "qty", old.qty, "number", true)
     : '<input type="hidden" name="parts" value=""><section class="part-entry"><p class="hint">اضغط على الأجزاء اللي هتبيعها. تقدر تختار جزء واحد أو كذا جزء أو تحدد الكل.</p><div id="sale-parts" class="parts-grid interactive-parts"></div><div class="selection-tools"><button type="button" data-sale-all>تحديد كل المتاح</button><button type="button" data-sale-clear>إلغاء التحديد</button></div></section>';
-  const html = '<p>' + esc(b.title) + '</p>' + selection +
-    (old ? '<p class="notice">تعديل سطر البيع ده فقط. باقي الأجزاء في نفس العملية مش هتتغير.</p>' : "") +
-    field("سعر بيع النسخة الواحدة (ج) *", "unit", old ? Math.round(old.unit / 100) : b.suggested ? Math.round(b.suggested / 100) : "", "text", true) +
-    '<p class="hint">' + (old ? "تقدر تصحح رقم الجزء والكمية." : "السعر ده هيتطبق على كل النسخ المختارة في العملية.") + '</p>' +
-    field("تاريخ البيع *", "date", old?.date || M.today(), "date", true) +
-    '<details><summary>مصاريف وتفاصيل إضافية</summary>' +
-    field("مصاريف البيع للعملية بالكامل (ج)", "expenses", Math.round((old?.expenses || 0) / 100)) +
-    field("شحن يتحمله البائع للعملية بالكامل (ج)", "shipping", Math.round((old?.shipping || 0) / 100)) +
-    field("ملاحظة قصيرة", "note", old?.note || "") + '</details><p id="preview" class="preview"></p>';
+  const html = formSection("01","الكتاب والكمية","راجع الجزء وعدد النسخ المرتبطة بعملية البيع.",'<p class="book-context">' + esc(b.title) + '</p>' + selection +
+      (old ? '<p class="notice">تعديل سطر البيع ده فقط. باقي الأجزاء في نفس العملية مش هتتغير.</p>' : "")) +
+    formSection("02","السعر والتاريخ","راجع سعر النسخة وتاريخ تسجيل البيع.",field("سعر بيع النسخة الواحدة (ج) *", "unit", old ? Math.round(old.unit / 100) : b.suggested ? Math.round(b.suggested / 100) : "", "text", true) +
+      field("تاريخ البيع *", "date", old?.date || M.today(), "date", true) +
+      '<details><summary>مصاريف وتفاصيل إضافية</summary>' +
+      field("مصاريف البيع للعملية بالكامل (ج)", "expenses", Math.round((old?.expenses || 0) / 100)) +
+      field("شحن يتحمله البائع للعملية بالكامل (ج)", "shipping", Math.round((old?.shipping || 0) / 100)) +
+      field("ملاحظة قصيرة", "note", old?.note || "") + '</details>') +
+    '<p id="preview" class="preview"></p>';
   const getNext = (f) => {
     const n = structuredClone(state),
       parts = old ? Array(int(f.get("qty"))).fill(int(f.get("part"))) : parseParts(f.get("parts"), b.partsTotal),

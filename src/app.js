@@ -36,7 +36,7 @@ const icon = (name) => {
   const paths = {
     home: "M3 10 12 3l9 7v11h-6v-7H9v7H3Z",
     books: "M3 4h7l2 2 2-2h7v16h-7l-2 2-2-2H3Z M12 6v16",
-    settings: "M4 6h16 M4 12h16 M4 18h16 M8 3v6 M16 9v6 M10 15v6",
+    settings: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM19 12a7 7 0 1 0-14 0 7 7 0 0 0 14 0Z",
   };
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"> <path d="${paths[name]}"/></svg>`;
 };
@@ -54,23 +54,14 @@ function bounds() {
 }
 function render() {
   if (!state) return;
-  app.innerHTML = `<header><div class="brand">${icon("books")}<div><strong>دفتر الكتب</strong><small>كل كتاب… وحسابه</small></div></div><span class="local">محفوظ على جهازك</span></header><main>${selected ? detail() : tab === "home" ? home() : tab === "books" ? books() : settings()}</main><nav aria-label="التنقل الرئيسي">${[
-    ["home", "الرئيسية"],
-    ["books", "الكتب"],
-    ["settings", "الإعدادات"],
-  ]
-    .map(
-      ([key, label]) =>
-        `<button data-tab="${key}" class="${tab === key && !selected ? "active" : ""}">${icon(key)}<span>${label}</span></button>`,
-    )
-    .join(
-      "",
-    )}</nav><div id="toast" role="status"></div><dialog id="modal"></dialog>`;
+  app.innerHTML = `<header><div class="brand">${icon("books")}<div><strong>تاجر</strong><small>كل كتاب… وحسابه</small></div></div><button class="icon-button" data-tab="settings" aria-label="الإعدادات" title="الإعدادات">${icon("settings")}</button><span class="local">محفوظ على جهازك</span></header><main>${selected ? detail() : tab === "home" ? home() : tab === "books" ? books() : tab === "shortages" ? shortages() : tab === "reservations" ? reservations() : settings()}</main><nav aria-label="التنقل الرئيسي">${[
+    ["home", "الرئيسية"], ["books", "الكتب"], ["shortages", "النواقص"], ["reservations", "المحجوزات"],
+  ].map(([key, label]) => `<button data-tab="${key}" class="${tab === key && !selected ? "active" : ""}">${icon(key === "shortages" || key === "reservations" ? "books" : key)}<span>${label}</span></button>`).join("")}</nav><div id="toast" role="status"></div><dialog id="modal"></dialog>`;
   bind();
 }
 function home() {
   const t = M.totals(state, ...bounds());
-  return `<div class="heading"><div><p class="eyebrow">نظرة على تجارتك</p><h1>أهلا أ/معتز</h1><p>كتبك ومبيعاتك في دفتر واحد.</p></div></div>${button("+ إضافة كتاب", "add", 'class="primary wide"')}<div class="section-title"><h2>المبيعات والأرباح</h2><span>حسب تاريخ البيع</span></div><div class="segments">${[
+  return `<div class="heading"><div><p class="eyebrow">نظرة على تجارتك</p><h1>أهلا أ/ ${esc(state.profile?.name || "بك")}</h1><p>كتبك ومبيعاتك في دفتر واحد.</p></div></div>${button("+ إضافة كتاب", "add", 'class="primary wide"')}<div class="section-title"><h2>المبيعات والأرباح</h2><span>حسب تاريخ البيع</span></div><div class="segments">${[
     ["all", "الكل"],
     ["today", "اليوم"],
     ["month", "هذا الشهر"],
@@ -171,8 +162,29 @@ function detail() {
     '<h2>دفعات الشراء</h2>' + batches.map((x) => '<article class="row"><div><strong>الجزء ' + num(x.part) + ' · ' + num(x.qty) + ' نسخة · ' + cash(x.unit) + ' للنسخة</strong><small>' + x.date + ' · إضافات الدفعة ' + cash(x.extra) + '</small><small>الإجمالي ' + cash(x.unit * x.qty + x.extra) + '</small></div>' + button("تصحيح", "edit-batch", 'data-id="' + x.id + '"') + '</article>').join("") +
     '<h2>سجل المبيعات</h2>' + saleList(sales);
 }
+function shortages() {
+  const incomplete = state.books.filter((b) => M.availableParts(state, b.id).length < b.partsTotal);
+  return `<div class="heading"><p class="eyebrow">تابع مجموعاتك</p><h1>النواقص</h1><p>الكتب اللي لسه مش كل أجزائها موجودة عندك.</p></div>${incomplete.length ? incomplete.map((b) => {
+    const owned = M.availableParts(state, b.id), have = new Set(owned.map((x) => x.part));
+    const missing = Array.from({length:b.partsTotal},(_,i)=>i+1).filter((part)=>!have.has(part));
+    return `<article class="book"><div class="book-title"><span class="book-mark">${icon("books")}</span><span><strong>${esc(b.title)}</strong><small>${esc(b.publisher || "بدون دار نشر")}</small></span></div><div class="book-info"><span class="badge muted">${num(missing.length)} أجزاء ناقصة</span><span>معايا ${num(owned.length)} من ${num(b.partsTotal)}</span></div><p class="hint">الأجزاء الناقصة: ${missing.map(num).join("، ")}</p><div class="actions">${button("إضافة", "batch", `data-id="${b.id}" class="primary"`)}${button("تفاصيل", "detail", `data-id="${b.id}" class="subtle"`)}</div></article>`;
+  }).join("") : `<div class="empty"><h2>مفيش نواقص 🎉</h2><p>كل الكتب عندك مكتملة حاليًا.</p></div>`}`;
+}
+function reservations() {
+  return `<div class="heading"><p class="eyebrow">تابع الاتفاقات قبل إتمامها</p><h1>المحجوزات</h1><p>هنفصل هنا حجوزات العملاء عن حجوزات الموردين.</p></div><section class="panel"><h2>حجوزات العملاء</h2><div class="empty compact"><p>مفيش حجوزات عملاء حاليًا.</p></div></section><section class="panel"><h2>حجوزات الموردين</h2><div class="empty compact"><p>مفيش حجوزات موردين حاليًا.</p></div></section><p class="hint">إدارة الحجوزات وربطها بالمخزون والحسابات هتتضاف في المرحلة التالية.</p>`;
+}
+function editProfile(firstRun = false) {
+  const current = state.profile?.name || "";
+  modal(firstRun ? "أهلاً بيك في تاجر" : "تغيير الاسم", `${field("تحب نناديك بإيه؟ *", "name", current, "text", true)}<p class="hint">الاسم بيتحفظ على نفس الجهاز، وتقدر تغيّره من الإعدادات في أي وقت.</p>`, async (f) => {
+    const name = String(f.get("name") || "").trim();
+    if (!name) throw Error("اكتب الاسم الأول");
+    const next = structuredClone(state);
+    next.profile = { ...(next.profile || {}), name };
+    await commit(next, "تم حفظ الاسم");
+  });
+}
 function settings() {
-  return `<p class="eyebrow">دفترك في أمان</p><h1>الإعدادات</h1><section class="panel"><h2>نسخة معك، خارج التطبيق</h2><p>بياناتك محلية على هذا الجهاز. احفظ نسخة احتياطية بانتظام، وقبل حذف التطبيق أو تغيير الهاتف.</p>${button("تصدير نسخة احتياطية", "export", 'class="primary wide"')}<p class="hint">على Android اختر مكان حفظ النسخة أو شاركها من نافذة المشاركة. تأكد من الاحتفاظ بالملف خارج التطبيق.</p><label class="file-button">استرجاع نسخة احتياطية<input id="import" type="file" accept="application/json,.json"></label><p class="hint">الاسترجاع يستبدل كل البيانات بعد التحقق من الملف والتأكيد.</p></section><section class="panel"><h2>كيف تُحسب الأرباح؟</h2><p>تُباع النسخ الأقدم شراءً أولًا (FIFO). توزّع مصاريف دفعة الشراء على نسخها بالقروش دون فقد. الربح = قيمة الكتب المباعة − تكلفتها − مصاريف البيع وشحن البائع.</p><p>سعر البيع هو قيمة الجزء فقط. لا تدخل شحنًا دفعه العميل ضمنه.</p></section><section class="panel"><h2>دفتر الكتب <bdi>1.0.4</bdi></h2><p>بسيط، خاص، ويعمل دون إنترنت. بلا حسابات مستخدمين أو تتبع.</p><p class="hint">${Capacitor.isNativePlatform() ? "التخزين: SQLite على الجهاز" : "التخزين في المتصفح: IndexedDB. مسح بيانات الموقع يحذف الدفتر."}</p></section>`;
+  return `<p class="eyebrow">تخصيص الدفتر</p><h1>الإعدادات</h1><section class="panel"><h2>الاسم</h2><p>الاسم الظاهر في ترحيب الصفحة الرئيسية: <strong>${esc(state.profile?.name || "غير محدد")}</strong></p>${button("تغيير الاسم", "profile", "class=\\"subtle\\"")}</section><section class="panel"><h2>نسخة معك، خارج التطبيق</h2><p>بياناتك محلية على هذا الجهاز. احفظ نسخة احتياطية بانتظام، وقبل حذف التطبيق أو تغيير الهاتف.</p>${button("تصدير نسخة احتياطية", "export", 'class="primary wide"')}<p class="hint">على Android اختر مكان حفظ النسخة أو شاركها من نافذة المشاركة. تأكد من الاحتفاظ بالملف خارج التطبيق.</p><label class="file-button">استرجاع نسخة احتياطية<input id="import" type="file" accept="application/json,.json"></label><p class="hint">الاسترجاع يستبدل كل البيانات بعد التحقق من الملف والتأكيد.</p></section><section class="panel"><h2>كيف تُحسب الأرباح؟</h2><p>تُباع النسخ الأقدم شراءً أولًا (FIFO). توزّع مصاريف دفعة الشراء على نسخها بالقروش دون فقد. الربح = قيمة الكتب المباعة − تكلفتها − مصاريف البيع وشحن البائع.</p><p>سعر البيع هو قيمة الجزء فقط. لا تدخل شحنًا دفعه العميل ضمنه.</p></section><section class="panel"><h2>دفتر الكتب <bdi>1.0.4</bdi></h2><p>بسيط، خاص، ويعمل دون إنترنت. بلا حسابات مستخدمين أو تتبع.</p><p class="hint">${Capacitor.isNativePlatform() ? "التخزين: SQLite على الجهاز" : "التخزين في المتصفح: IndexedDB. مسح بيانات الموقع يحذف الدفتر."}</p></section>`;
 }
 function field(label, name, value = "", type = "text", required = false) {
   return `<label>${label}<input name="${name}" type="${type}" value="${esc(value)}" ${required ? "required" : ""} ${type === "text" ? 'maxlength="500"' : ""} ${type === "number" ? 'min="1" max="1000000" step="1"' : ""} ${name.includes("unit") || ["extra", "expenses", "shipping", "suggested"].includes(name) ? 'inputmode="decimal"' : ""}></label>`;
@@ -198,6 +210,7 @@ function modal(title, html, submit) {
     }
   };
   d.showModal();
+  d.querySelectorAll('input[type="number"], input[inputmode="decimal"]').forEach((input) => input.addEventListener("focus", () => input.select(), { once: true }));
   return d;
 }
 const int = (v) => M.integer(Number(v), 1);
@@ -644,6 +657,14 @@ function bind() {
               },
             );
             break;
+          case "settings":
+            selected = null;
+            tab = "settings";
+            render();
+            break;
+          case "profile":
+            editProfile();
+            break;
           case "export":
             exportBackup();
         }
@@ -692,12 +713,14 @@ function bind() {
     };
 }
 app.innerHTML =
-  '<div class="empty"><h1>دفتر الكتب</h1><p>جارٍ فتح دفترك…</p></div>';
+  '<div class="empty"><h1>تاجر</h1><p>جارٍ فتح دفترك…</p></div>';
 async function init() {
   try {
     await DB.open();
     state = await DB.read();
+    if (!state.profile) state.profile = { name: "" };
     render();
+    if (!state.profile.name.trim()) editProfile(true);
   } catch (e) {
     app.innerHTML = `<div class="empty"><h1>تعذر فتح الدفتر</h1><p>لم نغيّر بياناتك. أغلق التطبيق وافتحه مرة أخرى، وتأكد من وجود مساحة على الجهاز.</p><p>${esc(errorMessage(e))}</p><button onclick="location.reload()">إعادة المحاولة</button></div>`;
   }

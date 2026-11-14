@@ -2,10 +2,9 @@ import { test, expect } from "@playwright/test";
 async function launch(page) {
   await page.goto("/");
   const dialog = page.getByRole("dialog");
-  if (await dialog.isVisible()) {
-    await page.getByLabel("تحب نناديك بإيه؟ *").fill("مستخدم");
-    await dialog.getByRole("button", { name: "حفظ", exact: true }).click();
-  }
+  await expect(dialog).toBeVisible();
+  await page.getByLabel("تحب نناديك بإيه؟ *").fill("مستخدم");
+  await dialog.getByRole("button", { name: "حفظ", exact: true }).click();
 }
 async function add(page, title = "رحلة في عالم الكتب") {
   await page.getByRole("button", { name: "+ إضافة كتاب" }).click();
@@ -239,4 +238,6 @@ test("first launch profile is saved and editable from settings", async ({ page }
   await expect(page.locator("main")).toContainText("محمود");
   await page.getByRole("button", { name: "الرئيسية", exact: true }).click();
   await expect(page.locator("main")).toContainText("أهلا أ/ محمود");
+  await expect(page.getByRole("button", { name: "النواقص", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "المحجوزات", exact: true })).toBeVisible();
 });

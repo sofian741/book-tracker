@@ -303,8 +303,14 @@ const amount = (f, key) => {
   return M.money(raw);
 };
 function bookFields(b = {}) {
-  return `${field("اسم الكتاب *", "title", b.title || "", "text", true)}${field("عدد أجزاء الكتاب بالكامل *", "partsTotal", b.partsTotal || 1, "number", true)}<details ${b.id ? "open" : ""}><summary>تفاصيل إضافية</summary>${field("دار النشر", "publisher", b.publisher || "")}${field("سعر بيع مقترح للجزء (ج)", "suggested", (b.suggested || 0) / 100)}${field("ملاحظة قصيرة", "note", b.note || "")}</details>`;
+  return field("اسم الكتاب *", "title", b.title || "", "text", true) +
+    field("دار النشر", "publisher", b.publisher || "") +
+    field("عدد أجزاء أو مجلدات الكتاب بالكامل *", "partsTotal", b.partsTotal || 1, "number", true) +
+    '<details ' + (b.id ? "open" : "") + '><summary>تفاصيل إضافية</summary>' +
+    field("سعر بيع مقترح للجزء (ج)", "suggested", (b.suggested || 0) / 100) +
+    field("ملاحظة قصيرة", "note", b.note || "") + '</details>';
 }
+
 function purchaseFields(b = {}, editing = false, book = {}) {
   const fields = editing
     ? field("رقم الجزء", "part", b.part || 1, "number", true) + field("عدد النسخ من الجزء *", "qty", b.qty || 1, "number", true)

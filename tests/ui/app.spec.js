@@ -13,9 +13,13 @@ async function addBook(page, { title = "كتاب تجريبي", parts = 1, selec
   await page.getByLabel("عدد أجزاء أو مجلدات الكتاب بالكامل *").fill(String(parts));
   if (parts === 1) await page.getByLabel("عدد النسخ (للكتاب ذي المجلد الواحد)").fill(String(quantity));
   if (parts > 1) {
-    for (const part of selected) {
-      await page.locator("#part-entry-input").fill(String(part));
-      await page.locator("#part-entry-input").press("Enter");
+    const counts = new Map();
+    for (const part of selected) counts.set(part, (counts.get(part) || 0) + 1);
+    for (const [part, qty] of counts) {
+      await page.locator('[data-toggle-part="' + part + '"]').check();
+      for (let copy = 1; copy < qty; copy++) {
+        await page.locator('[data-purchase-qty="' + part + '"][data-delta="1"]').click();
+      }
     }
   }
   await page.getByLabel("إجمالي سعر الشراء لكل الأجزاء (ج) *").fill(String(total));
@@ -124,10 +128,7 @@ test("multi-part shortages, repeated copies and partial sale", async ({ page }) 
   await page.getByRole("button", { name: "النواقص", exact: true }).click();
   await expect(page.locator("main")).toContainText("الأجزاء الناقصة: 2، 4، 5، 6");
   await page.getByRole("button", { name: "إضافة الأجزاء", exact: true }).click();
-  for (const part of [2, 3, 1]) {
-    await page.locator("#part-entry-input").fill(String(part));
-    await page.locator("#part-entry-input").press("Enter");
-  }
+  for (const part of [2, 3, 1]) await page.locator('[data-toggle-part="' + part + '"]').check();
   await page.getByLabel("إجمالي سعر الشراء لكل الأجزاء (ج) *").fill("300");
   await page.getByRole("button", { name: "حفظ", exact: true }).click();
   await page.getByRole("button", { name: "الكتب", exact: true }).click();
@@ -179,10 +180,7 @@ test("manual prices for selected purchase parts redistribute the remaining total
   await page.getByRole("button", { name: "+ إضافة كتاب" }).click();
   await page.getByLabel("اسم الكتاب *").fill("كتاب أسعار مختلفة");
   await page.getByLabel("عدد أجزاء أو مجلدات الكتاب بالكامل *").fill("3");
-  for (const part of [1,2,3]) {
-    await page.locator("#part-entry-input").fill(String(part));
-    await page.locator("#part-entry-input").press("Enter");
-  }
+  for (const part of [1,2,3]) await page.locator('[data-toggle-part="' + part + '"]').check();
   await page.getByLabel("إجمالي سعر الشراء لكل الأجزاء (ج) *").fill("350");
   await page.locator('[data-purchase-part="2"]').click();
   await page.locator("#modal summary").filter({ hasText: "تخصيص سعر لبعض الأجزاء" }).click();

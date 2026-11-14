@@ -150,3 +150,13 @@ test("small screens and offline use remain supported", async ({ page, context })
   await page.getByRole("button", { name: "الرئيسية", exact: true }).click();
   await expect(page.locator(".stat.green")).toContainText("250");
 });
+
+test("whole-pound purchase total splits 100 across three copies as 34, 33 and 33", async ({ page }) => {
+  await launch(page);
+  await addBook(page, { title: "كتاب التقسيم", parts: 2, selected: [1,1,1], total: 100 });
+  await page.getByRole("button", { name: "التفاصيل", exact: true }).click();
+  const purchaseRows = page.locator("main .row");
+  await expect(purchaseRows).toContainText("34 ج");
+  await expect(purchaseRows).toContainText("33 ج");
+  await expect(page.locator("main")).toContainText("3 نسخ");
+});

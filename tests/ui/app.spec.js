@@ -230,3 +230,13 @@ test("closing a changed form asks before discarding unsaved edits", async ({ pag
   await page.getByRole("button", { name: "إغلاق" }).click();
   await expect(page.getByRole("dialog")).toBeHidden();
 });
+
+test("numeric defaults select their whole value on first focus", async ({ page }) => {
+  await launch(page);
+  await page.getByRole("button", { name: "+ إضافة كتاب" }).click();
+  const parts = page.getByLabel("عدد أجزاء أو مجلدات الكتاب بالكامل *");
+  await parts.focus();
+  await expect.poll(() => parts.evaluate((el) => [el.selectionStart, el.selectionEnd])).toEqual([0, 1]);
+  await parts.fill("3");
+  await expect(parts).toHaveValue("3");
+});

@@ -172,3 +172,22 @@ test("full-book sale only sells complete sets when part quantities differ", asyn
   await page.getByRole("button", { name: "النواقص", exact: true }).click();
   await expect(page.locator("main")).toContainText("الأجزاء الناقصة: 2");
 });
+
+test("manual prices for selected purchase parts redistribute the remaining total", async ({ page }) => {
+  await launch(page);
+  await page.getByRole("button", { name: "+ إضافة كتاب" }).click();
+  await page.getByLabel("اسم الكتاب *").fill("كتاب أسعار مختلفة");
+  await page.getByLabel("عدد أجزاء أو مجلدات الكتاب بالكامل *").fill("3");
+  for (const part of [1,2,3]) {
+    await page.locator("#part-entry-input").fill(String(part));
+    await page.locator("#part-entry-input").press("Enter");
+  }
+  await page.getByLabel("إجمالي سعر الشراء لكل الأجزاء (ج) *").fill("350");
+  await page.locator('[data-purchase-part="2"]').click();
+  await page.locator("#group-part-price").fill("100");
+  await page.getByRole("button", { name: "تطبيق السعر على المحدد" }).click();
+  await page.getByRole("button", { name: "حفظ", exact: true }).click();
+  await page.getByRole("button", { name: "التفاصيل", exact: true }).click();
+  await expect(page.locator("main .row")).toContainText("150 ج");
+  await expect(page.locator("main .row")).toContainText("100 ج");
+});

@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 async function launch(page) {
-  await launch(page);
+  await page.goto("/");
   const dialog = page.getByRole("dialog");
   if (await dialog.isVisible()) {
     await page.getByLabel("تحب نناديك بإيه؟ *").fill("مستخدم");

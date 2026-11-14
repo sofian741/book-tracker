@@ -383,17 +383,30 @@ function setupPurchaseParts(d, book = null) {
   sync();
 }
 
+function supplierReservation(bookId, batches, f) {
+  const items = batches.map((b) => ({ part: b.part, qty: b.qty, unit: b.unit, extra: b.extra }));
+  return { id: M.id(), type: "supplier", status: "active", book: bookId, items,
+    total: batches.reduce((n,b) => n + b.unit*b.qty + b.extra, 0),
+    name: String(f.get("supplierName") || "").trim(), phone: String(f.get("supplierPhone") || "").trim(),
+    date: f.get("supplierDate") || M.today(), expenses: 0, shipping: 0, note: "" };
+}
 function addBook() {
   const d = modal("إضافة كتاب", bookFields() + purchaseFields(), async (f) => {
-    const n = structuredClone(state),
-      b = readBook(f);
+    const n = structuredClone(state), b = readBook(f);
     n.books.push(b);
-    n.batches.push(...purchaseBatches(f, b.id, b));
+    const batches = purchaseBatches(f, b.id, b);
+    if (f.get("reservePurchase")) {
+      const reservation = supplierReservation(b.id, batches, f);
+      if (!reservation.name) throw Error("اكتب اسم المورد");
+      n.reservations.push(reservation);
+      await commit(n, "تم حفظ الكتاب وحجز الشراء دون إضافة المخزون");
+    } else {
+      n.batches.push(...batches);
+      await commit(n, "تمت إضافة الكتاب والمخزون");
+    }
     tab = "books";
-    await commit(n);
   });
-  previewPurchase(d);
-  setupPurchaseParts(d);
+  previewPurchase(d); setupPurchaseParts(d);
 }
 function editBook(id) {
   const b = state.books.find((x) => x.id === id);
@@ -405,40 +418,30 @@ function editBook(id) {
 }
 function batch(bookId, batchId) {
   const old = state.batches.find((x) => x.id === batchId);
-  const d = modal(
-    old ? "تصحيح دفعة شراء" : "إضافة دفعة شراء",
-    `<p>${esc(state.books.find((b) => b.id === (old?.book || bookId)).title)}</p>${old ? '<p class="notice">تصحيح دفعة قديمة يعيد تخصيص تكلفة المبيعات؛ قد تتغير الأرباح السابقة. لا يمكن خفض الكمية عن النسخ المخصصة لهذه الدفعة.</p>' : ""}` +
-      purchaseFields(old, Boolean(old), state.books.find((b) => b.id === (old?.book || bookId))),
+  const book = state.books.find((x) => x.id === (old?.book || bookId));
+  const d = modal(old ? "تصحيح دفعة شراء" : "إضافة أجزاء ناقصة",
+    "<p>" + esc(book.title) + "</p>" + (old ? '<p class="notice">تصحيح دفعة قديمة قد يغير تكلفة المبيعات السابقة.</p>' : "") + purchaseFields(old, Boolean(old), book),
     async (f) => {
-      const n = structuredClone(state),
-        book = state.books.find((x) => x.id === (old?.book || bookId)),
-        newBatches = purchaseBatches(f, book.id, book, old);
+      const n = structuredClone(state), batches = purchaseBatches(f, book.id, book, old);
       if (old) {
-        const b = newBatches[0];
-        const sold = state.sales.reduce(
-          (n, x) =>
-            n +
-            x.allocations
-              .filter((a) => a.batch === old.id)
-              .reduce((n, a) => n + a.qty, 0),
-          0,
-        );
-        if (b.qty < sold)
-          throw Error("الكمية أقل من النسخ المباعة من هذه الدفعة");
-        if (b.part !== old.part && sold)
-          throw Error("لا يمكن تغيير رقم جزء له مبيعات مسجلة");
-        n.batches[n.batches.findIndex((x) => x.id === old.id)] = b;
-        M.recalculate(n);
-      } else n.batches.push(...newBatches);
-      await commit(
-        n,
-        old ? "تم التصحيح وإعادة حساب الأرباح" : "تمت إضافة الأجزاء للمخزون",
-      );
-    },
-  );
-  const currentBook = state.books.find((x) => x.id === (old?.book || bookId));
-  previewPurchase(d, currentBook);
-  if (!old) setupPurchaseParts(d, currentBook);
+        const b = batches[0];
+        const sold = state.sales.reduce((total,x) => total + x.allocations.filter((a) => a.batch === old.id).reduce((v,a) => v+a.qty,0),0);
+        if (b.qty < sold) throw Error("الكمية أقل من النسخ المباعة من هذه الدفعة");
+        if (b.part !== old.part && sold) throw Error("لا يمكن تغيير رقم جزء له مبيعات مسجلة");
+        n.batches[n.batches.findIndex((x) => x.id === old.id)] = b; M.recalculate(n);
+        await commit(n, "تم التصحيح وإعادة حساب الأرباح");
+      } else if (f.get("reservePurchase")) {
+        const reservation = supplierReservation(book.id, batches, f);
+        if (!reservation.name) throw Error("اكتب اسم المورد");
+        n.reservations.push(reservation);
+        await commit(n, "تم تسجيل حجز المورد دون إضافة المخزون");
+      } else {
+        n.batches.push(...batches);
+        await commit(n, "تمت إضافة الأجزاء للمخزون");
+      }
+    });
+  previewPurchase(d, book);
+  if (!old) setupPurchaseParts(d, book);
 }
 function sell(bookId, saleId) {
   const old = state.sales.find((x) => x.id === saleId),

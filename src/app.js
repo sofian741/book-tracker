@@ -303,12 +303,16 @@ const amount = (f, key) => {
   if (!/^[0-9٠-٩۰-۹]+$/.test(raw)) throw Error("اكتب المبلغ بالجنيه كرقم صحيح بدون كسور");
   return M.money(raw);
 };
+const amountOrOriginal = (f, key, original) => {
+  const input = document.querySelector('#modal [name="' + key + '"]');
+  return input && input.dataset.dirty !== "1" ? original : amount(f, key);
+};
 function bookFields(b = {}) {
   return field("اسم الكتاب *", "title", b.title || "", "text", true) +
     field("دار النشر", "publisher", b.publisher || "") +
     field("عدد أجزاء أو مجلدات الكتاب بالكامل *", "partsTotal", b.partsTotal || 1, "number", true) +
     '<details ' + (b.id ? "open" : "") + '><summary>تفاصيل إضافية</summary>' +
-    field("سعر بيع مقترح للجزء (ج)", "suggested", (b.suggested || 0) / 100) +
+    field("سعر بيع مقترح للجزء (ج)", "suggested", Math.round((b.suggested || 0) / 100)) +
     field("ملاحظة قصيرة", "note", b.note || "") + '</details>';
 }
 
@@ -331,7 +335,7 @@ function readBook(f, b = { id: M.id() }) {
     note: f.get("note").trim(),
     volumes: int(f.get("partsTotal")),
     partsTotal: int(f.get("partsTotal")),
-    suggested: amount(f, "suggested"),
+    suggested: b.id ? amountOrOriginal(f, "suggested", b.suggested || 0) : amount(f, "suggested"),
   };
 }
 function parseParts(raw, total) {

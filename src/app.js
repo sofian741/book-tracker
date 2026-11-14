@@ -30,8 +30,8 @@ const esc = (v) =>
       ],
   );
 const cash = (n) =>
-  `<bdi>${new Intl.NumberFormat("ar-EG", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n / 100)} ج</bdi>`;
-const num = (n) => new Intl.NumberFormat("ar-EG").format(n);
+  `<bdi>${new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(Math.round(n / 100))} ج</bdi>`;
+const num = (n) => new Intl.NumberFormat("en-US").format(n);
 const icon = (name) => {
   const paths = {
     home: "M3 10 12 3l9 7v11h-6v-7H9v7H3Z",
@@ -189,7 +189,7 @@ function settings() {
   return `<p class="eyebrow">تخصيص الدفتر</p><h1>الإعدادات</h1><section class="panel"><h2>الاسم</h2><p>الاسم الظاهر في ترحيب الصفحة الرئيسية: <strong>${esc(state.profile?.name || "غير محدد")}</strong></p>${button("تغيير الاسم", "profile", 'class="subtle"')}}</section><section class="panel"><h2>نسخة معك، خارج التطبيق</h2><p>بياناتك محلية على هذا الجهاز. احفظ نسخة احتياطية بانتظام، وقبل حذف التطبيق أو تغيير الهاتف.</p>${button("تصدير نسخة احتياطية", "export", 'class="primary wide"')}<p class="hint">على Android اختر مكان حفظ النسخة أو شاركها من نافذة المشاركة. تأكد من الاحتفاظ بالملف خارج التطبيق.</p><label class="file-button">استرجاع نسخة احتياطية<input id="import" type="file" accept="application/json,.json"></label><p class="hint">الاسترجاع يستبدل كل البيانات بعد التحقق من الملف والتأكيد.</p></section><section class="panel"><h2>كيف تُحسب الأرباح؟</h2><p>تُباع النسخ الأقدم شراءً أولًا (FIFO). توزّع مصاريف دفعة الشراء على نسخها بالقروش دون فقد. الربح = قيمة الكتب المباعة − تكلفتها − مصاريف البيع وشحن البائع.</p><p>سعر البيع هو قيمة الجزء فقط. لا تدخل شحنًا دفعه العميل ضمنه.</p></section><section class="panel"><h2>دفتر الكتب <bdi>1.0.4</bdi></h2><p>بسيط، خاص، ويعمل دون إنترنت. بلا حسابات مستخدمين أو تتبع.</p><p class="hint">${Capacitor.isNativePlatform() ? "التخزين: SQLite على الجهاز" : "التخزين في المتصفح: IndexedDB. مسح بيانات الموقع يحذف الدفتر."}</p></section>`;
 }
 function field(label, name, value = "", type = "text", required = false) {
-  return `<label>${label}<input name="${name}" type="${type}" value="${esc(value)}" ${required ? "required" : ""} ${type === "text" ? 'maxlength="500"' : ""} ${type === "number" ? 'min="1" max="1000000" step="1"' : ""} ${name.includes("unit") || ["extra", "expenses", "shipping", "suggested"].includes(name) ? 'inputmode="decimal"' : ""}></label>`;
+  return `<label>${label}<input name="${name}" type="${type}" value="${esc(value)}" ${required ? "required" : ""} ${type === "text" ? 'maxlength="500"' : ""} ${type === "number" ? 'min="1" max="1000000" step="1"' : ""} ${name.includes("unit") || ["extra", "expenses", "shipping", "suggested"].includes(name) ? 'inputmode="numeric"' : ""}></label>`;
 }
 function modal(title, html, submit) {
   const d = document.querySelector("#modal");
@@ -212,11 +212,15 @@ function modal(title, html, submit) {
     }
   };
   d.showModal();
-  d.querySelectorAll('input[type="number"], input[inputmode="decimal"]').forEach((input) => input.addEventListener("focus", () => input.select(), { once: true }));
+  d.querySelectorAll('input[type="number"], input[inputmode="numeric"]').forEach((input) => input.addEventListener("focus", () => input.select(), { once: true }));
   return d;
 }
 const int = (v) => M.integer(Number(v), 1);
-const amount = (f, key) => M.money(f.get(key) || "0");
+const amount = (f, key) => {
+  const raw = String(f.get(key) || "0").trim();
+  if (!/^[0-9٠-٩۰-۹]+$/.test(raw)) throw Error("اكتب المبلغ بالجنيه كرقم صحيح بدون كسور");
+  return M.money(raw);
+};
 function bookFields(b = {}) {
   return `${field("اسم الكتاب *", "title", b.title || "", "text", true)}${field("عدد أجزاء الكتاب بالكامل *", "partsTotal", b.partsTotal || 1, "number", true)}<details ${b.id ? "open" : ""}><summary>تفاصيل إضافية</summary>${field("دار النشر", "publisher", b.publisher || "")}${field("سعر بيع مقترح للجزء (ج)", "suggested", (b.suggested || 0) / 100)}${field("ملاحظة قصيرة", "note", b.note || "")}</details>`;
 }
@@ -224,7 +228,7 @@ function purchaseFields(b = {}, editing = false, book = {}) {
   const fields = editing
     ? field("رقم الجزء", "part", b.part || 1, "number", true) + field("عدد النسخ من الجزء *", "qty", b.qty || 1, "number", true)
     : '<input type="hidden" name="parts" value=""><input type="hidden" name="partPrices" value="{}">' +
-      '<section class="part-entry"><label for="part-entry-input">أضف الأجزاء اللي اشتريتها</label><div class="part-entry-row"><input id="part-entry-input" type="number" min="1" max="' + (book.partsTotal || 1000) + '" inputmode="numeric" placeholder="رقم الجزء ثم Enter"><button type="button" data-add-part>إضافة</button></div><p class="hint">اكتب رقم الجزء واضغط Enter. كل رقم هيتحول لمربع تقدر تحدده.</p><div id="purchase-parts" class="parts-grid interactive-parts"><p class="hint">لسه مضافش أجزاء.</p></div><div class="selection-tools"><button type="button" data-select-all>تحديد الكل</button><button type="button" data-clear-selection>إلغاء التحديد</button></div><div class="group-price"><label>سعر الأجزاء المحددة (اختياري)<input id="group-part-price" inputmode="decimal" placeholder="اكتب السعر للمجموعة المحددة"></label><button type="button" data-apply-price>تطبيق السعر على المحدد</button><p class="hint">حدد جزءًا أو أكثر، اكتب السعر، واضغط تطبيق. الأجزاء بدون سعر خاص تستخدم السعر الأساسي بالأسفل.</p></div></section>';
+      '<section class="part-entry"><label for="part-entry-input">أضف الأجزاء اللي اشتريتها</label><div class="part-entry-row"><input id="part-entry-input" type="number" min="1" max="' + (book.partsTotal || 1000) + '" inputmode="numeric" placeholder="رقم الجزء ثم Enter"><button type="button" data-add-part>إضافة</button></div><p class="hint">اكتب رقم الجزء واضغط Enter. كل رقم هيتحول لمربع تقدر تحدده.</p><div id="purchase-parts" class="parts-grid interactive-parts"><p class="hint">لسه مضافش أجزاء.</p></div><div class="selection-tools"><button type="button" data-select-all>تحديد الكل</button><button type="button" data-clear-selection>إلغاء التحديد</button></div><div class="group-price"><label>سعر الأجزاء المحددة (اختياري)<input id="group-part-price" inputmode="numeric" placeholder="اكتب السعر للمجموعة المحددة"></label><button type="button" data-apply-price>تطبيق السعر على المحدد</button><p class="hint">حدد جزءًا أو أكثر، اكتب السعر، واضغط تطبيق. الأجزاء بدون سعر خاص تستخدم السعر الأساسي بالأسفل.</p></div></section>';
   return fields +
     field(editing ? "سعر شراء الجزء الواحد (ج) *" : "السعر الأساسي للجزء (ج) (اختياري لو سعّرت كل الأجزاء)", "unit", b.unit === undefined ? "" : b.unit / 100, "text", editing) +
     field("تاريخ الشراء *", "date", b.date || M.today(), "date", true) +

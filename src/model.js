@@ -211,6 +211,7 @@ export function migrate(s) {
   }
   const next = structuredClone(s);
   next.version = 2;
+  next.profile = { name: "" };
   for (const b of next.books) b.partsTotal = 1;
   for (const b of next.batches) b.part = 1;
   for (const x of next.sales) x.part = 1;

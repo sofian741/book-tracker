@@ -205,3 +205,15 @@ test("manual sale prices set the aggregate total automatically when every select
   await page.getByRole("button", { name: "الرئيسية", exact: true }).click();
   await expect(page.locator(".stat").first()).toContainText("300");
 });
+
+test("cancelling supplier reservation adds no inventory or purchase cost", async ({ page }) => {
+  await launch(page);
+  await addBook(page, { title: "طلب شراء ملغي", total: 400, supplierReservation: true });
+  await page.getByRole("button", { name: "المحجوزات", exact: true }).click();
+  await page.getByRole("button", { name: "إلغاء الحجز", exact: true }).click();
+  await page.getByRole("button", { name: "تأكيد", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("تحرير الكمية");
+  await expect(page.locator("main")).toContainText("تم الإلغاء");
+  await page.getByRole("button", { name: "الرئيسية", exact: true }).click();
+  await expect(page.locator("main")).toContainText("0 ج");
+});

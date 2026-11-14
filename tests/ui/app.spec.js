@@ -137,7 +137,7 @@ test("multi-part shortages, repeated copies and partial sale", async ({ page }) 
   await expect(page.locator("main")).toContainText("2 نسخ");
   await page.getByRole("button", { name: "تسجيل بيع", exact: true }).click();
   await page.getByRole("button", { name: "اختيار أجزاء محددة", exact: true }).click();
-  await page.locator('[data-sale-part="3"]').click();
+  await page.locator('[data-sale-part="3"]').check();
   await page.getByLabel("إجمالي سعر البيع لكل النسخ المحددة (ج) *").fill("150");
   await page.getByRole("button", { name: "حفظ", exact: true }).click();
   await expect(page.locator("main")).toContainText("الجزء 3");

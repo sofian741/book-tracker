@@ -159,7 +159,7 @@ function detail() {
     '<h2>الأجزاء عندي</h2><div class="parts-grid">' + partRows + '</div>' +
     (missing.length ? '<p class="hint">الأجزاء الناقصة: ' + missing.map(num).join("، ") + ' من أصل ' + num(b.partsTotal) + '</p>' : '<p class="good-text">كل أجزاء الكتاب متوفرة عندك 🎉</p>') +
     '<div class="actions">' + (M.available(state, b.id) ? button("تسجيل بيع", "sell", 'data-id="' + b.id + '" class="primary"') : "") +
-    button("إضافة أجزاء", "batch", 'data-id="' + b.id + '"') + button("تعديل الكتاب", "edit-book", 'data-id="' + b.id + '"') +
+    button("تعديل الكتاب", "edit-book", 'data-id="' + b.id + '"') +
     (!sales.length ? button("حذف الكتاب", "delete-book", 'data-id="' + b.id + '" class="danger"') : "") + '</div>' +
     '<h2>دفعات الشراء</h2>' + batches.map((x) => '<article class="row"><div><strong>الجزء ' + num(x.part) + ' · ' + num(x.qty) + ' نسخة · ' + cash(x.unit) + ' للنسخة</strong><small>' + x.date + ' · إضافات الدفعة ' + cash(x.extra) + '</small><small>الإجمالي ' + cash(x.unit * x.qty + x.extra) + '</small></div>' + button("تصحيح", "edit-batch", 'data-id="' + x.id + '"') + '</article>').join("") +
     '<h2>سجل المبيعات</h2>' + saleList(sales);
@@ -270,7 +270,7 @@ function settings() {
   return `<p class="eyebrow">تخصيص الدفتر</p><h1>الإعدادات</h1><section class="panel"><h2>الاسم</h2><p>الاسم الظاهر في ترحيب الصفحة الرئيسية: <strong>${esc(state.profile?.name || "غير محدد")}</strong></p>${button("تغيير الاسم", "profile", 'class="subtle"')}}</section><section class="panel"><h2>نسخة معك، خارج التطبيق</h2><p>بياناتك محلية على هذا الجهاز. احفظ نسخة احتياطية بانتظام، وقبل حذف التطبيق أو تغيير الهاتف.</p>${button("تصدير نسخة احتياطية", "export", 'class="primary wide"')}<p class="hint">على Android اختر مكان حفظ النسخة أو شاركها من نافذة المشاركة. تأكد من الاحتفاظ بالملف خارج التطبيق.</p><label class="file-button">استرجاع نسخة احتياطية<input id="import" type="file" accept="application/json,.json"></label><p class="hint">الاسترجاع يستبدل كل البيانات بعد التحقق من الملف والتأكيد.</p></section><section class="panel"><h2>كيف تُحسب الأرباح؟</h2><p>تُباع النسخ الأقدم شراءً أولًا (FIFO). توزّع مصاريف دفعة الشراء على نسخها بالقروش دون فقد. الربح = قيمة الكتب المباعة − تكلفتها − مصاريف البيع وشحن البائع.</p><p>سعر البيع هو قيمة الجزء فقط. لا تدخل شحنًا دفعه العميل ضمنه.</p></section><section class="panel"><h2>دفتر الكتب <bdi>1.0.4</bdi></h2><p>بسيط، خاص، ويعمل دون إنترنت. بلا حسابات مستخدمين أو تتبع.</p><p class="hint">${Capacitor.isNativePlatform() ? "التخزين: SQLite على الجهاز" : "التخزين في المتصفح: IndexedDB. مسح بيانات الموقع يحذف الدفتر."}</p></section>`;
 }
 function field(label, name, value = "", type = "text", required = false) {
-  return `<label>${label}<input name="${name}" type="${type}" value="${esc(value)}" ${required ? "required" : ""} ${type === "text" ? 'maxlength="500"' : ""} ${type === "number" ? 'min="1" max="1000000" step="1"' : ""} ${name.includes("unit") || ["extra", "expenses", "shipping", "suggested"].includes(name) ? 'inputmode="numeric"' : ""}></label>`;
+  return `<label>${label}<input name="${name}" type="${type}" value="${esc(value)}" ${required ? "required" : ""} ${type === "text" ? 'maxlength="500"' : ""} ${type === "number" ? 'min="1" max="1000000" step="1"' : ""} ${["unit", "extra", "expenses", "shipping", "suggested", "purchaseTotal", "totalPrice"].includes(name) ? 'inputmode="numeric"' : ""}></label>`;
 }
 function modal(title, html, submit) {
   const d = document.querySelector("#modal");

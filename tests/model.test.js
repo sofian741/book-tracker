@@ -267,3 +267,59 @@ test("profile is added when migrating an existing version 2 ledger", () => {
   assert.deepEqual(migrated.profile, { name: "" });
   assert.deepEqual(M.totals(migrated), before);
 });
+
+test("active customer reservations reduce sellable stock but are not sales or profit", () => {
+  const s = batch(setup(), 50000);
+  s.reservations.push({ id:"customer-res", type:"customer", status:"active", book:"book",
+    items:[{part:1,qty:1,unit:75000,extra:0}], total:75000, name:"عميل", phone:"0100",
+    date:"2026-02-01", expenses:0, shipping:0, note:"" });
+  M.validate(s);
+  assert.equal(M.available(s,"book"),0);
+  assert.equal(M.totals(s).revenue,0);
+  assert.equal(M.totals(s).profit,0);
+  assert.equal(M.totals(s).qty,0);
+  const cancelled=structuredClone(s);
+  cancelled.reservations[0].status="cancelled";
+  M.validate(cancelled);
+  assert.equal(M.available(cancelled,"book"),1);
+  assert.equal(cancelled.sales.length,0);
+});
+test("customer reservation confirmation creates actual sale exactly once", () => {
+  const s=batch(setup(),50000);
+  s.reservations.push({id:"customer-res",type:"customer",status:"active",book:"book",
+    items:[{part:1,qty:1,unit:75000,extra:0}],total:75000,name:"عميل",phone:"",
+    date:"2026-02-01",expenses:0,shipping:0,note:""});
+  s.reservations[0].status="confirmed";
+  M.addSale(s,{id:"sale-from-res",transaction:"reservation-customer-res",book:"book",part:1,
+    qty:1,unit:75000,expenses:0,shipping:0,note:"",date:"2026-02-01"});
+  M.validate(s);
+  assert.equal(M.totals(s).revenue,75000);
+  assert.equal(M.totals(s).profit,25000);
+  assert.equal(M.available(s,"book"),0);
+  assert.equal(s.reservations[0].status,"confirmed");
+});
+test("supplier reservations do not enter stock until confirmed", () => {
+  const s=setup();
+  s.reservations.push({id:"supplier-res",type:"supplier",status:"active",book:"book",
+    items:[{part:1,qty:1,unit:50000,extra:1000}],total:51000,name:"مورد",phone:"",
+    date:"2026-01-01",expenses:0,shipping:0,note:""});
+  M.validate(s);
+  assert.equal(M.available(s,"book"),0);
+  assert.equal(M.totals(s).spent,0);
+  s.reservations[0].status="confirmed";
+  s.batches.push({id:"received",book:"book",part:1,qty:1,unit:50000,extra:1000,date:"2026-01-01"});
+  M.validate(s);
+  assert.equal(M.available(s,"book"),1);
+  assert.equal(M.totals(s).spent,51000);
+});
+test("reservation migration from version 2 preserves ledger and adds empty reservation history", () => {
+  const s=batch(setup(),50000);
+  sale(s,75000);
+  const old=structuredClone(s);
+  old.version=2;
+  delete old.reservations;
+  const migrated=M.migrate(old);
+  assert.equal(migrated.version,3);
+  assert.deepEqual(migrated.reservations,[]);
+  assert.deepEqual(M.totals(migrated),M.totals(old));
+});

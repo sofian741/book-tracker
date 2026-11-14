@@ -404,6 +404,7 @@ function previewPurchase(d, book = null) {
 function setupPurchaseParts(d, book = null) {
   const form = d.querySelector("form"),
     input = d.querySelector("#part-entry-input"),
+    section = d.querySelector(".part-entry"),
     grid = d.querySelector("#purchase-parts"),
     partsField = form.elements.parts,
     pricesField = form.elements.partPrices,
@@ -411,12 +412,13 @@ function setupPurchaseParts(d, book = null) {
     quantities = new Map(),
     prices = new Map();
   const total = () => Number(book?.partsTotal || form.querySelector('[name="partsTotal"]')?.value || 1);
+  let lastTotal = total(), autoSingle = !book && lastTotal === 1;
   const sync = () => {
     const parts = [...quantities.entries()].flatMap(([part, qty]) => Array(qty).fill(part));
     partsField.value = parts.join(",");
     pricesField.value = JSON.stringify(Object.fromEntries(prices));
     grid.innerHTML = parts.length ? [...quantities.entries()].sort((a,b)=>a[0]-b[0]).map(([part,qty]) =>
-      '<div class="part-entry-chip"><button type="button" class="part-pick ' + (selected.has(part) ? "selected" : "") + '" data-purchase-part="' + part + '"><b>الجزء ' + num(part) + '</b><small>' + num(qty) + (qty === 1 ? " نسخة" : " نسخ") + '</small><small>' + (prices.has(part) ? "سعر خاص: " + cash(prices.get(part)) : "السعر الأساسي") + '</small></button><button type="button" class="remove-part" data-remove-part="' + part + '" aria-label="إزالة الجزء">×</button></div>'
+      '<div class="part-entry-chip"><button type="button" class="part-pick ' + (selected.has(part) ? "selected" : "") + '" aria-pressed="' + selected.has(part) + '" data-purchase-part="' + part + '"><b>الجزء ' + num(part) + '</b><small>' + num(qty) + (qty === 1 ? " نسخة" : " نسخ") + '</small><small>' + (prices.has(part) ? "سعر خاص: " + cash(prices.get(part)) : "سعر تلقائي") + '</small></button><button type="button" class="remove-part" data-remove-part="' + part + '" aria-label="إزالة الجزء">×</button></div>'
     ).join("") : '<p class="hint">لسه مضافش أجزاء.</p>';
     const allManual = quantities.size > 0 && [...quantities.keys()].every((part) => prices.has(part));
     const totalInput = form.elements.purchaseTotal;
@@ -426,22 +428,27 @@ function setupPurchaseParts(d, book = null) {
     }
     if (d.oninput) d.oninput();
   };
+  const updateMode = () => {
+    const current = total();
+    if (current === 1 && lastTotal !== 1) {
+      quantities.clear(); prices.clear(); selected.clear();
+      quantities.set(1,1); selected.add(1); autoSingle = true;
+    } else if (current > 1 && lastTotal === 1 && autoSingle) {
+      quantities.delete(1); prices.delete(1); selected.delete(1); autoSingle = false;
+    }
+    lastTotal = current;
+    section.hidden = current === 1;
+    sync();
+  };
   const add = () => {
     const part = Number(input.value);
     if (!Number.isSafeInteger(part) || part < 1 || part > total()) {
-      toast("رقم الجزء لازم يكون من 1 إلى " + num(total()));
-      input.focus();
-      return;
+      toast("رقم الجزء لازم يكون من 1 إلى " + num(total())); input.focus(); return;
     }
     quantities.set(part, (quantities.get(part) || 0) + 1);
-    selected.add(part);
-    input.value = "";
-    sync();
-    input.focus();
+    selected.add(part); input.value = ""; sync(); input.focus();
   };
-  input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") { e.preventDefault(); add(); }
-  });
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); add(); } });
   d.querySelector("[data-add-part]").onclick = add;
   grid.onclick = (e) => {
     const remove = e.target.closest("[data-remove-part]");
@@ -455,10 +462,7 @@ function setupPurchaseParts(d, book = null) {
     if (selected.has(part)) selected.delete(part); else selected.add(part);
     sync();
   };
-  d.querySelector("[data-select-all]").onclick = () => {
-    quantities.forEach((_, part) => selected.add(part));
-    sync();
-  };
+  d.querySelector("[data-select-all]").onclick = () => { quantities.forEach((_,part)=>selected.add(part)); sync(); };
   d.querySelector("[data-clear-selection]").onclick = () => { selected.clear(); sync(); };
   d.querySelector("[data-apply-price]").onclick = () => {
     if (!selected.size) { toast("حدد الأجزاء اللي عايز تطبق عليها السعر الأول"); return; }
@@ -468,11 +472,14 @@ function setupPurchaseParts(d, book = null) {
       const price = M.money(raw);
       selected.forEach((part) => prices.set(part, price));
       form.querySelector("#group-part-price").value = "";
-      sync();
-      toast("تم تطبيق السعر على " + num(selected.size) + " جزء");
+      sync(); toast("تم تطبيق السعر على " + num(selected.size) + " جزء");
     } catch (e) { toast(errorMessage(e)); }
   };
-  if (total() === 1) { quantities.set(1, 1); selected.add(1); d.querySelector(".part-entry").hidden = true; }
+  const partsTotalInput = form.elements.partsTotal;
+  if (partsTotalInput) partsTotalInput.addEventListener("input", updateMode);
+  if (book?.partsTotal === 1) {
+    quantities.set(1,1); selected.add(1); section.hidden=true;
+  } else updateMode();
   const reserveCheck = form.querySelector("#reservePurchase");
   if (reserveCheck) reserveCheck.onchange = () => { form.querySelector("#supplier-details").open = reserveCheck.checked; };
   sync();

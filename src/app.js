@@ -333,8 +333,8 @@ function purchaseFields(b = {}, editing = false, book = {}) {
   const price = editing
     ? field("سعر شراء الجزء الواحد (ج) *", "unit", Math.round(b.unit / 100), "text", true)
     : field("إجمالي سعر الشراء لكل الأجزاء (ج) *", "purchaseTotal", "", "text", true);
-  const reserve = editing ? "" : '<label class="check-line"><input type="checkbox" name="reservePurchase" id="reservePurchase"> إضافة كمحجوز من المورد</label><details id="supplier-details"><summary>بيانات المورد والحجز</summary>' + field("اسم المورد أو الشخص *", "supplierName") + field("رقم الهاتف", "supplierPhone") + field("تاريخ الحجز *", "supplierDate", M.today(), "date", false) + '</details>';
-  return fields + quantity + price + field("تاريخ الشراء *", "date", b.date || M.today(), "date", true) + '<details><summary>تفاصيل شراء إضافية</summary>' + field("مصاريف الشراء الإضافية لكل الدفعة (ج)", "extra", Math.round((b.extra || 0) / 100)) + '</details>' + reserve + '<p class="hint">' + (editing ? "تصحيح هذه الدفعة قد يعيد حساب تكلفة المبيعات." : "المبلغ الإجمالي هيتوزع بدقة على النسخ بدون فقد.") + '</p><p id="preview" class="preview"></p>';
+  const reserve = editing ? "" : '<label class="check-line"><input type="checkbox" name="reservePurchase" id="reservePurchase"> إضافة كمحجوز من المورد</label><details id="supplier-details"><summary>بيانات المورد والحجز</summary>' + field("اسم المورد أو الشخص *", "supplierName") + field("رقم الهاتف", "supplierPhone") + '</details>';
+  return fields + quantity + price + field("تاريخ الشراء أو الحجز *", "date", b.date || M.today(), "date", true) + '<details><summary>تفاصيل شراء إضافية</summary>' + field("مصاريف الشراء الإضافية لكل الدفعة (ج)", "extra", Math.round((b.extra || 0) / 100)) + '</details>' + reserve + '<p class="hint">' + (editing ? "تصحيح هذه الدفعة قد يعيد حساب تكلفة المبيعات." : "المبلغ الإجمالي هيتوزع بدقة على النسخ بدون فقد.") + '</p><p id="preview" class="preview"></p>';
 }
 
 function readBook(f, b = { id: M.id() }) {
@@ -506,7 +506,7 @@ function supplierReservation(bookId, batches, f) {
   return { id: M.id(), type: "supplier", status: "active", book: bookId, items,
     total: batches.reduce((n,b) => n + b.unit*b.qty + b.extra, 0),
     name: String(f.get("supplierName") || "").trim(), phone: String(f.get("supplierPhone") || "").trim(),
-    date: f.get("supplierDate") || M.today(), expenses: 0, shipping: 0, note: "" };
+    date: f.get("date") || M.today(), expenses: 0, shipping: 0, note: "" };
 }
 function addBook() {
   const d = modal("إضافة كتاب", bookFields() + purchaseFields(), async (f) => {

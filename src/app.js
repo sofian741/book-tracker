@@ -527,7 +527,6 @@ function batch(bookId, batchId) {
   if (!old) setupPurchaseParts(d, book);
 }
 function sellNew(bookId) {
-
   const b = state.books.find((x) => x.id === bookId);
   const available = M.availableParts(state, b.id);
   const isSingle = b.partsTotal === 1;
@@ -535,14 +534,15 @@ function sellNew(bookId) {
   const selection = isSingle
     ? '<input type="hidden" name="parts" value="1">' + field("عدد النسخ المباعة *", "singleQty", 1, "number", true)
     : '<input type="hidden" name="parts" value=""><section class="part-entry"><p class="hint">الافتراضي بيع الكتاب كاملًا. تقدر تلغي التحديد وتختار أجزاء معينة.</p><div id="sale-parts" class="parts-grid interactive-parts"></div><div class="selection-tools"><button type="button" data-sale-full>بيع الكتاب كاملًا</button><button type="button" data-sale-clear>بيع أجزاء محددة</button></div></section>';
-  const html = '<p>' + esc(b.title) + '</p>' + selection +
+  const manualUI = isSingle ? "" : '<input type="hidden" name="salePartPrices" value="{}"><details><summary>المزيد: تخصيص سعر جزء</summary><label>سعر النسخة للأجزاء المحددة (ج)<input id="group-sale-price" inputmode="numeric"></label><button type="button" data-apply-sale-price>تطبيق السعر على المحدد</button><button type="button" data-clear-sale-prices>إلغاء الأسعار الخاصة</button><p class="hint">أي مبلغ متبقٍ من الإجمالي يتوزع تلقائيًا على الأجزاء غير المسعّرة يدويًا.</p></details>';
+  const html = '<p>' + esc(b.title) + '</p>' + selection + manualUI +
     field("إجمالي سعر البيع لكل النسخ المحددة (ج) *", "totalPrice", b.suggested ? (b.suggested * defaultQty) / 100 : "", "text", true) +
     '<p class="hint">السعر الإجمالي بيتوزع تلقائيًا على النسخ المختارة، مع الحفاظ على إجمالي المبلغ بدون كسور ضائعة.</p>' +
     field("تاريخ البيع أو الحجز *", "date", M.today(), "date", true) +
     '<label class="check-line"><input type="checkbox" name="reserveSale" id="reserveSale"> إضافة كمحجوز للعميل</label>' +
     '<details id="customer-details"><summary>بيانات العميل والحجز</summary>' +
     field("اسم العميل *", "customerName") + field("رقم هاتف العميل", "customerPhone") +
-    field("تاريخ الحجز *", "customerDate", M.today(), "date", true) + '</details>' +
+    field("تاريخ الحجز *", "customerDate", M.today(), "date", false) + '</details>' +
     '<details><summary>تفاصيل إضافية</summary>' +
     field("مصاريف البيع (ج)", "expenses", 0) + field("شحن يتحمله البائع (ج)", "shipping", 0) +
     field("ملاحظة", "note") + '</details><p id="preview" class="preview"></p>';
@@ -556,11 +556,21 @@ function sellNew(bookId) {
     if (!parts.length) throw Error("اختار جزءًا واحدًا على الأقل");
     const total = amount(f,"totalPrice"), expenses = amount(f,"expenses"), shipping = amount(f,"shipping");
     if (total < parts.length) throw Error("إجمالي البيع أقل من الحد الأدنى لتوزيعه على النسخ");
-    const base = Math.floor(total/parts.length); let rem = total%parts.length;
+    let manual = {};
+    if (!isSingle) {
+      try { manual = JSON.parse(f.get("salePartPrices") || "{}"); } catch { throw Error("تعذر قراءة أسعار البيع المخصصة"); }
+    }
+    const counts = new Map(); for (const part of parts) counts.set(part,(counts.get(part)||0)+1);
+    const manualTotal = [...counts].reduce((n,[part,qty]) => n + (manual[part] ?? 0)*qty,0);
+    const manualQty = [...counts].filter(([part]) => manual[part] !== undefined).reduce((n,[,qty])=>n+qty,0);
+    const autoQty = parts.length-manualQty;
+    if (manualTotal > total || (!autoQty && manualTotal !== total)) throw Error("إجمالي الأسعار الخاصة لا يطابق إجمالي البيع");
+    const remaining = total-manualTotal;
+    const base = autoQty ? Math.floor(remaining/autoQty) : 0; let rem = autoQty ? remaining%autoQty : 0;
     const ebase = Math.floor(expenses/parts.length); let erem=expenses%parts.length;
     const sbase = Math.floor(shipping/parts.length); let srem=shipping%parts.length;
     const transaction = M.id(), date = f.get("date"), note = String(f.get("note")||"").trim();
-    const items = parts.map((part) => ({part,qty:1,unit:base+(rem-->0?1:0)}));
+    const items = parts.map((part) => ({part,qty:1,unit:manual[part] ?? (base+(rem-->0?1:0))}));
     const sales = items.map((item) => ({id:M.id(),transaction,book:b.id,part:item.part,qty:1,unit:item.unit,
       expenses:ebase+(erem-->0?1:0),shipping:sbase+(srem-->0?1:0),date,note}));
     const n = structuredClone(state);
@@ -580,7 +590,25 @@ function sellNew(bookId) {
       await commit(n,"تم حجز الكمية للعميل دون تسجيل بيع أو ربح محقق");
     } else await commit(result.n,"تم تسجيل البيع وخصم المخزون وحساب الربح");
   });
-  if (!isSingle) setupSaleParts(d,b);
+  if (!isSingle) {
+    setupSaleParts(d,b);
+    const pricesField=d.querySelector('[name="salePartPrices"]');
+    d.querySelector("[data-apply-sale-price]").onclick=()=>{
+      const raw=d.querySelector("#group-sale-price").value.trim();
+      const selected=[...new Set(parseParts(d.querySelector('[name="parts"]').value,b.partsTotal))];
+      if(!selected.length){toast("حدد جزءًا واحدًا على الأقل");return;}
+      if(!raw){toast("اكتب سعر النسخة");return;}
+      try {
+        const prices=JSON.parse(pricesField.value||"{}"), price=M.money(raw);
+        selected.forEach((part)=>prices[part]=price);
+        pricesField.value=JSON.stringify(prices);
+        const selectedParts=parseParts(d.querySelector('[name="parts"]').value,b.partsTotal);
+        if(selectedParts.every((part)=>prices[part]!==undefined)) d.querySelector('[name="totalPrice"]').value=String(selectedParts.reduce((n,part)=>n+prices[part],0)/100);
+        d.oninput();
+      } catch(e){toast(errorMessage(e));}
+    };
+    d.querySelector("[data-clear-sale-prices]").onclick=()=>{pricesField.value="{}";d.oninput();};
+  }
   const check=d.querySelector("#reserveSale");
   check.onchange=()=>{d.querySelector("#customer-details").open=check.checked;};
   d.oninput=()=>{
@@ -593,7 +621,6 @@ function sellNew(bookId) {
     } catch(e) {p.textContent=errorMessage(e);}
   };
   d.oninput();
-
 }
 function sell(bookId, saleId) {
   if (!saleId) return sellNew(bookId);

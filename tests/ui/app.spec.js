@@ -218,3 +218,15 @@ test("cancelling supplier reservation adds no inventory or purchase cost", async
   await page.getByRole("button", { name: "الرئيسية", exact: true }).click();
   await expect(page.locator("main")).toContainText("0 ج");
 });
+
+test("closing a changed form asks before discarding unsaved edits", async ({ page }) => {
+  await launch(page);
+  await page.getByRole("button", { name: "+ إضافة كتاب" }).click();
+  await page.getByLabel("اسم الكتاب *").fill("مسودة لم تحفظ");
+  page.once("dialog", async (dialog) => { expect(dialog.message()).toContain("تغييرات"); await dialog.dismiss(); });
+  await page.getByRole("button", { name: "إغلاق" }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "إغلاق" }).click();
+  await expect(page.getByRole("dialog")).toBeHidden();
+});

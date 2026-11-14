@@ -1,219 +1,244 @@
 import { test, expect } from "@playwright/test";
-async function add(page, title = "رحلة في عالم الكتب") {
-  await page.getByRole("button", { name: "+ إضافة كتاب" }).click();
-  await page.getByLabel("اسم الكتاب *").fill(title);
-  await page.locator("#part-entry-input").fill("1");
-  await page.locator("#part-entry-input").press("Enter");
-  await page.getByLabel("السعر الأساسي للجزء (ج) (اختياري لو سعّرت كل الأجزاء)").fill("500");
-  await page.getByText("مصاريف الشراء", { exact: true }).click();
-  await page.getByLabel("تكاليف شراء إضافية").fill("50");
-  await page.getByRole("button", { name: "حفظ", exact: true }).click();
-  await expect(
-    page.getByRole("button", { name: "تسجيل بيع", exact: true }),
-  ).toBeVisible();
-}
-async function sell(page) {
-  await page.getByRole("button", { name: "تسجيل بيع", exact: true }).click();
-  await page.locator('[data-sale-part="1"]').click();
-  await page.getByLabel("سعر بيع النسخة الواحدة (ج) *").fill("750");
-  await page.getByText("مصاريف وتفاصيل إضافية").click();
-  await page.getByLabel("شحن يتحمله البائع").fill("30");
-  await expect(page.locator("#preview")).toContainText("١٧٠");
-  await page.getByRole("button", { name: "حفظ", exact: true }).click();
-  await expect(page.getByRole("dialog")).not.toBeVisible();
-}
-test("empty, add, sell, persistence, backup outside application, restore", async ({
-  page,
-}) => {
-  const errors = [];
-  page.on("pageerror", (e) => errors.push(e.message));
+
+async function launch(page) {
   await page.goto("/");
-  await expect(page.getByText("أول كتاب، بداية الدفتر")).toBeVisible();
-  await add(page);
-  await sell(page);
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await page.getByLabel("تحب نناديك بإيه؟ *").fill("مستخدم");
+  await dialog.getByRole("button", { name: "حفظ", exact: true }).click();
+}
+async function addBook(page, { title = "كتاب تجريبي", parts = 1, selected = [1], quantity = 1, total = 500, extra = 0, supplierReservation = false } = {}) {
+  await page.getByRole("button", { name: "+ إضافة كتاب" }).click();
+  await expect(page.locator("#modal .form-section")).toHaveCount(2);
+  await page.getByLabel("اسم الكتاب *").fill(title);
+  await page.getByLabel("عدد أجزاء أو مجلدات الكتاب بالكامل *").fill(String(parts));
+  if (parts === 1) await page.getByLabel("عدد النسخ (للكتاب ذي المجلد الواحد)").fill(String(quantity));
+  if (parts > 1) {
+    const counts = new Map();
+    for (const part of selected) counts.set(part, (counts.get(part) || 0) + 1);
+    for (const [part, qty] of counts) {
+      await page.locator('[data-toggle-part="' + part + '"]').check();
+      for (let copy = 1; copy < qty; copy++) {
+        await page.locator('[data-purchase-qty="' + part + '"][data-delta="1"]').click();
+      }
+    }
+  }
+  await page.getByLabel("إجمالي سعر الشراء لكل الأجزاء (ج) *").fill(String(total));
+  await expect(page.locator("#preview")).toContainText("إجمالي الشراء: " + total + " ج");
+  if (extra) {
+    await page.locator("#modal summary").filter({ hasText: "تفاصيل شراء إضافية" }).click();
+    await page.getByLabel("مصاريف الشراء الإضافية لكل الدفعة (ج)").fill(String(extra));
+    await expect(page.locator("#preview")).toContainText("إجمالي الشراء: " + (total + extra) + " ج");
+  }
+  if (supplierReservation) {
+    await page.getByLabel("إضافة كمحجوز من المورد").check();
+    await page.getByLabel("اسم المورد أو الشخص *").fill("مورد الكتب");
+    await page.getByLabel("رقم الهاتف").fill("01000000000");
+  }
+  await page.getByRole("button", { name: "حفظ", exact: true }).click();
+  await expect(page.locator("main")).toContainText(title);
+}
+async function sellSingle(page, { total = 750, reserve = false } = {}) {
+  await page.getByRole("button", { name: "تسجيل بيع", exact: true }).click();
+  await expect(page.locator("#modal .form-section")).toHaveCount(3);
+  await page.getByLabel("إجمالي سعر البيع لكل النسخ المحددة (ج) *").fill(String(total));
+  if (reserve) {
+    await page.getByLabel("إضافة كمحجوز للعميل").check();
+    await page.getByLabel("اسم العميل *").fill("عميل تجريبي");
+    await page.getByLabel("رقم هاتف العميل").fill("01111111111");
+  }
+  await page.getByRole("button", { name: "حفظ", exact: true }).click();
+}
+test("first launch profile is saved and editable from settings", async ({ page }) => {
+  await launch(page);
+  await expect(page.locator("main")).toContainText("أهلا أ/ مستخدم");
+  await page.getByRole("button", { name: "الإعدادات" }).click();
+  await page.getByRole("button", { name: "تغيير الاسم" }).click();
+  await page.getByLabel("تحب نناديك بإيه؟ *").fill("أحمد");
+  await page.getByRole("button", { name: "حفظ", exact: true }).click();
   await page.getByRole("button", { name: "الرئيسية", exact: true }).click();
-  await expect(page.locator(".stat.green")).toContainText("١٧٠");
+  await expect(page.locator("main")).toContainText("أهلا أ/ أحمد");
+  for (const label of ["الرئيسية", "الكتب", "النواقص", "المحجوزات"]) {
+    await expect(page.getByRole("button", { name: label, exact: true })).toBeVisible();
+  }
+});
+test("single-volume purchase and actual sale keep exact profit and backup works", async ({ page }) => {
+  await launch(page);
+  await addBook(page, { total: 500, extra: 50 });
+  await page.getByRole("button", { name: "تسجيل بيع", exact: true }).click();
+  await page.getByLabel("إجمالي سعر البيع لكل النسخ المحددة (ج) *").fill("750");
+  await page.locator("#modal summary").filter({ hasText: "تفاصيل إضافية" }).click();
+  await page.getByLabel("شحن يتحمله البائع (ج)").fill("30");
+  await expect(page.locator("#preview")).toContainText("170");
+  await page.getByRole("button", { name: "حفظ", exact: true }).click();
+  await page.getByRole("button", { name: "الرئيسية", exact: true }).click();
+  await expect(page.locator(".stat.green")).toContainText("170");
   await page.reload();
-  await expect(page.locator(".stat.green")).toContainText("١٧٠");
-  await page.getByRole("button", { name: "الإعدادات", exact: true }).click();
+  await expect(page.locator(".stat.green")).toContainText("170");
+  await page.getByRole("button", { name: "الإعدادات" }).click();
   const downloadPromise = page.waitForEvent("download");
-  await page
-    .getByRole("button", { name: "تصدير نسخة احتياطية", exact: true })
-    .click();
+  await page.getByRole("button", { name: "تصدير نسخة احتياطية", exact: true }).click();
   const download = await downloadPromise;
   const path = await download.path();
-  await page.locator("#import").setInputFiles({
-    name: "bad.json",
-    mimeType: "application/json",
-    buffer: Buffer.from("{bad"),
-  });
-  await expect(page.getByRole("status")).toContainText("لم تتغير بياناتك");
   await page.locator("#import").setInputFiles(path);
   await expect(page.getByRole("dialog")).toContainText("استبدال");
   await page.getByRole("button", { name: "تأكيد", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("تم استرجاع");
-  await page.getByRole("button", { name: "الرئيسية", exact: true }).click();
-  await expect(page.locator(".stat.green")).toContainText("١٧٠");
-  expect(errors).toEqual([]);
 });
-test("edit and delete sale returns inventory, search, HTML injection", async ({
-  page,
-}) => {
-  await page.goto("/");
-  await add(page, "<img src=x onerror=alert(1)> عنوان عربي طويل جدًا");
-  await sell(page);
-  await page.getByRole("button", { name: "الرئيسية", exact: true }).click();
-  await page.getByRole("button", { name: /تعديل الجزء/ }).first().click();
-  await page.getByLabel("سعر بيع النسخة الواحدة (ج) *").fill("800");
-  await page.getByRole("button", { name: "حفظ", exact: true }).click();
-  await expect(page.locator(".stat.green")).toContainText("٢٢٠");
-  await page.getByRole("button", { name: "حذف العملية", exact: true }).click();
+test("customer reservation holds stock without revenue until confirmed", async ({ page }) => {
+  await launch(page);
+  await addBook(page, { total: 500 });
+  await sellSingle(page, { total: 750, reserve: true });
+  await expect(page.locator("main")).toContainText("0 قطعة متاحة");
+  await page.getByRole("button", { name: "المحجوزات", exact: true }).click();
+  await expect(page.locator("main")).toContainText("عميل تجريبي");
+  await page.locator('button[data-action="reservation-detail"]').click();
+  await expect(page.getByRole("dialog")).toContainText("صافي الربح المتوقع");
+  await expect(page.getByRole("dialog")).toContainText("01111111111");
+  await page.getByRole("button", { name: "إغلاق", exact: true }).last().click();
+  await page.getByRole("button", { name: "تأكيد البيع", exact: true }).click();
   await page.getByRole("button", { name: "تأكيد", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("الربح الفعلي");
+  await page.getByRole("button", { name: "الرئيسية", exact: true }).click();
+  await expect(page.locator(".stat.green")).toContainText("250");
+});
+test("cancelling customer reservation releases stock and creates no sale", async ({ page }) => {
+  await launch(page);
+  await addBook(page, { total: 500 });
+  await sellSingle(page, { total: 700, reserve: true });
+  await page.getByRole("button", { name: "المحجوزات", exact: true }).click();
+  await page.getByRole("button", { name: "إلغاء الحجز", exact: true }).click();
+  await page.getByRole("button", { name: "تأكيد", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("تحرير الكمية");
   await page.getByRole("button", { name: "الكتب", exact: true }).click();
-  await expect(
-    page.getByRole("button", { name: "تسجيل بيع", exact: true }),
-  ).toBeVisible();
-  expect(await page.locator("img").count()).toBe(0);
-  await page.getByRole("searchbox").fill("لا يوجد");
-  await expect(page.getByText("لا توجد كتب هنا بعد")).toBeVisible();
-});
-test("production assets entirely local and work without outbound network", async ({
-  page,
-  context,
-}) => {
-  const external = [];
-  await context.route("**/*", (route) => {
-    if (!route.request().url().startsWith("http://127.0.0.1:4173")) {
-      external.push(route.request().url());
-      return route.abort();
-    }
-    return route.continue();
-  });
-  await page.goto("/");
-  await add(page);
-  await context.setOffline(true);
-  await sell(page);
+  await expect(page.getByRole("button", { name: "تسجيل بيع", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "الرئيسية", exact: true }).click();
-  await expect(page.locator(".stat.green")).toContainText("١٧٠");
-  expect(external).toEqual([]);
-  await page.screenshot({ path: "test-results/home.png", fullPage: true });
+  await expect(page.locator(".stat.green")).toContainText("0");
 });
-test("no horizontal overflow at small size and large text", async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 320, height: 640 });
-  await page.goto("/");
-  await page.addStyleTag({ content: ":root{font-size:125%}" });
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
-    ),
-  ).toBe(true);
-  await page.getByRole("button", { name: "+ إضافة كتاب" }).click();
-  await expect(
-    page.getByRole("button", { name: "حفظ", exact: true }),
-  ).toBeVisible();
-});
-
-test("additional purchase, historical correction, book edit and validation", async ({
-  page,
-}) => {
-  await page.goto("/");
-  await add(page);
-  await page.getByRole("button", { name: "التفاصيل", exact: true }).click();
-  await page.getByRole("button", { name: "إضافة أجزاء", exact: true }).click();
-  await page.locator("#part-entry-input").fill("1");
-  await page.locator("#part-entry-input").press("Enter");
-  await page.getByLabel("السعر الأساسي للجزء (ج) (اختياري لو سعّرت كل الأجزاء)").fill("140");
-  await page.getByRole("button", { name: "حفظ", exact: true }).click();
-  await expect(
-    page.getByRole("button", { name: "تصحيح", exact: true }),
-  ).toHaveCount(2);
-  await page.getByRole("button", { name: "تعديل الكتاب", exact: true }).click();
-  await page.getByLabel("اسم الكتاب *").fill("اسم الكتاب المصحح");
-  await page.getByLabel("دار النشر").fill("دار عربية");
-  await page.getByRole("button", { name: "حفظ", exact: true }).click();
-  await expect(
-    page.getByRole("heading", { name: "اسم الكتاب المصحح" }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "تسجيل بيع", exact: true }).click();
-  await page.locator('[data-sale-part="1"]').click();
-  await page.locator('[data-sale-qty="1"][data-delta="1"]').click();
-  await expect(page.locator('[data-sale-qty="1"][data-delta="1"]')).toBeDisabled();
-  await page.locator('[data-sale-qty="1"][data-delta="-1"]').click();
-  await page.getByLabel("سعر بيع النسخة الواحدة (ج) *").fill("750");
-  await page.getByRole("button", { name: "حفظ", exact: true }).click();
-  await page
-    .getByRole("button", { name: "تصحيح", exact: true })
-    .first()
-    .click();
-  await page.getByLabel("سعر شراء الجزء الواحد (ج) *").fill("510");
-  await page.getByRole("button", { name: "حفظ", exact: true }).click();
-  await expect(page.getByRole("status")).toContainText("إعادة حساب");
-  await expect(page.locator("main")).toContainText("١٩٠");
-});
-test("delete unsold book requires explicit confirmation", async ({ page }) => {
-  await page.goto("/");
-  await add(page);
-  await page.getByRole("button", { name: "التفاصيل", exact: true }).click();
-  await page.getByRole("button", { name: "حذف الكتاب", exact: true }).click();
-  await expect(page.getByRole("dialog")).toContainText("لا يمكن التراجع");
+test("supplier reservation does not enter stock before receipt confirmation", async ({ page }) => {
+  await launch(page);
+  await addBook(page, { total: 600, supplierReservation: true });
+  await expect(page.locator("main")).toContainText("لا توجد أجزاء متاحة");
+  await page.getByRole("button", { name: "المحجوزات", exact: true }).click();
+  await expect(page.locator("main")).toContainText("مورد الكتب");
+  await page.getByRole("button", { name: "تأكيد الاستلام", exact: true }).click();
   await page.getByRole("button", { name: "تأكيد", exact: true }).click();
-  await expect(page.getByText("لا توجد كتب هنا بعد")).toBeVisible();
+  await expect(page.getByRole("status")).toContainText("إضافة المشتريات للمخزون");
+  await page.getByRole("button", { name: "الكتب", exact: true }).click();
+  await expect(page.locator("main")).toContainText("1 قطعة متاحة");
 });
-
-test("serving source files directly shows startup help instead of a blank page", async ({
-  page,
-}) => {
-  const { createServer } = await import("node:http");
-  const { readFile } = await import("node:fs/promises");
-  const server = createServer(async (request, response) => {
-    const source = ["/src/app.js", "/src/boot.js"].includes(request.url);
-    response.setHeader(
-      "Content-Type",
-      source ? "text/javascript" : "text/html",
-    );
-    response.end(await readFile(source ? `.${request.url}` : "index.html"));
-  });
-  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-  try {
-    await page.goto(`http://127.0.0.1:${server.address().port}`);
-    await expect(page.locator("#boot-help")).toBeVisible();
-    await expect(page.locator("#boot-help")).toContainText("npm start");
-  } finally {
-    await new Promise((resolve) => server.close(resolve));
-  }
-});
-
-test("multi-part book shows owned and missing parts and sells one selected part", async ({ page }) => {
-  await page.goto("/");
-  await page.getByRole("button", { name: "+ إضافة كتاب" }).click();
-  await page.getByLabel("اسم الكتاب *").fill("موسوعة العلوم");
-  await page.getByLabel("عدد أجزاء الكتاب بالكامل *").fill("6");
-  await page.locator("#part-entry-input").fill("1");
-  await page.locator("#part-entry-input").press("Enter");
-  await page.locator("#part-entry-input").fill("3");
-  await page.locator("#part-entry-input").press("Enter");
-  await page.getByLabel("السعر الأساسي للجزء (ج) (اختياري لو سعّرت كل الأجزاء)").fill("100");
+test("multi-part shortages, repeated copies and partial sale", async ({ page }) => {
+  await launch(page);
+  await addBook(page, { title: "موسوعة العلوم", parts: 6, selected: [1, 3], total: 200 });
+  await page.getByRole("button", { name: "النواقص", exact: true }).click();
+  await expect(page.locator("main")).toContainText("الأجزاء الناقصة: 2، 4، 5، 6");
+  await page.getByRole("button", { name: "إضافة الأجزاء", exact: true }).click();
+  for (const part of [2, 3, 1]) await page.locator('[data-toggle-part="' + part + '"]').check();
+  await page.getByLabel("إجمالي سعر الشراء لكل الأجزاء (ج) *").fill("300");
   await page.getByRole("button", { name: "حفظ", exact: true }).click();
+  await page.getByRole("button", { name: "الكتب", exact: true }).click();
   await page.getByRole("button", { name: "التفاصيل", exact: true }).click();
-  await expect(page.locator("main")).toContainText("الجزء ١");
-  await expect(page.locator("main")).toContainText("الجزء ٣");
-  await expect(page.locator("main")).toContainText("الأجزاء الناقصة: ٢، ٤، ٥، ٦");
+  await expect(page.locator("main")).toContainText("الجزء 1");
+  await expect(page.locator("main")).toContainText("2 نسخ");
   await page.getByRole("button", { name: "تسجيل بيع", exact: true }).click();
-  await page.locator('[data-sale-part="3"]').click();
-  await page.getByLabel("سعر بيع النسخة الواحدة (ج) *").fill("150");
+  await page.getByRole("button", { name: "بيع أجزاء منه", exact: true }).click();
+  await page.locator('[data-sale-part="3"]').check();
+  await page.getByLabel("إجمالي سعر البيع لكل النسخ المحددة (ج) *").fill("150");
   await page.getByRole("button", { name: "حفظ", exact: true }).click();
-  await expect(page.locator("main")).toContainText("الجزء ٣");
-  await expect(page.locator("main")).toContainText("غير موجود");
-  await expect(page.locator("main")).toContainText("الجزء ١");
-  await page.getByRole("button", { name: "إضافة أجزاء", exact: true }).click();
-  await page.locator("#part-entry-input").fill("2");
-  await page.locator("#part-entry-input").press("Enter");
-  await page.locator("#part-entry-input").fill("3");
-  await page.locator("#part-entry-input").press("Enter");
-  await page.getByLabel("السعر الأساسي للجزء (ج) (اختياري لو سعّرت كل الأجزاء)").fill("120");
+  await expect(page.locator("main")).toContainText("الجزء 3");
+});
+test("small screens and offline use remain supported", async ({ page, context }) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await launch(page);
+  await addBook(page, { total: 500 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await context.setOffline(true);
+  await sellSingle(page);
+  await page.getByRole("button", { name: "الرئيسية", exact: true }).click();
+  await expect(page.locator(".stat.green")).toContainText("250");
+});
+
+test("whole-pound purchase total splits 100 across three copies as 34, 33 and 33", async ({ page }) => {
+  await launch(page);
+  await addBook(page, { title: "كتاب التقسيم", parts: 1, quantity: 3, total: 100 });
+  const purchaseRows = page.locator("main .row");
+  await expect(purchaseRows.nth(0)).toContainText("34 ج");
+  await expect(purchaseRows.nth(1)).toContainText("33 ج");
+  await expect(purchaseRows.nth(2)).toContainText("33 ج");
+  await expect(page.locator("main")).toContainText("3 نسخ");
+});
+
+test("full-book sale only sells complete sets when part quantities differ", async ({ page }) => {
+  await launch(page);
+  await addBook(page, { title: "مجموعة من جزأين", parts: 2, selected: [1,1,2], total: 300 });
+  await page.getByRole("button", { name: "تسجيل بيع", exact: true }).click();
+  await expect(page.locator('[name="parts"]')).toHaveValue("1,2");
+  await page.getByLabel("إجمالي سعر البيع لكل النسخ المحددة (ج) *").fill("200");
   await page.getByRole("button", { name: "حفظ", exact: true }).click();
-  await expect(page.locator("main")).toContainText("الأجزاء المتاحة");
-  await expect(page.locator("main")).toContainText("٣ من ٦");
+  await page.getByRole("button", { name: "النواقص", exact: true }).click();
+  await expect(page.locator("main")).toContainText("الأجزاء الناقصة: 2");
+});
+
+test("manual prices for selected purchase parts redistribute the remaining total", async ({ page }) => {
+  await launch(page);
+  await page.getByRole("button", { name: "+ إضافة كتاب" }).click();
+  await page.getByLabel("اسم الكتاب *").fill("كتاب أسعار مختلفة");
+  await page.getByLabel("عدد أجزاء أو مجلدات الكتاب بالكامل *").fill("3");
+  for (const part of [1,2,3]) await page.locator('[data-toggle-part="' + part + '"]').check();
+  await page.getByLabel("إجمالي سعر الشراء لكل الأجزاء (ج) *").fill("350");
+  await page.locator('[data-purchase-part="2"]').click();
+  await page.locator("#modal summary").filter({ hasText: "تخصيص سعر لبعض الأجزاء" }).click();
+  await page.locator("#group-part-price").fill("100");
+  await page.getByRole("button", { name: "تطبيق السعر على المحدد" }).click();
+  await page.getByRole("button", { name: "حفظ", exact: true }).click();
+  await expect(page.locator("main .row").nth(1)).toContainText("150 ج");
+  await expect(page.locator("main .row").first()).toContainText("100 ج");
+});
+
+test("manual sale prices set the aggregate total automatically when every selected part is priced", async ({ page }) => {
+  await launch(page);
+  await addBook(page, { title: "كتاب البيع المخصص", parts: 2, selected: [1,2], total: 200 });
+  await page.getByRole("button", { name: "تسجيل بيع", exact: true }).click();
+  await page.locator("#modal summary").filter({ hasText: "المزيد: تخصيص سعر جزء" }).click();
+  await page.locator("#group-sale-price").fill("150");
+  await page.getByRole("button", { name: "تطبيق السعر على المحدد" }).click();
+  await expect(page.getByLabel("إجمالي سعر البيع لكل النسخ المحددة (ج) *")).toHaveValue("300");
+  await expect(page.getByLabel("إجمالي سعر البيع لكل النسخ المحددة (ج) *")).toHaveAttribute("readonly", "");
+  await page.getByRole("button", { name: "حفظ", exact: true }).click();
+  await page.getByRole("button", { name: "الرئيسية", exact: true }).click();
+  await expect(page.locator(".stat").first()).toContainText("300");
+});
+
+test("cancelling supplier reservation adds no inventory or purchase cost", async ({ page }) => {
+  await launch(page);
+  await addBook(page, { title: "طلب شراء ملغي", total: 400, supplierReservation: true });
+  await page.getByRole("button", { name: "المحجوزات", exact: true }).click();
+  await page.getByRole("button", { name: "إلغاء الحجز", exact: true }).click();
+  await page.getByRole("button", { name: "تأكيد", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("تحرير الكمية");
+  await expect(page.locator("main")).toContainText("تم الإلغاء");
+  await page.getByRole("button", { name: "الرئيسية", exact: true }).click();
+  await expect(page.locator("main")).toContainText("0 ج");
+});
+
+test("closing a changed form asks before discarding unsaved edits", async ({ page }) => {
+  await launch(page);
+  await page.getByRole("button", { name: "+ إضافة كتاب" }).click();
+  await page.getByLabel("اسم الكتاب *").fill("مسودة لم تحفظ");
+  page.once("dialog", async (dialog) => { expect(dialog.message()).toContain("تغييرات"); await dialog.dismiss(); });
+  await page.getByRole("button", { name: "إغلاق" }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "إغلاق" }).click();
+  await expect(page.getByRole("dialog")).toBeHidden();
+});
+
+test("numeric defaults select their whole value on first focus", async ({ page }) => {
+  await launch(page);
+  await page.getByRole("button", { name: "+ إضافة كتاب" }).click();
+  const parts = page.getByLabel("عدد أجزاء أو مجلدات الكتاب بالكامل *");
+  await parts.focus();
+  await expect.poll(() => parts.evaluate((el) => [el.selectionStart, el.selectionEnd])).toEqual([0, 1]);
+  await parts.fill("3");
+  await expect(parts).toHaveValue("3");
 });

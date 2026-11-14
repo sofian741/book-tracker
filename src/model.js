@@ -1,4 +1,4 @@
-export const empty = () => ({ version: 2, books: [], batches: [], sales: [] });
+export const empty = () => ({ version: 3, books: [], batches: [], sales: [], reservations: [], profile: { name: "" } });
 export const today = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -39,12 +39,26 @@ export function unitCost(b, start, count) {
     rest = total % b.qty;
   return base * count + Math.max(0, Math.min(start + count, rest) - start);
 }
-export function available(s, book, part = null) {
+function physicalAvailable(s, book, part = null) {
   const batches = s.batches.filter((b) => b.book === book && (part === null || b.part === part));
   const ids = new Set(batches.map((b) => b.id));
   return batches.reduce((n, b) => n + b.qty, 0) - s.sales
     .filter((x) => x.book === book && (part === null || x.part === part))
     .reduce((n, x) => n + x.allocations.filter((a) => ids.has(a.batch)).reduce((a, b) => a + b.qty, 0), 0);
+}
+export function reserved(s, book, part = null) {
+  return (s.reservations || []).filter((r) => r.type === "customer" && r.status === "active" && r.book === book)
+    .reduce((n, r) => n + r.items.filter((x) => part === null || x.part === part).reduce((a, x) => a + x.qty, 0), 0);
+}
+export function available(s, book, part = null) {
+  return physicalAvailable(s, book, part) - reserved(s, book, part);
+}
+export function stockParts(s, book) {
+  const b = s.books.find((x) => x.id === book);
+  if (!b) return [];
+  return Array.from({ length: b.partsTotal }, (_, i) => i + 1)
+    .map((part) => ({ part, qty: physicalAvailable(s, book, part), reserved: reserved(s, book, part) }))
+    .filter((x) => x.qty > 0);
 }
 export function availableParts(s, book) {
   const b = s.books.find((x) => x.id === book);
@@ -123,14 +137,16 @@ export function totals(s, from = "", to = "9999") {
 export function validate(s) {
   if (
     !s ||
-    s.version !== 2 ||
-    !["books", "batches", "sales"].every(
+    s.version !== 3 ||
+    !["books", "batches", "sales", "reservations"].every(
       (k) => Array.isArray(s[k]) && s[k].length <= 50000,
     )
   )
     throw Error("ملف النسخة غير صالح أو إصداره غير مدعوم");
+  if (s.profile !== undefined && (!s.profile || typeof s.profile !== "object" || typeof s.profile.name !== "string" || s.profile.name.length > 80))
+    throw Error("بيانات الملف الشخصي غير صالحة");
   const ids = new Set();
-  for (const x of [...s.books, ...s.batches, ...s.sales]) {
+  for (const x of [...s.books, ...s.batches, ...s.sales, ...s.reservations]) {
     text(x.id, 100);
     if (!/^[A-Za-z0-9_-]{1,100}$/.test(x.id) || ids.has(x.id))
       throw Error("معرف مكرر");
@@ -196,15 +212,56 @@ export function validate(s) {
       end = r[1];
     }
   }
+  for (const r of s.reservations) {
+    if (!["customer", "supplier"].includes(r.type) || !["active", "confirmed", "cancelled"].includes(r.status))
+      throw Error("نوع أو حالة حجز غير صالحة");
+    if (!books.has(r.book)) throw Error("كتاب الحجز غير موجود");
+    text(r.name, 200); text(r.phone, 50); text(r.note);
+    if (!r.name.trim()) throw Error("اسم صاحب الحجز مطلوب");
+    date(r.date); integer(r.total, r.type === "customer" ? 1 : 0); integer(r.expenses || 0); integer(r.shipping || 0);
+    if (!Array.isArray(r.items) || !r.items.length || r.items.length > 50000) throw Error("أجزاء الحجز غير صالحة");
+    for (const item of r.items) {
+      integer(item.part, 1); integer(item.qty, 1); integer(item.unit, r.type === "customer" ? 1 : 0); integer(item.extra || 0);
+      if (item.part > s.books.find((b) => b.id === r.book).partsTotal) throw Error("رقم جزء الحجز غير صالح");
+    }
+    const sum = r.items.reduce((n, item) => n + item.qty * item.unit, 0);
+    if (r.type === "customer" && sum !== r.total) throw Error("إجمالي حجز العميل غير متطابق");
+    if (r.type === "supplier" && r.items.reduce((n, item) => n + item.qty * item.unit + (item.extra || 0), 0) !== r.total) throw Error("إجمالي حجز المورد غير متطابق");
+  }
+  const reservedByPart = new Map();
+  for (const r of s.reservations.filter((x) => x.type === "customer" && x.status === "active"))
+    for (const item of r.items) {
+      const key = r.book + ":" + item.part;
+      reservedByPart.set(key, (reservedByPart.get(key) || 0) + item.qty);
+    }
+  for (const [key, qty] of reservedByPart) {
+    const [book, part] = key.split(":");
+    if (qty > physicalAvailable(s, book, Number(part))) throw Error("الحجوزات تتجاوز المخزون الفعلي المتاح");
+  }
   totals(s);
   return s;
 }
 export function migrate(s) {
-  if (!s || ![1, 2].includes(s.version))
+  if (!s || ![1, 2, 3].includes(s.version))
     throw Error("ملف النسخة غير صالح أو إصداره غير مدعوم");
-  if (s.version === 2) return validate(s);
+  if (s.version === 3) {
+    if (!s.profile || typeof s.profile !== "object") s.profile = { name: "" };
+    if (typeof s.profile.name !== "string") s.profile.name = "";
+    if (!Array.isArray(s.reservations)) s.reservations = [];
+    return validate(s);
+  }
+  if (s.version === 2) {
+    const next = structuredClone(s);
+    next.version = 3;
+    next.reservations = [];
+    if (!next.profile || typeof next.profile !== "object") next.profile = { name: "" };
+    if (typeof next.profile.name !== "string") next.profile.name = "";
+    return validate(next);
+  }
   const next = structuredClone(s);
-  next.version = 2;
+  next.version = 3;
+  next.reservations = [];
+  next.profile = { name: "" };
   for (const b of next.books) b.partsTotal = 1;
   for (const b of next.batches) b.part = 1;
   for (const x of next.sales) x.part = 1;

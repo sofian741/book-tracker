@@ -198,7 +198,7 @@ test("version 1 database and backups migrate without changing historical amounts
   for (const b of legacy.batches) delete b.part;
   for (const x of legacy.sales) delete x.part;
   const upgraded = M.migrate(legacy);
-  assert.equal(upgraded.version, 2);
+  assert.equal(upgraded.version, 3);
   assert.equal(upgraded.books[0].partsTotal, 1);
   assert.equal(upgraded.batches[0].part, 1);
   assert.equal(upgraded.sales[0].part, 1);
@@ -257,4 +257,95 @@ test("different purchase prices per part keep FIFO cost and profit independent",
   assert.deepEqual(s.sales.map(M.profit), [5000, 1000]);
   assert.equal(M.totals(s).profit, 6000);
   assert.equal(M.totals(s).stock, 0);
+});
+
+test("profile is added when migrating an existing version 2 ledger", () => {
+  const s = setup();
+  delete s.profile;
+  const before = M.totals(s);
+  const migrated = M.migrate(s);
+  assert.deepEqual(migrated.profile, { name: "" });
+  assert.deepEqual(M.totals(migrated), before);
+});
+
+test("active customer reservations reduce sellable stock but are not sales or profit", () => {
+  const s = batch(setup(), 50000);
+  s.reservations.push({ id:"customer-res", type:"customer", status:"active", book:"book",
+    items:[{part:1,qty:1,unit:75000,extra:0}], total:75000, name:"عميل", phone:"0100",
+    date:"2026-02-01", expenses:0, shipping:0, note:"" });
+  M.validate(s);
+  assert.equal(M.available(s,"book"),0);
+  assert.equal(M.totals(s).revenue,0);
+  assert.equal(M.totals(s).profit,0);
+  assert.equal(M.totals(s).qty,0);
+  const cancelled=structuredClone(s);
+  cancelled.reservations[0].status="cancelled";
+  M.validate(cancelled);
+  assert.equal(M.available(cancelled,"book"),1);
+  assert.equal(cancelled.sales.length,0);
+});
+test("customer reservation confirmation creates actual sale exactly once", () => {
+  const s=batch(setup(),50000);
+  s.reservations.push({id:"customer-res",type:"customer",status:"active",book:"book",
+    items:[{part:1,qty:1,unit:75000,extra:0}],total:75000,name:"عميل",phone:"",
+    date:"2026-02-01",expenses:0,shipping:0,note:""});
+  s.reservations[0].status="confirmed";
+  M.addSale(s,{id:"sale-from-res",transaction:"reservation-customer-res",book:"book",part:1,
+    qty:1,unit:75000,expenses:0,shipping:0,note:"",date:"2026-02-01"});
+  M.validate(s);
+  assert.equal(M.totals(s).revenue,75000);
+  assert.equal(M.totals(s).profit,25000);
+  assert.equal(M.available(s,"book"),0);
+  assert.equal(s.reservations[0].status,"confirmed");
+});
+test("supplier reservations do not enter stock until confirmed", () => {
+  const s=setup();
+  s.reservations.push({id:"supplier-res",type:"supplier",status:"active",book:"book",
+    items:[{part:1,qty:1,unit:50000,extra:1000}],total:51000,name:"مورد",phone:"",
+    date:"2026-01-01",expenses:0,shipping:0,note:""});
+  M.validate(s);
+  assert.equal(M.available(s,"book"),0);
+  assert.equal(M.totals(s).spent,0);
+  s.reservations[0].status="confirmed";
+  s.batches.push({id:"received",book:"book",part:1,qty:1,unit:50000,extra:1000,date:"2026-01-01"});
+  M.validate(s);
+  assert.equal(M.available(s,"book"),1);
+  assert.equal(M.totals(s).spent,51000);
+});
+test("reservation migration from version 2 preserves ledger and adds empty reservation history", () => {
+  const s=batch(setup(),50000);
+  sale(s,75000);
+  const old=structuredClone(s);
+  old.version=2;
+  delete old.reservations;
+  const migrated=M.migrate(old);
+  assert.equal(migrated.version,3);
+  assert.deepEqual(migrated.reservations,[]);
+  assert.deepEqual(M.totals(migrated),M.totals(old));
+});
+
+test("active reservations survive backup restore with stock protection intact", () => {
+  const s=batch(setup(),60000,2);
+  s.reservations.push({id:"held",type:"customer",status:"active",book:"book",
+    items:[{part:1,qty:1,unit:90000}],total:90000,name:"عميل",phone:"0123",
+    date:"2026-02-01",expenses:0,shipping:0,note:""});
+  const restored=M.restore(JSON.stringify(s));
+  assert.deepEqual(restored,s);
+  assert.equal(M.available(restored,"book"),1);
+  const invalid=structuredClone(restored);
+  invalid.reservations[0].items[0].qty=3;
+  invalid.reservations[0].total=270000;
+  assert.throws(()=>M.validate(invalid));
+});
+
+test("cancelled supplier reservation never changes purchases or available stock", () => {
+  const s=setup();
+  s.reservations.push({id:"supplier-cancel",type:"supplier",status:"active",book:"book",
+    items:[{part:1,qty:2,unit:40000,extra:0}],total:80000,name:"مورد",phone:"",
+    date:"2026-02-01",expenses:0,shipping:0,note:""});
+  s.reservations[0].status="cancelled";
+  M.validate(s);
+  assert.equal(M.totals(s).spent,0);
+  assert.equal(M.available(s,"book"),0);
+  assert.equal(s.batches.length,0);
 });

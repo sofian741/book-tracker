@@ -583,7 +583,7 @@ function setupSaleParts(d, book) {
   const grid = d.querySelector("#sale-parts"),
     hidden = d.querySelector('[name="parts"]'),
     available = new Map(M.availableParts(state, book.id).map((x) => [x.part, x.qty])),
-    selected = new Map();
+    selected = new Map([...available.entries()]);
   const sync = () => {
     hidden.value = [...selected.entries()].flatMap(([part, qty]) => Array(qty).fill(part)).join(",");
     grid.innerHTML = [...available.entries()].sort((a,b)=>a[0]-b[0]).map(([part, stock]) => {
@@ -606,8 +606,10 @@ function setupSaleParts(d, book) {
     if (selected.has(part)) selected.delete(part); else selected.set(part, 1);
     sync(); d.oninput();
   };
-  d.querySelector("[data-sale-all]").onclick = () => { available.forEach((qty, part) => selected.set(part, qty)); sync(); d.oninput(); };
-  d.querySelector("[data-sale-clear]").onclick = () => { selected.clear(); sync(); d.oninput(); };
+  const full = d.querySelector("[data-sale-full]") || d.querySelector("[data-sale-all]");
+  if (full) full.onclick = () => { available.forEach((qty, part) => selected.set(part, qty)); sync(); d.oninput(); };
+  const clear = d.querySelector("[data-sale-clear]");
+  if (clear) clear.onclick = () => { selected.clear(); sync(); d.oninput(); };
   sync();
 }
 function confirmAction(title, message, fn) {

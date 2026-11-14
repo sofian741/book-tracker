@@ -265,26 +265,28 @@ function parseParts(raw, total) {
   return values;
 }
 function purchaseBatches(f, bookId, book, old = null) {
-  const unitRaw = String(f.get("unit") || "").trim(), unit = unitRaw ? M.money(unitRaw) : 0, date = f.get("date"), extra = amount(f, "extra");
-  if (old) return [{ ...old, part: int(f.get("part")), qty: int(f.get("qty")), unit, date, extra }];
+  const date = f.get("date"), extra = amount(f, "extra");
+  if (old) return [{ ...old, part: int(f.get("part")), qty: int(f.get("qty")), unit: M.money(f.get("unit") || "0"), date, extra }];
   const parts = parseParts(f.get("parts"), book.partsTotal), counts = new Map();
   for (const part of parts) counts.set(part, (counts.get(part) || 0) + 1);
-  let rawPrices = {};
-  try { rawPrices = JSON.parse(f.get("partPrices") || "{}"); } catch { throw Error("تعذر قراءة أسعار الأجزاء المحددة"); }
-  for (const [key, value] of Object.entries(rawPrices)) {
-    const part = Number(key);
-    if (!counts.has(part) || !Number.isSafeInteger(value) || value < 0)
-      throw Error("راجع أسعار الأجزاء المحددة");
+  let prices = {};
+  try { prices = JSON.parse(f.get("partPrices") || "{}"); } catch { throw Error("تعذر قراءة أسعار الأجزاء"); }
+  for (const [key, value] of Object.entries(prices)) if (!counts.has(Number(key)) || !Number.isSafeInteger(value) || value < 0) throw Error("راجع أسعار الأجزاء");
+  const total = amount(f, "purchaseTotal");
+  const manualQty = [...counts].filter(([part]) => prices[part] !== undefined).reduce((n, [,qty]) => n + qty, 0);
+  const manualTotal = [...counts].reduce((n, [part,qty]) => n + (prices[part] ?? 0) * qty, 0);
+  const autoQty = parts.length - manualQty;
+  if (manualTotal > total || (!autoQty && manualTotal !== total)) throw Error("إجمالي الأسعار المخصصة لا يطابق إجمالي الشراء");
+  const restTotal = total - manualTotal, base = autoQty ? Math.floor(restTotal / autoQty) : 0;
+  let priceRemainder = autoQty ? restTotal % autoQty : 0;
+  const extraBase = Math.floor(extra / parts.length); let extraRemainder = extra % parts.length;
+  const result = [];
+  for (const [part, qty] of counts) for (let i = 0; i < qty; i++) {
+    const unit = prices[part] ?? (base + (priceRemainder-- > 0 ? 1 : 0));
+    const copyExtra = extraBase + (extraRemainder-- > 0 ? 1 : 0);
+    result.push({ id: M.id(), book: bookId, part, qty: 1, unit, date, extra: copyExtra });
   }
-  if ([...counts.keys()].some((part) => rawPrices[part] === undefined) && !unitRaw)
-    throw Error("حدد سعرًا أساسيًا أو خصص سعرًا لكل الأجزاء");
-  const base = Math.floor(extra / parts.length);
-  let remainder = extra % parts.length, index = 0;
-  return [...counts.entries()].map(([part, qty]) => {
-    const bonus = Math.max(0, Math.min(qty, remainder - index));
-    index += qty;
-    return { id: M.id(), book: bookId, part, qty, unit: rawPrices[part] ?? unit, date, extra: base * qty + bonus };
-  });
+  return result;
 }
 async function commit(next, message = "تم الحفظ") {
   M.validate(next);
@@ -296,27 +298,19 @@ async function commit(next, message = "تم الحفظ") {
 function previewPurchase(d, book = null) {
   const update = () => {
     try {
-      const f = new FormData(d.querySelector("form")),
-        unit = amount(f, "unit"),
-        extra = amount(f, "extra");
+      const f = new FormData(d.querySelector("form"));
       let qty, total;
       if (f.has("parts")) {
-        const batches = purchaseBatches(f, "preview", book || { partsTotal: Number(f.get("partsTotal") || 1) });
-        qty = batches.reduce((n, batch) => n + batch.qty, 0);
-        total = batches.reduce((n, batch) => n + batch.unit * batch.qty + batch.extra, 0);
+        const batches = purchaseBatches(f, "preview", book || { partsTotal: 1 });
+        qty = batches.reduce((n,b) => n+b.qty,0);
+        total = batches.reduce((n,b) => n+b.unit*b.qty+b.extra,0);
       } else {
-        qty = int(f.get("qty"));
-        total = unit * qty + extra;
+        qty = int(f.get("qty")); total = M.money(f.get("unit") || "0")*qty+amount(f,"extra");
       }
-      d.querySelector("#preview").innerHTML =
-        "إجمالي الدفعة: " + cash(total) + " · عدد القطع: " + num(qty);
-    } catch {
-      d.querySelector("#preview").textContent =
-        "أدخل السعر والكمية لعرض الإجمالي";
-    }
+      d.querySelector("#preview").textContent = "إجمالي الشراء: " + cash(total) + " · عدد النسخ: " + num(qty);
+    } catch { d.querySelector("#preview").textContent = "اختار الأجزاء واكتب إجمالي الشراء لعرض التفاصيل"; }
   };
-  d.oninput = update;
-  update();
+  d.oninput = update; update();
 }
 function setupPurchaseParts(d, book = null) {
   const form = d.querySelector("form"),
@@ -383,6 +377,9 @@ function setupPurchaseParts(d, book = null) {
       toast("تم تطبيق السعر على " + num(selected.size) + " جزء");
     } catch (e) { toast(errorMessage(e)); }
   };
+  if (total() === 1) { quantities.set(1, 1); selected.add(1); }
+  const reserveCheck = form.querySelector("#reservePurchase");
+  if (reserveCheck) reserveCheck.onchange = () => { form.querySelector("#supplier-details").open = reserveCheck.checked; };
   sync();
 }
 

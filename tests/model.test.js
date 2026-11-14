@@ -323,3 +323,17 @@ test("reservation migration from version 2 preserves ledger and adds empty reser
   assert.deepEqual(migrated.reservations,[]);
   assert.deepEqual(M.totals(migrated),M.totals(old));
 });
+
+test("active reservations survive backup restore with stock protection intact", () => {
+  const s=batch(setup(),60000,2);
+  s.reservations.push({id:"held",type:"customer",status:"active",book:"book",
+    items:[{part:1,qty:1,unit:90000}],total:90000,name:"عميل",phone:"0123",
+    date:"2026-02-01",expenses:0,shipping:0,note:""});
+  const restored=M.restore(JSON.stringify(s));
+  assert.deepEqual(restored,s);
+  assert.equal(M.available(restored,"book"),1);
+  const invalid=structuredClone(restored);
+  invalid.reservations[0].items[0].qty=3;
+  invalid.reservations[0].total=270000;
+  assert.throws(()=>M.validate(invalid));
+});

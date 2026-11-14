@@ -216,7 +216,7 @@ dl {
 }
 dt { color: var(--muted); line-height: 1.7; }
 dd { margin: 0; text-align: left; font-weight: 800; color: var(--ink); }
-.hint { color: #77827c !important; font-size: .76rem !important; line-height: 1.8; }
+.hint { color: #77827c !important; font-size: .84rem !important; line-height: 1.8; }
 .good-text { color: var(--green); font-size: .88rem; font-weight: 700; }
 .red-text { color: var(--danger); font-size: .88rem; font-weight: 700; }
 .empty { text-align: center; padding: 44px 10px; }
@@ -245,7 +245,7 @@ dd { margin: 0; text-align: left; font-weight: 800; color: var(--ink); }
   border-radius: 0;
 }
 .book-title strong { display: block; font-size: 1.04rem; font-weight: 800; overflow-wrap: anywhere; }
-.book-title small { display: block; margin-top: 3px; color: var(--muted); font-size: .78rem; font-weight: 400; }
+.book-title small { display: block; margin-top: 3px; color: var(--muted); font-size: .84rem; font-weight: 400; }
 .book-mark {
   width: 42px;
   height: 42px;
@@ -289,9 +289,9 @@ dd { margin: 0; text-align: left; font-weight: 800; color: var(--ink); }
 }
 .row > div:first-child { min-width: 0; flex: 1; }
 .row strong { display: block; font-size: .94rem; overflow-wrap: anywhere; }
-.row small { display: block; margin: 4px 0; color: var(--muted); font-size: .76rem; line-height: 1.8; }
+.row small { display: block; margin: 4px 0; color: var(--muted); font-size: .82rem; line-height: 1.8; }
 .row-buttons { display: flex; flex-direction: column; gap: 6px; }
-.row-buttons button { min-height: 44px; padding: 6px 10px; font-size: .74rem; }
+.row-buttons button { min-height: 48px; padding: 6px 10px; font-size: .8rem; }
 .reservation-card { border-right: 0; }
 .invoice { padding: 4px 0; background: transparent; border: 0; border-radius: 0; }
 .invoice h3 { margin: 0 0 10px; font-size: 1.12rem; }
@@ -386,8 +386,8 @@ nav button {
   border-radius: 0;
   background: transparent;
   color: #7d8982;
-  font-size: .76rem;
-  font-weight: 600;
+  font-size: .8rem;
+  font-weight: 700;
 }
 nav svg { width: 22px; height: 22px; }
 nav .active { color: var(--green); background: transparent; box-shadow: inset 0 3px var(--green); }
@@ -564,10 +564,11 @@ dialog form {
   gap: 8px;
   min-width: 106px;
 }
+
 .part-quantity button {
-  width: 46px;
-  min-width: 46px;
-  min-height: 46px;
+  width: 48px;
+  min-width: 48px;
+  min-height: 48px;
   padding: 0;
   background: #edf0eb;
   border-radius: 7px;
@@ -577,7 +578,7 @@ dialog form {
 .price-select {
   grid-column: 1 / -1;
   justify-self: start;
-  min-height: 42px;
+  min-height: 48px;
   padding: 6px 0;
   color: var(--green);
   background: transparent;
@@ -632,7 +633,7 @@ dialog form {
 }
 .sale-part-main span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .sale-part-main b { font-size: .94rem; }
-.sale-part-main small { color: var(--muted); font-size: .76rem; }
+.sale-part-main small { color: var(--muted); font-size: .82rem; }
 .sale-part-card .part-quantity { margin-right: 40px; }
 .part-entry-chip .part-pick { width: 100%; padding-left: 0; }
 .remove-part { min-height: 44px; min-width: 44px; padding: 0; color: var(--danger); background: transparent; }

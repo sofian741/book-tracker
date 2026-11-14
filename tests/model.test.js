@@ -337,3 +337,15 @@ test("active reservations survive backup restore with stock protection intact", 
   invalid.reservations[0].total=270000;
   assert.throws(()=>M.validate(invalid));
 });
+
+test("cancelled supplier reservation never changes purchases or available stock", () => {
+  const s=setup();
+  s.reservations.push({id:"supplier-cancel",type:"supplier",status:"active",book:"book",
+    items:[{part:1,qty:2,unit:40000,extra:0}],total:80000,name:"مورد",phone:"",
+    date:"2026-02-01",expenses:0,shipping:0,note:""});
+  s.reservations[0].status="cancelled";
+  M.validate(s);
+  assert.equal(M.totals(s).spent,0);
+  assert.equal(M.available(s,"book"),0);
+  assert.equal(s.batches.length,0);
+});

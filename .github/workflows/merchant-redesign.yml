@@ -1,7 +1,5 @@
 name: Merchant Redesign Checks
 on:
-  push:
-    branches: [feature/merchant-redesign]
   pull_request:
     branches: [main]
 permissions:

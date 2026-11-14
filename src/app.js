@@ -874,6 +874,8 @@ function bind() {
                 const n = structuredClone(state),
                   target = state.sales.find((x) => x.id === id),
                   transaction = target?.transaction || target?.id;
+                if (n.reservations.some((r) => r.type === "customer" && r.status === "confirmed" && transaction === "reservation-" + r.id))
+                  throw Error("البيع ده ناتج عن حجز مؤكد؛ استخدم تصحيح البيع بدل حذفه للحفاظ على سجل الحجز");
                 n.sales = n.sales.filter((x) => (x.transaction || x.id) !== transaction);
                 M.recalculate(n);
                 await commit(n, "تم حذف البيع وإعادة المخزون");

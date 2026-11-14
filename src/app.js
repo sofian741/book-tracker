@@ -101,7 +101,7 @@ function books() {
     (list.length ? list.map((b) => {
       const q = M.available(state, b.id),
         total = state.batches.filter((x) => x.book === b.id).reduce((n, x) => n + x.qty, 0),
-        present = M.availableParts(state, b.id),
+        present = M.stockParts(state, b.id),
         complete = present.length === b.partsTotal,
         cost = bookStock(b.id);
       return '<article class="book"><button class="book-title" data-book="' + b.id + '"><span class="book-mark">' + icon("books") + '</span><span><strong>' + esc(b.title) + '</strong><small>' + (esc(b.publisher) || "بدون دار نشر") + (b.partsTotal > 1 ? " · " + num(b.partsTotal) + " أجزاء" : "") + '</small></span></button><div class="book-info"><span class="badge ' + (complete ? "" : "muted") + '">' + (present.length ? "معايا " + num(present.length) + " من " + num(b.partsTotal) + " أجزاء" : "لا توجد أجزاء متاحة") + " · " + (complete ? "مكتمل" : "غير مكتمل") + '</span><span>' + num(q) + ' قطعة متاحة · تكلفة المتبقي ' + cash(cost) + '</span></div><div class="actions">' + (q ? button("تسجيل بيع", "sell", 'data-id="' + b.id + '" class="primary"') : "") + button("التفاصيل", "detail", 'data-id="' + b.id + '" class="subtle"') + '</div><small class="hint">' + num(total) + ' قطعة تم شراؤها إجمالًا</small></article>';
@@ -145,7 +145,7 @@ function detail() {
   const b = state.books.find((b) => b.id === selected),
     batches = state.batches.filter((x) => x.book === b.id),
     sales = state.sales.filter((x) => x.book === b.id),
-    present = M.availableParts(state, b.id),
+    present = M.stockParts(state, b.id),
     owned = new Map(present.map((x) => [x.part, x.qty])),
     missing = Array.from({ length: b.partsTotal }, (_, i) => i + 1).filter((part) => !owned.has(part));
   const partRows = Array.from({ length: b.partsTotal }, (_, i) => i + 1).map((part) => {
@@ -165,9 +165,9 @@ function detail() {
     '<h2>سجل المبيعات</h2>' + saleList(sales);
 }
 function shortages() {
-  const incomplete = state.books.filter((b) => M.availableParts(state, b.id).length < b.partsTotal);
+  const incomplete = state.books.filter((b) => M.stockParts(state, b.id).length < b.partsTotal);
   return `<div class="heading"><p class="eyebrow">تابع مجموعاتك</p><h1>النواقص</h1><p>الكتب اللي لسه مش كل أجزائها موجودة عندك.</p></div>${incomplete.length ? incomplete.map((b) => {
-    const owned = M.availableParts(state, b.id), have = new Set(owned.map((x) => x.part));
+    const owned = M.stockParts(state, b.id), have = new Set(owned.map((x) => x.part));
     const missing = Array.from({length:b.partsTotal},(_,i)=>i+1).filter((part)=>!have.has(part));
     return `<article class="book"><div class="book-title"><span class="book-mark">${icon("books")}</span><span><strong>${esc(b.title)}</strong><small>${esc(b.publisher || "بدون دار نشر")}</small></span></div><div class="book-info"><span class="badge muted">${num(missing.length)} أجزاء ناقصة</span><span>معايا ${num(owned.length)} من ${num(b.partsTotal)}</span></div><p class="hint">الأجزاء الناقصة: ${missing.map(num).join("، ")}</p><div class="actions">${button("إضافة", "batch", `data-id="${b.id}" class="primary"`)}${button("تفاصيل", "detail", `data-id="${b.id}" class="subtle"`)}</div></article>`;
   }).join("") : `<div class="empty"><h2>مفيش نواقص 🎉</h2><p>كل الكتب عندك مكتملة حاليًا.</p></div>`}`;
@@ -479,12 +479,13 @@ function addBook() {
       const reservation = supplierReservation(b.id, batches, f);
       if (!reservation.name) throw Error("اكتب اسم المورد");
       n.reservations.push(reservation);
+      tab = "books";
       await commit(n, "تم حفظ الكتاب وحجز الشراء دون إضافة المخزون");
     } else {
       n.batches.push(...batches);
+      tab = "books";
       await commit(n, "تمت إضافة الكتاب والمخزون");
     }
-    tab = "books";
   });
   previewPurchase(d); setupPurchaseParts(d);
 }
@@ -526,7 +527,7 @@ function batch(bookId, batchId) {
 function sellNew(bookId) {
 
   const b = state.books.find((x) => x.id === bookId);
-  const available = M.availableParts(state, b.id);
+  const available = M.stockParts(state, b.id);
   const isSingle = b.partsTotal === 1;
   const defaultQty = available.reduce((n,x) => n+x.qty,0);
   const selection = isSingle
@@ -828,6 +829,15 @@ function bind() {
             break;
           case "profile":
             editProfile();
+            break;
+          case "reservation-detail":
+            reservationDetail(id);
+            break;
+          case "confirm-reservation":
+            confirmReservation(id);
+            break;
+          case "cancel-reservation":
+            cancelReservation(id);
             break;
           case "export":
             exportBackup();

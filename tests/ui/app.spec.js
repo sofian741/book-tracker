@@ -202,8 +202,8 @@ test("manual sale prices set the aggregate total automatically when every select
   await page.locator("#group-sale-price").fill("150");
   await page.getByRole("button", { name: "تطبيق السعر على المحدد" }).click();
   await expect(page.getByLabel("إجمالي سعر البيع لكل النسخ المحددة (ج) *")).toHaveValue("300");
-  await expect(page.getByLabel("إجمالي سعر البيع لكل النسخ المحددة (ج) *")).toBeDisabled();
+  await expect(page.getByLabel("إجمالي سعر البيع لكل النسخ المحددة (ج) *")).toHaveAttribute("readonly", "");
   await page.getByRole("button", { name: "حفظ", exact: true }).click();
   await page.getByRole("button", { name: "الرئيسية", exact: true }).click();
-  await expect(page.locator(".stat")).toContainText("300");
+  await expect(page.locator(".stat").first()).toContainText("300");
 });

@@ -284,7 +284,11 @@ function field(label, name, value = "", type = "text", required = false) {
 function modal(title, html, submit) {
   const d = document.querySelector("#modal");
   d.innerHTML = `<form><div class="modal-head"><h2>${title}</h2><button type="button" id="close" aria-label="إغلاق">×</button></div>${html}<p id="form-error" role="alert"></p><button class="primary wide" type="submit">حفظ</button></form>`;
-  d.querySelector("#close").onclick = () => d.close();
+  const discardChanges = () => !d.dataset.dirty || window.confirm("فيه تغييرات لسه متحفظتش. متأكد إنك عايز تقفل وتفقدها؟");
+  d.querySelector("#close").onclick = () => { if (discardChanges()) d.close(); };
+  d.addEventListener("cancel", (e) => { if (!discardChanges()) e.preventDefault(); });
+  d.querySelector("form").addEventListener("input", () => { d.dataset.dirty = "1"; });
+  d.querySelector("form").addEventListener("change", () => { d.dataset.dirty = "1"; });
   d.querySelector("form").onsubmit = async (e) => {
     e.preventDefault();
     if (busy) return;

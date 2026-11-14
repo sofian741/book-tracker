@@ -186,6 +186,75 @@ function reservations() {
     '<h2>حجوزات الموردين</h2>' + (active.filter((r) => r.type === "supplier").map(card).join("") || '<div class="empty compact"><p>مفيش حجوزات موردين نشطة.</p></div>') +
     '<details class="panel"><summary>سجل الحجوزات المكتملة والملغاة (' + num(history.length) + ')</summary>' + (history.map(card).join("") || '<p class="hint">السجل لسه فاضي.</p>') + '</details>';
 }
+
+function reservationEstimate(r) {
+  const n = structuredClone(state);
+  const target = n.reservations.find((x) => x.id === r.id);
+  if (!target || target.status !== "active" || target.type !== "customer") return null;
+  target.status = "confirmed";
+  const transaction = "estimate-" + r.id;
+  let index = 0, qty = r.items.reduce((a,x) => a+x.qty,0);
+  const ebase = Math.floor((r.expenses || 0)/qty), erest = (r.expenses || 0)%qty;
+  const sbase = Math.floor((r.shipping || 0)/qty), srest = (r.shipping || 0)%qty;
+  const sales = [];
+  for (const item of r.items) {
+    const sale = {id:M.id(),transaction,book:r.book,part:item.part,qty:item.qty,unit:item.unit,
+      expenses: ebase*item.qty + Math.max(0,Math.min(index+item.qty,erest)-index),
+      shipping: sbase*item.qty + Math.max(0,Math.min(index+item.qty,srest)-index),
+      date:r.date,note:r.note || ""};
+    M.addSale(n,sale); sales.push(sale); index += item.qty;
+  }
+  return {sales,cost:sales.reduce((a,x)=>a+x.allocations.reduce((v,z)=>v+z.cost,0),0),
+    profit:sales.reduce((a,x)=>a+M.profit(x),0)};
+}
+function reservationDetail(id) {
+  const r = state.reservations.find((x) => x.id === id);
+  if (!r) return;
+  const b = state.books.find((x) => x.id === r.book);
+  const items = r.items.map((x) => "الجزء " + num(x.part) + " × " + num(x.qty)).join("، ");
+  let financial = "";
+  if (r.type === "customer") {
+    try {
+      const estimate = reservationEstimate(r);
+      financial = '<dt>إجمالي التكلفة المتوقعة</dt><dd>' + cash(estimate.cost) + '</dd><dt>صافي الربح المتوقع</dt><dd class="good-text">' + cash(estimate.profit) + '</dd>';
+    } catch { financial = '<dt>التكلفة والربح</dt><dd>تعذر تقديرهما قبل التأكيد</dd>'; }
+  } else financial = '<dt>تكلفة الشراء المتفق عليها</dt><dd>' + cash(r.total) + '</dd>';
+  const d = modal("تفاصيل الحجز", '<section class="invoice"><h3>' + esc(b?.title || "كتاب") + '</h3><p>' + (r.type === "customer" ? "بيانات العميل" : "بيانات المورد") + '</p><dl><dt>الاسم</dt><dd>' + esc(r.name) + '</dd><dt>الهاتف</dt><dd>' + esc(r.phone || "غير مسجل") + '</dd><dt>التاريخ</dt><dd>' + esc(r.date) + '</dd><dt>الأجزاء والكميات</dt><dd>' + esc(items) + '</dd><dt>الإجمالي</dt><dd>' + cash(r.total) + '</dd>' + financial + '</dl><p class="hint">' + (r.type === "customer" ? "الأرباح دي متوقعة فقط. لن تظهر في الأرباح المحققة إلا بعد تأكيد البيع." : "الحجز لا يدخل المخزون ولا يُسجل كمشتريات حتى تأكيد الاستلام.") + '</p></section>', async () => {});
+  d.querySelector('[type="submit"]').textContent = "إغلاق";
+}
+function confirmReservation(id) {
+  confirmAction("تأكيد الحجز؟", "هنحوّل الحجز إلى عملية فعلية. التأكيد لا يمكن تكراره، وسيتم تحديث المخزون والحسابات مرة واحدة.", async () => {
+    const n = structuredClone(state), r = n.reservations.find((x) => x.id === id);
+    if (!r || r.status !== "active") throw Error("الحجز اتعالج بالفعل");
+    if (r.type === "customer") {
+      r.status = "confirmed";
+      const totalQty = r.items.reduce((a,x) => a+x.qty,0);
+      const ebase=Math.floor((r.expenses||0)/totalQty), erest=(r.expenses||0)%totalQty;
+      const sbase=Math.floor((r.shipping||0)/totalQty), srest=(r.shipping||0)%totalQty;
+      let index=0; const transaction="reservation-"+r.id;
+      for (const item of r.items) {
+        const sale={id:M.id(),transaction,book:r.book,part:item.part,qty:item.qty,unit:item.unit,
+          expenses:ebase*item.qty+Math.max(0,Math.min(index+item.qty,erest)-index),
+          shipping:sbase*item.qty+Math.max(0,Math.min(index+item.qty,srest)-index),
+          date:r.date,note:r.note||""};
+        M.addSale(n,sale); index+=item.qty;
+      }
+      await commit(n,"تم تأكيد البيع وتسجيل الربح الفعلي");
+    } else {
+      r.status="confirmed";
+      for (const item of r.items) n.batches.push({id:M.id(),book:r.book,part:item.part,qty:item.qty,unit:item.unit,date:r.date,extra:item.extra||0});
+      await commit(n,"تم تأكيد الاستلام وإضافة المشتريات للمخزون");
+    }
+  });
+}
+function cancelReservation(id) {
+  confirmAction("إلغاء الحجز؟","هيتم تحرير الكمية المحجوزة أو إلغاء طلب الشراء. مش هيتسجل بيع أو ربح، ومش هيتضاف مخزون.",async()=>{
+    const n=structuredClone(state),r=n.reservations.find((x)=>x.id===id);
+    if(!r||r.status!=="active") throw Error("الحجز اتعالج بالفعل");
+    r.status="cancelled"; await commit(n,"تم إلغاء الحجز وتحرير الكمية");
+  });
+}
+
 function editProfile(firstRun = false) {
   const current = state.profile?.name || "";
   modal(firstRun ? "أهلاً بيك في تاجر" : "تغيير الاسم", `${field("تحب نناديك بإيه؟ *", "name", current, "text", true)}<p class="hint">الاسم بيتحفظ على نفس الجهاز، وتقدر تغيّره من الإعدادات في أي وقت.</p>`, async (f) => {

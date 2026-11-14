@@ -470,6 +470,7 @@ function setupPurchaseParts(d, book = null) {
     const raw = form.querySelector("#group-part-price").value.trim();
     if (!raw) { toast("اكتب السعر الأول"); return; }
     try {
+      if (!/^[0-9]+$/.test(raw)) throw Error("اكتب سعر النسخة بالجنيه الصحيح بدون كسور");
       const price = M.money(raw);
       selected.forEach((part) => prices.set(part, price));
       form.querySelector("#group-part-price").value = "";
@@ -620,6 +621,7 @@ function sellNew(bookId) {
       if(!selected.length){toast("حدد جزءًا واحدًا على الأقل");return;}
       if(!raw){toast("اكتب سعر النسخة");return;}
       try {
+        if(!/^[0-9]+$/.test(raw)) throw Error("اكتب سعر النسخة بالجنيه الصحيح بدون كسور");
         const prices=JSON.parse(pricesField.value||"{}"), price=M.money(raw);
         selected.forEach((part)=>prices[part]=price);
         pricesField.value=JSON.stringify(prices);

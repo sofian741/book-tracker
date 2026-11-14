@@ -552,10 +552,11 @@ function sellNew(bookId) {
   const b = state.books.find((x) => x.id === bookId);
   const available = M.availableParts(state, b.id);
   const isSingle = b.partsTotal === 1;
-  const defaultQty = isSingle ? 1 : available.reduce((n,x) => n+x.qty,0);
+  const fullSets = !isSingle && available.length === b.partsTotal ? Math.min(...available.map((x)=>x.qty)) : 0;
+  const defaultQty = isSingle ? 1 : fullSets * b.partsTotal;
   const selection = isSingle
     ? '<input type="hidden" name="parts" value="1">' + field("عدد النسخ المباعة *", "singleQty", 1, "number", true)
-    : '<input type="hidden" name="parts" value=""><section class="part-entry"><p class="hint">الافتراضي بيع الكتاب كاملًا. تقدر تلغي التحديد وتختار أجزاء معينة.</p><div id="sale-parts" class="parts-grid interactive-parts"></div><div class="selection-tools"><button type="button" data-sale-full>بيع الكتاب كاملًا</button><button type="button" data-sale-clear>بيع أجزاء محددة</button></div></section>';
+    : '<input type="hidden" name="parts" value=""><section class="part-entry"><p class="hint">' + (fullSets ? "الافتراضي بيع مجموعة كاملة من كل الأجزاء المتاحة. تقدر تعدل الكميات أو تختار أجزاء منفصلة." : "المجموعة غير مكتملة أو بعض الأجزاء محجوزة. اختار الأجزاء المتاحة اللي هتبيعها.") + '</p><div id="sale-parts" class="parts-grid interactive-parts"></div><div class="selection-tools">' + (fullSets ? '<button type="button" data-sale-full>بيع كل المجموعات الكاملة (' + num(fullSets) + ')</button>' : '') + '<button type="button" data-sale-clear>اختيار أجزاء محددة</button></div></section>';
   const manualUI = isSingle ? "" : '<input type="hidden" name="salePartPrices" value="{}"><details><summary>المزيد: تخصيص سعر جزء</summary><label>سعر النسخة للأجزاء المحددة (ج)<input id="group-sale-price" inputmode="numeric"></label><button type="button" data-apply-sale-price>تطبيق السعر على المحدد</button><button type="button" data-clear-sale-prices>إلغاء الأسعار الخاصة</button><p class="hint">أي مبلغ متبقٍ من الإجمالي يتوزع تلقائيًا على الأجزاء غير المسعّرة يدويًا.</p></details>';
   const html = '<p>' + esc(b.title) + '</p>' + selection + manualUI +
     field("إجمالي سعر البيع لكل النسخ المحددة (ج) *", "totalPrice", b.suggested ? (b.suggested * defaultQty) / 100 : "", "text", true) +
@@ -613,7 +614,7 @@ function sellNew(bookId) {
     } else await commit(result.n,"تم تسجيل البيع وخصم المخزون وحساب الربح");
   });
   if (!isSingle) {
-    setupSaleParts(d,b);
+    setupSaleParts(d,b,fullSets);
     const pricesField=d.querySelector('[name="salePartPrices"]');
     d.querySelector("[data-apply-sale-price]").onclick=()=>{
       const raw=d.querySelector("#group-sale-price").value.trim();
@@ -725,16 +726,17 @@ function sell(bookId, saleId) {
   };
   d.oninput();
 }
-function setupSaleParts(d, book) {
+function setupSaleParts(d, book, fullSets = 0) {
   const grid = d.querySelector("#sale-parts"),
     hidden = d.querySelector('[name="parts"]'),
     available = new Map(M.availableParts(state, book.id).map((x) => [x.part, x.qty])),
-    selected = new Map([...available.entries()]);
+    selected = new Map();
+  if (fullSets > 0) available.forEach((qty,part)=>selected.set(part,fullSets));
   const sync = () => {
     hidden.value = [...selected.entries()].flatMap(([part, qty]) => Array(qty).fill(part)).join(",");
     grid.innerHTML = [...available.entries()].sort((a,b)=>a[0]-b[0]).map(([part, stock]) => {
       const qty = selected.get(part) || 0;
-      return '<div class="sale-part-card ' + (qty ? "selected" : "") + '"><button type="button" class="sale-part-main" data-sale-part="' + part + '"><b>الجزء ' + num(part) + '</b><small>متاح: ' + num(stock) + '</small><strong>' + (qty ? "محدد · " + num(qty) : "اضغط للاختيار") + '</strong></button>' +
+      return '<div class="sale-part-card ' + (qty ? "selected" : "") + '"><button type="button" class="sale-part-main" aria-pressed="' + Boolean(qty) + '" data-sale-part="' + part + '"><b>الجزء ' + num(part) + '</b><small>متاح للبيع: ' + num(stock) + '</small><strong>' + (qty ? "محدد · " + num(qty) : "اضغط للاختيار") + '</strong></button>' +
         (qty ? '<div class="part-quantity"><button type="button" data-sale-qty="' + part + '" data-delta="-1" aria-label="تقليل">−</button><span>' + num(qty) + '</span><button type="button" data-sale-qty="' + part + '" data-delta="1" aria-label="زيادة" ' + (qty >= stock ? "disabled" : "") + '>+</button></div>' : "") + '</div>';
     }).join("");
   };
@@ -752,8 +754,8 @@ function setupSaleParts(d, book) {
     if (selected.has(part)) selected.delete(part); else selected.set(part, 1);
     sync(); d.oninput();
   };
-  const full = d.querySelector("[data-sale-full]") || d.querySelector("[data-sale-all]");
-  if (full) full.onclick = () => { available.forEach((qty, part) => selected.set(part, qty)); sync(); d.oninput(); };
+  const full = d.querySelector("[data-sale-full]");
+  if (full) full.onclick = () => { available.forEach((qty,part)=>selected.set(part,fullSets)); sync(); d.oninput(); };
   const clear = d.querySelector("[data-sale-clear]");
   if (clear) clear.onclick = () => { selected.clear(); sync(); d.oninput(); };
   sync();

@@ -341,7 +341,7 @@ function readBook(f, b = { id: M.id() }) {
   };
 }
 function parseParts(raw, total) {
-  const normalized = String(raw || "").replace(/[٠-٩]/g, (c) => "٠١٢٣٤٥٦٧٨٩".indexOf(c)).replace(/[۰-۹]/g, (c) => "۰۱۲۳۴۵۶۷۸۹".indexOf(c));
+  const normalized = String(raw || "");
   const values = normalized.split(/[,،\s]+/).filter(Boolean).map((x) => {
     if (!/^\d+$/.test(x)) throw Error("اختار الأجزاء من المربعات");
     const n = Number(x);
@@ -959,7 +959,7 @@ function bind() {
       if (!file) return;
       try {
         if (file.size > 20 * 1024 * 1024)
-          throw Error("الملف أكبر من الحد المسموح (٢٠ ميجابايت)");
+          throw Error("الملف أكبر من الحد المسموح (20 ميجابايت)");
         const n = M.restore(await file.text());
         confirmAction(
           "استبدال بيانات الدفتر؟",

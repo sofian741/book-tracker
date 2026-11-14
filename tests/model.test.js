@@ -198,7 +198,7 @@ test("version 1 database and backups migrate without changing historical amounts
   for (const b of legacy.batches) delete b.part;
   for (const x of legacy.sales) delete x.part;
   const upgraded = M.migrate(legacy);
-  assert.equal(upgraded.version, 2);
+  assert.equal(upgraded.version, 3);
   assert.equal(upgraded.books[0].partsTotal, 1);
   assert.equal(upgraded.batches[0].part, 1);
   assert.equal(upgraded.sales[0].part, 1);

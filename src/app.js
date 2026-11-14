@@ -32,6 +32,7 @@ const esc = (v) =>
   );
 const cash = (n) =>
   `<bdi>${new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(Math.round(n / 100))} ج</bdi>`;
+const cashText = (n) => `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(Math.round(n / 100))} ج`;
 const num = (n) => new Intl.NumberFormat("en-US").format(n);
 const icon = (name) => {
   const paths = {
@@ -413,7 +414,7 @@ function previewPurchase(d, book = null) {
       } else {
         qty = int(f.get("qty")); total = M.money(f.get("unit") || "0")*qty+amount(f,"extra");
       }
-      d.querySelector("#preview").textContent = "إجمالي الشراء: " + cash(total) + " · عدد النسخ: " + num(qty);
+      d.querySelector("#preview").textContent = "إجمالي الشراء: " + cashText(total) + " · عدد النسخ: " + num(qty);
     } catch { d.querySelector("#preview").textContent = "اختار الأجزاء واكتب إجمالي الشراء لعرض التفاصيل"; }
   };
   d.oninput = update; update();
@@ -682,7 +683,7 @@ function sellNew(bookId) {
       const f=new FormData(d.querySelector("form"));
       const result=build(f);
       const profit=result.sales.reduce((n,x)=>n+M.profit(x),0);
-      p.textContent=(f.get("reserveSale")?"الربح المتوقع عند التأكيد: ":"صافي الربح: ")+cash(profit)+" · الإجمالي: "+cash(result.total);
+      p.textContent=(f.get("reserveSale")?"الربح المتوقع عند التأكيد: ":"صافي الربح: ")+cashText(profit)+" · الإجمالي: "+cashText(result.total);
     } catch(e) {p.textContent=errorMessage(e);}
   };
   d.oninput();

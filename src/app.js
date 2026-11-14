@@ -349,6 +349,7 @@ function purchaseBatches(f, bookId, book, old = null) {
   const date = f.get("date"), extra = amount(f, "extra");
   if (old) return [{ ...old, part: int(f.get("part")), qty: int(f.get("qty")), unit: M.money(f.get("unit") || "0"), date, extra }];
   const parts = parseParts(f.get("parts"), book.partsTotal), counts = new Map();
+  if (!parts.length) throw Error("اختار جزءًا واحدًا على الأقل");
   for (const part of parts) counts.set(part, (counts.get(part) || 0) + 1);
   let prices = {};
   try { prices = JSON.parse(f.get("partPrices") || "{}"); } catch { throw Error("تعذر قراءة أسعار الأجزاء"); }
@@ -528,7 +529,7 @@ function batch(bookId, batchId) {
 function sellNew(bookId) {
 
   const b = state.books.find((x) => x.id === bookId);
-  const available = M.stockParts(state, b.id);
+  const available = M.availableParts(state, b.id);
   const isSingle = b.partsTotal === 1;
   const defaultQty = available.reduce((n,x) => n+x.qty,0);
   const selection = isSingle
@@ -786,6 +787,7 @@ function bind() {
               "سيُحذف هذا الكتاب وجميع دفعات شرائه غير المباعة. لا يمكن التراجع إلا بنسخة احتياطية.",
               async () => {
                 const n = structuredClone(state);
+                if (n.reservations.some((x) => x.book === id && x.status === "active")) throw Error("لا يمكن حذف كتاب له حجوزات نشطة");
                 if (n.sales.some((x) => x.book === id))
                   throw Error(
                     "لا يمكن حذف كتاب له مبيعات؛ صحّح عملياته للحفاظ على التاريخ",

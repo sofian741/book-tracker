@@ -479,8 +479,8 @@ function setupPurchaseParts(d, book = null) {
   };
   const partsTotalInput = form.elements.partsTotal;
   if (partsTotalInput) partsTotalInput.addEventListener("input", updateMode);
-  if (book?.partsTotal === 1) {
-    quantities.set(1,1); selected.add(1); section.hidden=true;
+  if (total() === 1) {
+    quantities.set(1,1); selected.add(1); section.hidden=true; autoSingle = !book;
   } else updateMode();
   const reserveCheck = form.querySelector("#reservePurchase");
   if (reserveCheck) reserveCheck.onchange = () => { form.querySelector("#supplier-details").open = reserveCheck.checked; };

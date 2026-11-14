@@ -225,7 +225,15 @@ function reservationDetail(id) {
   d.querySelector('[type="submit"]').textContent = "إغلاق";
 }
 function confirmReservation(id) {
-  confirmAction("تأكيد الحجز؟", "هنحوّل الحجز إلى عملية فعلية. التأكيد لا يمكن تكراره، وسيتم تحديث المخزون والحسابات مرة واحدة.", async () => {
+  const current=state.reservations.find((x)=>x.id===id), book=current && state.books.find((x)=>x.id===current.book);
+  if(!current || current.status!=="active") { toast("الحجز اتعالج بالفعل"); return; }
+  const parts=current.items.map((x)=>"الجزء "+num(x.part)+" × "+num(x.qty)).join("، ");
+  const supplier=current.type==="supplier";
+  const title=supplier ? "تأكيد استلام حجز المورد؟" : "تأكيد بيع حجز العميل؟";
+  const message=(supplier ? "سيتم إضافة دفعات الشراء إلى مخزون " : "سيتم تسجيل البيع وخصم الكميات من ") +
+    (book?.title || "الكتاب") + " باسم " + current.name + ". الأجزاء: " + parts + ". الإجمالي: " + cash(current.total) +
+    (supplier ? ". لن يتكرر تسجيل الشراء." : ". سيتم احتساب التكلفة والربح الفعليين مرة واحدة.");
+  confirmAction(title, message, async () => {
     const n = structuredClone(state), r = n.reservations.find((x) => x.id === id);
     if (!r || r.status !== "active") throw Error("الحجز اتعالج بالفعل");
     if (r.type === "customer") {

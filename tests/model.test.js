@@ -258,3 +258,12 @@ test("different purchase prices per part keep FIFO cost and profit independent",
   assert.equal(M.totals(s).profit, 6000);
   assert.equal(M.totals(s).stock, 0);
 });
+
+test("profile is added when migrating an existing version 2 ledger", () => {
+  const s = setup();
+  delete s.profile;
+  const before = M.totals(s);
+  const migrated = M.migrate(s);
+  assert.deepEqual(migrated.profile, { name: "" });
+  assert.deepEqual(M.totals(migrated), before);
+});

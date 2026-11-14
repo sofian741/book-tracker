@@ -1,4 +1,12 @@
 import { test, expect } from "@playwright/test";
+async function launch(page) {
+  await launch(page);
+  const dialog = page.getByRole("dialog");
+  if (await dialog.isVisible()) {
+    await page.getByLabel("تحب نناديك بإيه؟ *").fill("مستخدم");
+    await dialog.getByRole("button", { name: "حفظ", exact: true }).click();
+  }
+}
 async function add(page, title = "رحلة في عالم الكتب") {
   await page.getByRole("button", { name: "+ إضافة كتاب" }).click();
   await page.getByLabel("اسم الكتاب *").fill(title);
@@ -27,7 +35,7 @@ test("empty, add, sell, persistence, backup outside application, restore", async
 }) => {
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
-  await page.goto("/");
+  await launch(page);
   await expect(page.getByText("أول كتاب، بداية الدفتر")).toBeVisible();
   await add(page);
   await sell(page);
@@ -59,7 +67,7 @@ test("empty, add, sell, persistence, backup outside application, restore", async
 test("edit and delete sale returns inventory, search, HTML injection", async ({
   page,
 }) => {
-  await page.goto("/");
+  await launch(page);
   await add(page, "<img src=x onerror=alert(1)> عنوان عربي طويل جدًا");
   await sell(page);
   await page.getByRole("button", { name: "الرئيسية", exact: true }).click();
@@ -89,7 +97,7 @@ test("production assets entirely local and work without outbound network", async
     }
     return route.continue();
   });
-  await page.goto("/");
+  await launch(page);
   await add(page);
   await context.setOffline(true);
   await sell(page);
@@ -102,7 +110,7 @@ test("no horizontal overflow at small size and large text", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 320, height: 640 });
-  await page.goto("/");
+  await launch(page);
   await page.addStyleTag({ content: ":root{font-size:125%}" });
   expect(
     await page.evaluate(
@@ -118,7 +126,7 @@ test("no horizontal overflow at small size and large text", async ({
 test("additional purchase, historical correction, book edit and validation", async ({
   page,
 }) => {
-  await page.goto("/");
+  await launch(page);
   await add(page);
   await page.getByRole("button", { name: "التفاصيل", exact: true }).click();
   await page.getByRole("button", { name: "إضافة أجزاء", exact: true }).click();
@@ -153,7 +161,7 @@ test("additional purchase, historical correction, book edit and validation", asy
   await expect(page.locator("main")).toContainText("١٩٠");
 });
 test("delete unsold book requires explicit confirmation", async ({ page }) => {
-  await page.goto("/");
+  await launch(page);
   await add(page);
   await page.getByRole("button", { name: "التفاصيل", exact: true }).click();
   await page.getByRole("button", { name: "حذف الكتاب", exact: true }).click();
@@ -186,7 +194,7 @@ test("serving source files directly shows startup help instead of a blank page",
 });
 
 test("multi-part book shows owned and missing parts and sells one selected part", async ({ page }) => {
-  await page.goto("/");
+  await launch(page);
   await page.getByRole("button", { name: "+ إضافة كتاب" }).click();
   await page.getByLabel("اسم الكتاب *").fill("موسوعة العلوم");
   await page.getByLabel("عدد أجزاء الكتاب بالكامل *").fill("6");
@@ -216,4 +224,19 @@ test("multi-part book shows owned and missing parts and sells one selected part"
   await page.getByRole("button", { name: "حفظ", exact: true }).click();
   await expect(page.locator("main")).toContainText("الأجزاء المتاحة");
   await expect(page.locator("main")).toContainText("٣ من ٦");
+});
+
+test("first launch profile is saved and editable from settings", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.getByLabel("تحب نناديك بإيه؟ *").fill("أحمد");
+  await page.getByRole("button", { name: "حفظ", exact: true }).click();
+  await expect(page.locator("main")).toContainText("أهلا أ/ أحمد");
+  await page.getByRole("button", { name: "الإعدادات" }).click();
+  await page.getByRole("button", { name: "تغيير الاسم" }).click();
+  await page.getByLabel("تحب نناديك بإيه؟ *").fill("محمود");
+  await page.getByRole("button", { name: "حفظ", exact: true }).click();
+  await expect(page.locator("main")).toContainText("محمود");
+  await page.getByRole("button", { name: "الرئيسية", exact: true }).click();
+  await expect(page.locator("main")).toContainText("أهلا أ/ محمود");
 });

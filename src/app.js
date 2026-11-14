@@ -66,7 +66,7 @@ function render() {
 function home() {
   const t = M.totals(state, ...bounds());
   return `<div class="home-intro"><p class="eyebrow">دفتر تجارتك</p><h1>أهلاً أ/ ${esc(state.profile?.name || "بك")}</h1><p>اختار هتعمل إيه، وكل خطوة هتلاقيها قدامك بوضوح.</p></div>
-    <div class="home-actions">${button("+ تسجيل كتاب أو عملية شراء", "add", 'class="primary wide"')}
+    <div class="home-actions">${button("+ إضافة كتاب", "add", 'class="primary wide"')}
       <div class="quick-links"><button data-tab="books">فتح سجل الكتب ومتابعة المخزون</button><button data-tab="shortages">مراجعة الأجزاء الناقصة</button><button data-tab="reservations">متابعة حجوزات العملاء والموردين</button></div>
     </div>
     <section class="dashboard-section"><div class="dashboard-section-heading"><span class="section-number">01</span><div><h2>المبيعات والأرباح</h2><p>اختار الفترة اللي عايز تراجع حسابها.</p></div></div>

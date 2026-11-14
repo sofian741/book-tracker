@@ -554,8 +554,7 @@ function sellNew(bookId) {
     field("تاريخ البيع أو الحجز *", "date", M.today(), "date", true) +
     '<label class="check-line"><input type="checkbox" name="reserveSale" id="reserveSale"> إضافة كمحجوز للعميل</label>' +
     '<details id="customer-details"><summary>بيانات العميل والحجز</summary>' +
-    field("اسم العميل *", "customerName") + field("رقم هاتف العميل", "customerPhone") +
-    field("تاريخ الحجز *", "customerDate", M.today(), "date", false) + '</details>' +
+    field("اسم العميل *", "customerName") + field("رقم هاتف العميل", "customerPhone") + '</details>' +
     '<details><summary>تفاصيل إضافية</summary>' +
     field("مصاريف البيع (ج)", "expenses", 0) + field("شحن يتحمله البائع (ج)", "shipping", 0) +
     field("ملاحظة", "note") + '</details><p id="preview" class="preview"></p>';
@@ -598,7 +597,7 @@ function sellNew(bookId) {
       const name = String(f.get("customerName")||"").trim();
       if (!name) throw Error("اكتب اسم العميل");
       const reservation = {id:M.id(),type:"customer",status:"active",book:b.id,items:result.items,total:result.total,
-        name,phone:String(f.get("customerPhone")||"").trim(),date:f.get("customerDate")||M.today(),
+        name,phone:String(f.get("customerPhone")||"").trim(),date:f.get("date"),
         expenses:amount(f,"expenses"),shipping:amount(f,"shipping"),note:String(f.get("note")||"").trim()};
       const n=structuredClone(state); n.reservations.push(reservation);
       await commit(n,"تم حجز الكمية للعميل دون تسجيل بيع أو ربح محقق");

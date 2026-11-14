@@ -645,6 +645,10 @@ function sellNew(bookId) {
     const p=d.querySelector("#preview");
     try {
       const totalInput=d.querySelector('[name="totalPrice"]');
+      if (isSingle && b.suggested && totalInput.dataset.dirty !== "1") {
+        const qty=Number(d.querySelector('[name="singleQty"]').value);
+        if(Number.isSafeInteger(qty) && qty>0) totalInput.value=String((b.suggested*qty)/100);
+      }
       if (!isSingle) {
         const parts=parseParts(d.querySelector('[name="parts"]').value,b.partsTotal);
         const prices=JSON.parse(d.querySelector('[name="salePartPrices"]').value||"{}");

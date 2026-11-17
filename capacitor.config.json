@@ -1,6 +1,6 @@
 {
   "appId": "com.sufyan.booktracker",
-  "appName": "دفتر الكتب",
+  "appName": "تاجر",
   "webDir": "www",
   "android": {
     "adjustMarginsForEdgeToEdge": "auto"

@@ -1,0 +1,54 @@
+/* تاجر: تصميم الأرقام الإنجليزية والصفحات الجديدة (يُحمَّل بعد style.css) */
+:root { --gold: #bc9b4e; }
+html { scroll-padding-bottom: 140px; }
+header { padding-inline: 18px; }
+.icon-btn { width: 48px; padding: 0; display: grid; place-items: center; border-radius: 14px; }
+.icon-btn svg { width: 24px; height: 24px; }
+.welcome { min-height: 100dvh; display: flex; flex-direction: column; justify-content: center; padding-bottom: 40px; }
+.welcome .logo svg { width: 56px; height: 56px; color: var(--green); }
+nav { gap: 6px; padding-inline: 8px; }
+nav button { position: relative; flex: 1; width: auto; min-width: 0; border-radius: 12px; }
+.dot { position: absolute; top: 2px; inset-inline-start: 50%; margin-inline-start: 6px; min-width: 18px; height: 18px; border-radius: 9px; background: var(--gold); color: #fff; font-style: normal; font-size: .625rem; line-height: 18px; text-align: center; padding: 0 4px; }
+button.stat { text-align: start; font-weight: 400; color: inherit; min-height: 0; }
+button.stat strong { color: var(--green); }
+.small { min-height: 36px; padding: 4px 12px; font-size: .75rem; }
+.miss { font-size: .8125rem; margin: 0 0 14px; color: #8b5a2b; }
+.search input[type=search] { margin-top: 7px; }
+/* نماذج */
+.section-label { font-size: .8125rem; font-weight: 600; margin: 18px 0 8px; }
+.pick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); gap: 8px; margin: 8px 0; }
+.pick { margin: 0; position: relative; }
+.pick input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; z-index: 1; }
+.pick span { display: grid; place-items: center; min-height: 52px; border: 1.5px solid #d8ded3; border-radius: 12px; background: #fff; font-weight: 600; font-size: 1.0625rem; }
+.pick input:checked + span { background: #e8f1e8; border-color: var(--green); color: var(--green); box-shadow: inset 0 0 0 1px #fff; }
+.pick input:focus-visible + span { outline: 3px solid #c7a95c; outline-offset: 2px; }
+.more { border: 1px solid var(--line); border-radius: 13px; padding: 4px 14px; background: #fff; }
+.more[hidden] { display: none; }
+.pw-rows { padding-bottom: 8px; }
+input.manual { border-color: var(--gold); background: #fffaf0; }
+.check { display: flex; align-items: center; gap: 12px; margin: 18px 0 10px; min-height: 48px; }
+.check input { width: 26px; height: 26px; min-height: 0; margin: 0; flex: none; accent-color: var(--green); }
+.mode { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0; }
+.radio { display: flex; align-items: center; gap: 8px; border: 1.5px solid #d8ded3; border-radius: 12px; padding: 10px; margin: 0; background: #fff; min-height: 52px; font-size: .8125rem; }
+.radio input { width: 20px; height: 20px; min-height: 0; margin: 0; flex: none; accent-color: var(--green); }
+.radio:has(input:checked) { border-color: var(--green); background: #e8f1e8; }
+.radio:has(input:disabled) { opacity: .5; }
+dialog { padding-bottom: 28px; }
+dialog form { padding-bottom: 24px; }
+/* حجوزات */
+.res { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 14px; margin: 12px 0; }
+.res.cancelled { opacity: .75; }
+.res-main { display: block; border: 0; background: none; padding: 0; width: 100%; text-align: start; min-height: 0; font-weight: 400; color: inherit; }
+.res-main strong { display: block; font-size: 1rem; color: #243c35; overflow-wrap: anywhere; }
+.res-main small { display: block; margin: 4px 0; color: #768177; font-size: .75rem; overflow-wrap: anywhere; }
+.res-main b { display: block; margin: 8px 0 12px; color: var(--green); }
+.res .actions button { min-height: 44px; }
+.invoice { margin: 10px 0 14px; }
+.invoice a { color: var(--green); direction: ltr; unicode-bidi: plaintext; }
+.profit-box { background: #e5eee5; border: 1px solid #ccdccc; border-radius: 16px; padding: 16px; text-align: center; margin: 12px 0; }
+.profit-box span { display: block; font-size: .8125rem; color: #3c6950; }
+.profit-box strong { display: block; font-size: 2rem; color: #1f7a45; line-height: 1.5; }
+.profit-box small { color: #768177; font-size: .6875rem; }
+.profit-box.neg { background: #f9e7e1; border-color: #efc9bf; }
+.profit-box.neg strong, .profit-box.neg span { color: #9f3d2e; }
+@media (max-width: 360px) { .mode { grid-template-columns: 1fr; } nav button span { font-size: .625rem; } }

@@ -52,6 +52,20 @@ function text(v, max = 500) {
   if (typeof v !== "string" || v.length > max)
     throw Error("النص غير صالح أو طويل جدًا");
 }
+/** Normalize entered phone numbers to exactly 12 digits, accepting Arabic numerals. */
+export function normalizePhone(value) {
+  const raw = String(value ?? "").trim()
+    .replace(/[٠-٩]/g, (c) => "٠١٢٣٤٥٦٧٨٩".indexOf(c))
+    .replace(/[۰-۹]/g, (c) => "۰۱۲۳۴۵۶۷۸۹".indexOf(c));
+  if (!raw) return "";
+  if (!/^[+0-9\s()-]+$/.test(raw))
+    throw Error("رقم الهاتف لازم يحتوي على أرقام فقط");
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length !== 12)
+    throw Error("رقم الهاتف لازم يتكوّن من 12 رقمًا بالضبط");
+  return digits;
+}
+
 
 /* ---------- توزيع المبالغ (الوحدة اختيارية: جنيه صحيح أو قروش) ---------- */
 /** يوزع total على n بالتساوي والباقي على الأوائل: distribute(100,3) = [34,33,33] */
@@ -311,6 +325,8 @@ export function confirmCustomerReservation(s, rid, on = today()) {
       expenses: exp[k],
       shipping: shp[k],
       note: r.name ? "حجز: " + r.name : "",
+      customerName: r.name || "",
+      customerPhone: r.phone || "",
       date: on,
     };
     addSale(s, sale);
@@ -333,6 +349,8 @@ export function confirmSupplierReservation(s, rid, opts = {}) {
       id: r.book,
       title: nb.title.trim(),
       publisher: nb.publisher || "",
+      editor: nb.editor || "",
+      author: nb.author || "",
       note: nb.note || "",
       volumes: nb.partsTotal,
       partsTotal: nb.partsTotal,
@@ -344,7 +362,11 @@ export function confirmSupplierReservation(s, rid, opts = {}) {
   const ex = splitByCount(r.extra || 0, r.items.map((i) => i.qty));
   r.batches = [];
   r.items.forEach((it, k) => {
-    const b = { id: id(), book: book.id, part: it.part, qty: it.qty, unit: it.unit, extra: ex[k], date: on };
+    const b = {
+      id: id(), transaction: r.id, book: book.id, part: it.part,
+      qty: it.qty, unit: it.unit, extra: ex[k], date: on,
+      supplierName: r.name || "", supplierPhone: r.phone || "",
+    };
     s.batches.push(b);
     r.batches.push(b.id);
   });
@@ -405,6 +427,109 @@ export function totals(s, from = "", to = "9999") {
   return result;
 }
 
+
+/* ---------- سجل العملاء والموردين ---------- */
+const personTags = ["committed", "cancelled", "late", "unreliable"];
+const phoneDigits = (value) => String(value ?? "")
+  .replace(/[٠-٩]/g, (c) => "٠١٢٣٤٥٦٧٨٩".indexOf(c))
+  .replace(/[۰-۹]/g, (c) => "۰۱۲۳۴۵۶۷۸۹".indexOf(c))
+  .replace(/\D/g, "");
+
+export function peopleSummary(s, kind) {
+  if (!["customer", "supplier"].includes(kind))
+    throw Error("نوع سجل الأشخاص غير صالح");
+  const people = new Map();
+  const ensure = (name, phone, fallback) => {
+    const cleanName = String(name ?? "").trim();
+    const digits = phoneDigits(phone);
+    const normalizedName = cleanName.toLocaleLowerCase("ar").replace(/\s+/g, " ");
+    const key = digits ? "phone:" + digits : normalizedName ? "name:" + normalizedName : "record:" + fallback;
+    if (!people.has(key)) people.set(key, {
+      key, name: cleanName || "بدون اسم", phone: digits || String(phone ?? ""),
+      transactions: 0, amount: 0, reservations: 0, active: 0,
+      confirmed: 0, cancelled: 0, tags: { committed: 0, cancelled: 0, late: 0, unreliable: 0 },
+      ratingTotal: 0, ratingCount: 0, reviews: [], transactionIds: new Set(),
+      lastActivity: "",
+    });
+    const person = people.get(key);
+    if (cleanName && (!person.name || person.name === "بدون اسم")) person.name = cleanName;
+    if (digits) person.phone = digits;
+    return person;
+  };
+  const addTransaction = (person, transactionId, amount, date) => {
+    const key = String(transactionId || date || person.transactionIds.size);
+    if (person.transactionIds.has(key)) return;
+    person.transactionIds.add(key);
+    person.transactions++;
+    person.amount += amount || 0;
+    if (date && date > person.lastActivity) person.lastActivity = date;
+  };
+
+  for (const reservation of s.reservations || []) {
+    if (reservation.kind !== kind) continue;
+    const person = ensure(reservation.name, reservation.phone, reservation.id);
+    person.reservations++;
+    if (reservation.status === "active") person.active++;
+    if (reservation.status === "confirmed") {
+      person.confirmed++;
+      const total = reservation.items.reduce((sum, item) => sum + item.unit * item.qty, 0)
+        + (kind === "supplier" ? reservation.extra || 0 : 0);
+      addTransaction(person, reservation.id, total, reservation.resolved || reservation.date);
+    }
+    if (reservation.status === "cancelled") person.cancelled++;
+    if (reservation.review) {
+      const review = reservation.review;
+      person.ratingTotal += review.rating;
+      person.ratingCount++;
+      if (person.tags[review.tag] !== undefined) person.tags[review.tag]++;
+      if (review.note) person.reviews.push({
+        note: review.note, date: review.date || reservation.resolved || reservation.date,
+        rating: review.rating, tag: review.tag,
+      });
+    }
+    if (reservation.resolved && reservation.resolved > person.lastActivity)
+      person.lastActivity = reservation.resolved;
+  }
+
+  if (kind === "customer") {
+    const groups = new Map();
+    for (const sale of s.sales) {
+      if (!sale.customerName && !sale.customerPhone) continue;
+      const tx = sale.transaction || sale.id;
+      if (!groups.has(tx)) groups.set(tx, { name: sale.customerName, phone: sale.customerPhone, amount: 0, date: sale.date });
+      const group = groups.get(tx);
+      group.amount += sale.unit * sale.qty;
+      if (sale.date > group.date) group.date = sale.date;
+    }
+    for (const [tx, group] of groups) {
+      const person = ensure(group.name, group.phone, tx);
+      addTransaction(person, tx, group.amount, group.date);
+    }
+  } else {
+    const groups = new Map();
+    for (const batch of s.batches) {
+      if (!batch.supplierName && !batch.supplierPhone) continue;
+      const tx = batch.transaction || batch.id;
+      if (!groups.has(tx)) groups.set(tx, { name: batch.supplierName, phone: batch.supplierPhone, amount: 0, date: batch.date });
+      const group = groups.get(tx);
+      group.amount += batch.unit * batch.qty + batch.extra;
+      if (batch.date > group.date) group.date = batch.date;
+    }
+    for (const [tx, group] of groups) {
+      const person = ensure(group.name, group.phone, tx);
+      addTransaction(person, tx, group.amount, group.date);
+    }
+  }
+
+  return [...people.values()].map((person) => ({
+    ...person,
+    averageRating: person.ratingCount ? person.ratingTotal / person.ratingCount : 0,
+    reviews: person.reviews.slice().sort((a, b) => b.date.localeCompare(a.date)),
+  })).sort((a, b) =>
+    b.transactions - a.transactions || b.lastActivity.localeCompare(a.lastActivity) || a.name.localeCompare(b.name, "ar"),
+  );
+}
+
 /* ---------- التحقق والهجرة ---------- */
 export function validate(s) {
   if (
@@ -429,6 +554,8 @@ export function validate(s) {
     text(b.title, 200);
     if (!b.title.trim()) throw Error("اسم الكتاب مطلوب");
     text(b.publisher, 200);
+    text(b.editor ?? "", 200);
+    text(b.author ?? "", 200);
     text(b.note);
     integer(b.volumes, 1);
     integer(b.partsTotal, 1);
@@ -452,6 +579,9 @@ export function validate(s) {
     integer(b.unit);
     integer(b.extra);
     integer(b.unit * b.qty + b.extra);
+    text(b.supplierName ?? "", 200);
+    text(b.supplierPhone ?? "", 50);
+    text(b.transaction ?? "", 100);
     date(b.date);
   }
   const ranges = new Map();
@@ -463,6 +593,9 @@ export function validate(s) {
     integer(x.unit, 1);
     integer(x.expenses);
     integer(x.shipping);
+    text(x.customerName ?? "", 200);
+    text(x.customerPhone ?? "", 50);
+    text(x.transaction ?? "", 100);
     date(x.date);
     text(x.note);
     if (!Array.isArray(x.allocations) || x.allocations.length === 0)
@@ -501,6 +634,16 @@ export function validate(s) {
     text(r.name, 200);
     text(r.phone, 50);
     text(r.note ?? "");
+    if (r.review !== undefined) {
+      if (!r.review || typeof r.review !== "object" || Array.isArray(r.review))
+        throw Error("تقييم التعامل غير صالح");
+      integer(r.review.rating, 1);
+      if (r.review.rating > 5) throw Error("التقييم لازم يكون من نجمة إلى 5 نجوم");
+      if (!["committed", "cancelled", "late", "unreliable"].includes(r.review.tag))
+        throw Error("تصنيف التعامل غير صالح");
+      text(r.review.note ?? "", 1000);
+      date(r.review.date || r.resolved || r.date);
+    }
     date(r.date);
     if (r.resolved !== null && r.resolved !== undefined) date(r.resolved);
     integer(r.expenses ?? 0);

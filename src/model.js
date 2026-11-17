@@ -3,7 +3,17 @@ export const today = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
-export const id = () => crypto.randomUUID();
+export function id(source = globalThis.crypto) {
+  if (typeof source?.randomUUID === "function") return source.randomUUID();
+  if (typeof source?.getRandomValues !== "function")
+    throw Error("المتصفح لا يدعم توليد معرفات آمنة؛ حدّث المتصفح أو افتح التطبيق في سياق آمن");
+  const bytes = new Uint8Array(16);
+  source.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (x) => x.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
 export function integer(n, min = 0) {
   if (!Number.isSafeInteger(n) || n < min || n > 1e12)
     throw Error("أدخل رقمًا صحيحًا ضمن الحدود المسموحة");

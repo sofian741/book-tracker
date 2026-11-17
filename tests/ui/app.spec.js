@@ -59,6 +59,10 @@ async function sellSingle(page, price = "750", shipping = "30") {
   await dlg(page).getByText("مصاريف وتفاصيل إضافية").click();
   await dlg(page).locator("input[name=shipping]").fill(shipping);
   await fillCustomer(page);
+  const submittedPhone = await dlg(page).locator("form").evaluate((form) =>
+    new FormData(form).get("customerPhone"),
+  );
+  expect(submittedPhone).toBe("201011112222");
   await save(page, "تأكيد البيع");
   await closed(page);
 }

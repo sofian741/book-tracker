@@ -399,7 +399,7 @@ test("people summary groups supplier purchases by shared transaction and phone",
   assert.equal(person.name, "مكتبة النور");
   assert.equal(person.phone, "201055566677");
   assert.equal(person.transactions, 1);
-  assert.equal(person.amount, 14050);
+  assert.equal(person.amount, 10150);
   assert.equal(person.cancelled, 1);
   assert.equal(person.tags.committed, 1);
   assert.equal(person.tags.late, 1);

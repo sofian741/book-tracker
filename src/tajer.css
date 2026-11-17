@@ -190,3 +190,88 @@ input.manual { border-color: var(--gold); background: #fffaf0; }
   .rating-stars { gap: 7px; }
   .rating-stars span { font-size: 1.9rem; }
 }
+
+
+/* استعادة بطاقات لوحة التحكم والكتب فقط */
+.home-page .stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.home-page .stat {
+  min-height: 112px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 7px;
+  padding: 16px 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fff;
+}
+.home-page .stat > span { font-size: .78rem; }
+.home-page .stat strong {
+  grid-column: auto;
+  grid-row: auto;
+  color: var(--green);
+  font-size: 1.4rem;
+  text-align: right;
+}
+.home-page .stat small { font-size: .68rem; }
+.home-page .stat.green { background: #e5eee5; border-color: #ccdccc; }
+.home-page .stat.loss { background: #f9e7e1; border-color: #efc9bf; }
+.home-page .stat.loss strong { color: #9f3d2e; }
+
+.books-page .book {
+  margin: 14px 0;
+  padding: 18px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+.books-page .book-title {
+  min-height: 58px;
+  padding: 0;
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  text-align: right;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+.books-page .book-title strong { display: block; font-size: 1.0625rem; font-weight: 800; overflow-wrap: anywhere; }
+.books-page .book-title small { display: block; margin-top: 3px; color: var(--muted); font-size: .78rem; font-weight: 400; }
+.books-page .book-mark {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 52px;
+  padding: 12px;
+  color: #9d8542;
+  background: #f0eee3;
+  border: 0;
+  border-radius: 12px;
+}
+.books-page .book-mark svg { width: 25px; height: 28px; }
+.books-page .book-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  justify-content: space-between;
+  align-items: center;
+  margin: 16px 0;
+  color: var(--muted);
+  font-size: .75rem;
+}
+.books-page .badge { display: inline-block; padding: 4px 10px; color: #3c6950; background: #edf3eb; border-radius: 7px; }
+.books-page .badge.muted { color: #7c796e; background: #f1f0eb; }
+.books-page .actions { gap: 8px; }
+.books-page .actions button { min-height: 46px; }
+@media (max-width: 360px) {
+  .home-page .stats { gap: 8px; }
+  .home-page .stat { padding: 13px 10px; }
+  .home-page .stat strong { font-size: 1.18rem; }
+}

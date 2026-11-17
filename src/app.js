@@ -170,6 +170,7 @@ function home() {
   const segs = [["all", "الكل"], ["today", "اليوم"], ["month", "هذا الشهر"], ["range", "فترة"]];
   const [f, e] = bounds();
   return (
+    `<div class="home-page">` +
     `<div class="heading"><p class="eyebrow">نظرة على تجارتك</p><h1>أهلًا أ/ ${esc(userName())}</h1></div>` +
     button("+ إضافة كتاب", "add", 'class="primary wide"') +
     `<div class="section-title"><h2>المبيعات والأرباح</h2><span>حسب تاريخ البيع</span></div><div class="segments">` +
@@ -190,7 +191,8 @@ function home() {
     `</div><details class="panel"><summary>تفاصيل الحسابات</summary><dl><dt>مصاريف البيع وشحن البائع · الفترة</dt><dd>${cash(t.expenses)}</dd><dt>عدد عمليات البيع · الفترة</dt><dd>${num(t.count)}</dd><dt>عدد القطع في المخزون</dt><dd>${num(t.qty)}</dd></dl><p class="hint">شراء مخزون ليس خسارة. الربح يظهر عند البيع الفعلي فقط.</p></details>` +
     `<div class="section-title"><h2>آخر المبيعات</h2></div>` +
     saleList(state.sales.filter((x) => x.date >= f && x.date <= e).slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 10)) +
-    (!state.books.length ? `<div class="empty">${icon("books")}<h2>أول كتاب، بداية الدفتر</h2><p>أضف كتابًا وسعر شرائه. عند بيعه سترى مكسبك الفعلي هنا.</p></div>` : "")
+    (!state.books.length ? `<div class="empty">${icon("books")}<h2>أول كتاب، بداية الدفتر</h2><p>أضف كتابًا وسعر شرائه. عند بيعه سترى مكسبك الفعلي هنا.</p></div>` : "") +
+    `</div>`
   );
 }
 function searchBox(id, value, ph) {
@@ -223,11 +225,13 @@ function books() {
   else list = list.slice().reverse();
   const opt = (v, l, cur) => `<option value="${v}" ${v === cur ? "selected" : ""}>${l}</option>`;
   return (
+    `<div class="books-page">` +
     `<div class="heading"><p class="eyebrow">مكتبتك التجارية</p><h1>الكتب</h1><p>كل عنوان وأجزاؤه، في مكان واحد.</p></div>` +
     button("+ إضافة كتاب", "add", 'class="primary wide"') +
     searchBox("search", query, "ابحث عن كتاب…") +
     `<div class="toolbar"><select id="filter" aria-label="حالة المخزون">${[["all", "كل الكتب"], ["available", "المتاح"], ["complete", "المكتمل"], ["incomplete", "غير المكتمل"], ["sold", "المباع بالكامل"]].map(([v, l]) => opt(v, l, filter)).join("")}</select><select id="sort" aria-label="ترتيب الكتب">${opt("new", "الأحدث", sort)}${opt("name", "الاسم", sort)}</select></div>` +
-    `<div id="book-list">${list.length ? list.map((b) => bookCard(b)).join("") : `<div class="empty"><h2>لا توجد كتب هنا بعد</h2><p>أضف كتابك الأول أو غيّر البحث والفلتر.</p></div>`}</div>`
+    `<div id="book-list">${list.length ? list.map((b) => bookCard(b)).join("") : `<div class="empty"><h2>لا توجد كتب هنا بعد</h2><p>أضف كتابك الأول أو غيّر البحث والفلتر.</p></div>`}</div>` +
+    `</div>`
   );
 }
 function shortages() {
@@ -578,7 +582,7 @@ function personFields(kind) {
   const phones = new Map();
   for (const person of people) {
     try {
-      const phone = M.normalizePhone(person.phone);
+      const phone = M.normalizeStoredPhone(person.phone);
       if (phone) phones.set(phone, person.name);
     } catch {}
   }
@@ -586,9 +590,9 @@ function personFields(kind) {
   return `<div class="person-fields">
     <label>اسم ${label} *<input name="${kind}Name" list="${kind}-names" maxlength="200" autocomplete="off" required placeholder="اكتب الاسم أو اختاره"></label>
     <datalist id="${kind}-names">${names.map((name) => `<option value="${esc(name)}"></option>`).join("")}</datalist>
-    <label>رقم هاتف ${label} * (12 رقمًا)<input name="${kind}Phone" type="tel" inputmode="numeric" maxlength="12" pattern="[0-9٠-٩۰-۹]{12}" list="${kind}-phones" autocomplete="off" required placeholder="مثال: 201012345678"></label>
+    <label>رقم هاتف ${label} * (11 رقمًا)<input name="${kind}Phone" type="tel" inputmode="numeric" maxlength="11" pattern="[0-9٠-٩۰-۹]{11}" list="${kind}-phones" autocomplete="off" required placeholder="مثال: 01012345678"></label>
     <datalist id="${kind}-phones">${[...phones].map(([phone, name]) => `<option value="${esc(phone)}" label="${esc(name)}"></option>`).join("")}</datalist>
-    <p class="hint">اختيار اسم أو رقم مسجل يكمّل بيانات الشخص تلقائيًا. رقم الهاتف مطلوب من 12 رقمًا.</p>
+    <p class="hint">اختيار اسم أو رقم مسجل يكمّل بيانات الشخص تلقائيًا. رقم الهاتف مطلوب من 11 رقمًا.</p>
   </div>`;
 }
 function contactData(f, kind) {
@@ -607,7 +611,7 @@ function bindPersonSuggestions(d, kind) {
     const value = nameInput.value.trim().toLocaleLowerCase("ar");
     const matches = people.filter((item) => item.name.toLocaleLowerCase("ar") === value && item.phone);
     if (matches.length !== 1 || phoneInput.value) return;
-    try { phoneInput.value = M.normalizePhone(matches[0].phone); } catch {}
+    try { phoneInput.value = M.normalizeStoredPhone(matches[0].phone); } catch {}
   });
   phoneInput.addEventListener("change", () => {
     let digits = "";

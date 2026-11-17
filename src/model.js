@@ -656,6 +656,8 @@ export function validate(s) {
       text(r.newBook.title, 200);
       if (!r.newBook.title.trim()) throw Error("اسم الكتاب مطلوب");
       text(r.newBook.publisher ?? "", 200);
+      text(r.newBook.editor ?? "", 200);
+      text(r.newBook.author ?? "", 200);
       text(r.newBook.note ?? "");
       integer(r.newBook.partsTotal, 1);
       if (r.newBook.partsTotal > 1000) throw Error("عدد أجزاء الكتاب لا يمكن أن يتجاوز 1000");

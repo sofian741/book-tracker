@@ -507,6 +507,36 @@ test("missing parts can be reserved from a supplier for an existing book, then c
   await expect(page.locator(".book")).toContainText("الأجزاء الناقصة: 3");
 });
 
+test("book metadata and customer supplier analytics show saved people", async ({ page }) => {
+  await start(page);
+  await addBook(page, {
+    title: "كتاب بياناته",
+    editor: "محقق الاختبار",
+    author: "مؤلف الاختبار",
+    publisher: "دار الاختبار",
+    buy: "100",
+    extra: "",
+    sell: "180",
+  });
+  await nav(page, "الكتب");
+  await expect(page.locator(".book")).toContainText("المحقق: محقق الاختبار");
+  await expect(page.locator(".book")).toContainText("المؤلف: مؤلف الاختبار");
+  await expect(page.locator(".book")).toContainText("دار الاختبار");
+
+  await sellSingle(page, "180", "0");
+  await nav(page, "المحجوزات");
+  await page.getByRole("button", { name: "الإحصائيات", exact: true }).click();
+  await expect(page.locator(".heading h1")).toHaveText("إحصائيات الأشخاص");
+  await expect(page.locator("main")).toContainText("عميل تجريبي");
+  await expect(page.locator("main")).toContainText("201011112222");
+
+  await page.locator('[data-people-kind="supplier"]').click();
+  await expect(page.locator("main")).toContainText("مورد تجريبي");
+  await expect(page.locator("main")).toContainText("201012345678");
+  await page.locator('[data-people-kind="customer"]').click();
+  await expect(page.locator("main")).toContainText("عميل تجريبي");
+});
+
 test("serving source files directly shows startup help instead of a blank page", async ({ page }) => {
   const { createServer } = await import("node:http");
   const { readFile } = await import("node:fs/promises");

@@ -301,7 +301,7 @@ function resCard(r, history = false) {
     `<article class="res ${r.status}"><button type="button" class="res-main" data-res-open="${r.id}"><strong>${esc(resTitle(r))}</strong><small>${esc(r.name) || (cust ? "بدون اسم عميل" : "بدون اسم مورد")} · ${r.date}</small>` +
     (r.phone ? `<small>${esc(r.phone)}</small>` : "") + `<small>${esc(resParts(r))}</small>` +
     `<b>${cust ? "سعر البيع" : "متوقع"} ${cash(resTotal(r))}</b></button>` +
-    (history ? `<span class="badge ${r.status === "cancelled" ? "muted" : ""}">${st}${r.resolved ? " · " + r.resolved : ""}</span>` : `<div class="actions">${button("تأكيد", "res-confirm", `data-id="${r.id}" class="primary"`)}${button("إلغاء", "res-cancel", `data-id="${r.id}" class="danger"`)}</div>`) +
+    (history ? `<span class="badge ${r.status === "cancelled" ? "muted" : ""}">${st}${r.resolved ? " · " + r.resolved : ""}</span>` + (r.review ? `<small class="history-review">التقييم: ${"★".repeat(r.review.rating)} · ${esc(personTagLabels[r.review.tag] || "")}</small>` : "") : `<div class="actions">${button("تأكيد", "res-confirm", `data-id="${r.id}" class="primary"`)}${button("إلغاء", "res-cancel", `data-id="${r.id}" class="danger"`)}</div>`) +
     `</article>`
   );
 }
@@ -424,7 +424,7 @@ function settings() {
 /* ---------------- النوافذ والتنقل ---------------- */
 function modal(title, html, submit, opts = {}) {
   const d = document.querySelector("#modal");
-  d.innerHTML = `<form novalidate><div class="modal-head"><h2>${title}</h2><button type="button" id="close" aria-label="إغلاق">×</button></div>${html}<p id="form-error" role="alert"></p>${opts.noSubmit ? "" : `<button class="primary wide" type="submit">${opts.submitLabel || "حفظ"}</button>`}</form>`;
+  d.innerHTML = `<form novalidate><div class="modal-head"><h2>${title}</h2><button type="button" id="close" aria-label="إغلاق">×</button></div><div class="modal-body">${html}<p id="form-error" role="alert"></p></div>${opts.noSubmit ? "" : `<div class="modal-footer"><button class="primary wide" type="submit">${opts.submitLabel || "حفظ"}</button></div>`}</form>`;
   modalEl = d;
   dirty = false;
   closeArmed = false;
@@ -587,6 +587,8 @@ function bindReserve(d, label) {
     btn = d.querySelector("[type=submit]");
   cb.onchange = () => {
     box.hidden = !cb.checked;
+    const contact = d.querySelector("#customer-contact, #supplier-contact");
+    if (cb.checked && contact) contact.open = true;
     btn.textContent = cb.checked ? "إضافة كمحجوز" : label;
   };
 }
@@ -627,7 +629,7 @@ function bookDialog(editId) {
     field("المؤلف", "author", old?.author || "", { max: 200 }) +
     field("دار النشر", "publisher", old?.publisher || "", { max: 200 }) +
     field("عدد أجزاء الكتاب بالكامل *", "partsTotal", N, { num: 1, max: 4 }) +
-    (old ? "" : `<div id="owned-box"></div><div id="buy-box"></div><details class="more"><summary>مصاريف الشراء</summary>${field("تكاليف شراء إضافية للدفعة بالكامل (ج)", "extra", "0", { num: 1 })}${field("تاريخ الشراء", "date", M.today(), { type: "date" })}</details><details class="more"><summary>بيانات المورد (اختياري)</summary>${personFields("supplier")}</details>`) +
+    (old ? "" : `<div id="owned-box"></div><div id="buy-box"></div><details class="more"><summary>مصاريف الشراء</summary>${field("تكاليف شراء إضافية للدفعة بالكامل (ج)", "extra", "0", { num: 1 })}${field("تاريخ الشراء", "date", M.today(), { type: "date" })}</details><details class="more" id="supplier-contact"><summary>بيانات المورد (اختياري)</summary>${personFields("supplier")}</details>`) +
     `<div id="sell-box"></div>` +
     (old ? '<p class="hint">تعديل بيانات الكتاب لا يغيّر أرباح المبيعات السابقة. لتصحيح سعر شراء قديم استخدم «تصحيح» في دفعات الشراء داخل التفاصيل.</p>' : reserveFields("supplier") + '<p id="preview" class="preview"></p>');
   function renderOwned() {
@@ -822,7 +824,7 @@ function sellDialog(bookId) {
     `<div id="price-box"></div>` +
     field("تاريخ البيع *", "date", M.today(), { type: "date" }) +
     `<details class="more"><summary>مصاريف وتفاصيل إضافية</summary>${field("مصاريف البيع للعملية بالكامل (ج)", "expenses", "0", { num: 1 })}${field("شحن يتحمله البائع للعملية بالكامل (ج)", "shipping", "0", { num: 1 })}${field("ملاحظة قصيرة", "note", "", { max: 300 })}</details>` +
-    `<details class="more"><summary>بيانات العميل (اختياري)</summary>${personFields("customer")}</details>` +
+    `<details class="more" id="customer-contact"><summary>بيانات العميل (اختياري)</summary>${personFields("customer")}</details>` +
     reserveFields("customer") +
     `<p id="preview" class="preview"></p>`;
   function build(f, final) {
@@ -1096,6 +1098,7 @@ const actions = {
   "edit-batch": (id) => editBatchDialog(id),
   "res-confirm": resConfirm,
   "res-cancel": resCancel,
+  "people-stats": () => openSub({ t: "people" }),
   "toggle-history": () => {
     showHistory = !showHistory;
     render();
@@ -1133,7 +1136,7 @@ const actions = {
     }),
 };
 app.addEventListener("click", (e) => {
-  const el = e.target.closest("[data-action],[data-tab],[data-period],[data-book],[data-go],[data-res-open],[data-restab]");
+  const el = e.target.closest("[data-action],[data-tab],[data-period],[data-book],[data-go],[data-res-open],[data-restab],[data-people-kind]");
   if (!el) return;
   const d = el.dataset;
   if (d.tab) return goTab(d.tab);
@@ -1155,24 +1158,32 @@ app.addEventListener("click", (e) => {
     resTab = d.restab;
     return render();
   }
+  if (d.peopleKind) {
+    peopleKind = d.peopleKind;
+    peopleFilter = "all";
+    peopleQuery = "";
+    return render();
+  }
   actions[d.action]?.(d.id);
 });
 app.addEventListener("input", (e) => {
   const el = e.target;
-  if (el.id !== "search" && el.id !== "s-search") return;
+  if (!["search", "s-search", "people-search"].includes(el.id)) return;
   const pos = el.selectionStart;
   if (el.id === "search") query = el.value;
-  else sQuery = el.value;
+  else if (el.id === "s-search") sQuery = el.value;
+  else peopleQuery = el.value;
   render();
   const n = document.getElementById(el.id);
-  n.focus();
-  n.setSelectionRange(pos, pos);
+  n?.focus();
+  n?.setSelectionRange(pos, pos);
 });
 app.addEventListener("change", (e) => {
   const el = e.target;
   if (el.id === "filter") filter = el.value;
   else if (el.id === "sort") sort = el.value;
   else if (el.id === "s-filter") sFilter = el.value;
+  else if (el.id === "people-filter") peopleFilter = el.value;
   else if (el.id === "from") from = el.value;
   else if (el.id === "to") to = el.value;
   else if (el.id === "import") return importFile(el);

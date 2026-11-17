@@ -545,10 +545,56 @@ export function validate(s) {
   return s;
 }
 export function migrate(s) {
-  if (!s || ![1, 2].includes(s.version))
+  if (!s || ![1, 2, 3].includes(s.version))
     throw Error("ملف النسخة غير صالح أو إصداره غير مدعوم");
-  if (s.version === 2) return validate(Array.isArray(s.reservations) ? s : { ...s, reservations: [] });
+
+  if (s.version === 2)
+    return validate(Array.isArray(s.reservations) ? s : { ...s, reservations: [] });
+
   const next = structuredClone(s);
+
+  if (next.version === 3) {
+    if (!Array.isArray(next.reservations))
+      throw Error("قائمة الحجوزات في النسخة القديمة غير صالحة");
+
+    // Version 3 used "type" and per-item supplier extras. Version 2 uses
+    // "kind" and stores the supplier extra total on the reservation.
+    next.reservations = next.reservations.map((reservation) => {
+      if (!reservation || !["customer", "supplier"].includes(reservation.type))
+        throw Error("نوع حجز قديم غير صالح");
+
+      const items = Array.isArray(reservation.items) ? reservation.items : [];
+      const supplierExtra = items.reduce((sum, item) => {
+        const extra = item.extra ?? 0;
+        if (!Number.isSafeInteger(extra) || extra < 0)
+          throw Error("مصاريف أجزاء الحجز القديم غير صالحة");
+        return sum + extra;
+      }, 0);
+
+      return {
+        ...reservation,
+        kind: reservation.type,
+        extra: reservation.type === "supplier"
+          ? (reservation.extra ?? supplierExtra)
+          : (reservation.extra ?? 0),
+        resolved: reservation.resolved ?? null,
+        items: items.map((item) => ({ ...item })),
+      };
+    });
+
+    // Keep the original profile while making its display name available to
+    // the current settings-based onboarding and home screen.
+    if (next.profile && typeof next.profile === "object") {
+      const profileName = typeof next.profile.name === "string" ? next.profile.name : "";
+      next.settings = {
+        ...(next.settings && typeof next.settings === "object" ? next.settings : {}),
+        userName: next.settings?.userName || profileName,
+      };
+    }
+    next.version = 2;
+    return validate(next);
+  }
+
   next.version = 2;
   next.reservations = [];
   for (const b of next.books) b.partsTotal = 1;

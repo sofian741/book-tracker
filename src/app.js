@@ -348,8 +348,8 @@ function peopleAnalytics() {
     ratedCount = all.reduce((sum, person) => sum + person.ratingCount, 0),
     ratingTotal = all.reduce((sum, person) => sum + person.ratingTotal, 0),
     average = ratedCount ? (ratingTotal / ratedCount).toFixed(1) + " / 5" : "—",
-    best = all.filter((person) => person.ratingCount).slice().sort((a, b) =>
-      b.averageRating - a.averageRating || b.tags.committed - a.tags.committed || b.transactions - a.transactions
+    best = all.filter((person) => person.tags.committed > 0).slice().sort((a, b) =>
+      b.tags.committed - a.tags.committed || b.averageRating - a.averageRating || b.transactions - a.transactions
     )[0],
     mostCancelled = all.slice().sort((a, b) =>
       b.cancelled - a.cancelled || b.reservations - a.reservations
@@ -399,7 +399,7 @@ function peopleAnalytics() {
       ${stat("متوسط التقييم", average, num(ratedCount) + " تقييم")}
     </div>
     <div class="people-highlights">
-      <article><small>الأعلى تقييمًا</small><strong>${best ? esc(best.name) : "لا توجد تقييمات بعد"}</strong><span>${best ? best.averageRating.toFixed(1) + " / 5" : "قيّم التعامل عند التأكيد أو الإلغاء"}</span></article>
+      <article><small>الأكثر التزامًا</small><strong>${best ? esc(best.name) : "لا توجد تقييمات بعد"}</strong><span>${best ? num(best.tags.committed) + " تقييم التزام · " + best.averageRating.toFixed(1) + " / 5" : "قيّم التعامل عند التأكيد أو الإلغاء"}</span></article>
       <article><small>الأكثر إلغاءً</small><strong>${mostCancelled?.cancelled ? esc(mostCancelled.name) : "لا توجد إلغاءات بعد"}</strong><span>${mostCancelled?.cancelled ? num(mostCancelled.cancelled) + " إلغاء" : "سجل الإلغاء هيظهر هنا"}</span></article>
     </div>
     <div class="section-title"><h2>سجل ${isCustomer ? "العملاء" : "الموردين"}</h2><span>${num(sorted.length)} شخص</span></div>
@@ -567,17 +567,36 @@ function personFields(kind) {
   for (const person of people) if (person.phone) phones.set(person.phone, person.name);
   const label = kind === "customer" ? "العميل" : "المورد";
   return `<div class="person-fields">
-    <label>اسم ${label}<input name="${kind}Name" list="${kind}-names" maxlength="200" autocomplete="off" placeholder="اكتب الاسم أو اختاره"></label>
+    <label>اسم ${label} *<input name="${kind}Name" list="${kind}-names" maxlength="200" autocomplete="off" required placeholder="اكتب الاسم أو اختاره"></label>
     <datalist id="${kind}-names">${names.map((name) => `<option value="${esc(name)}"></option>`).join("")}</datalist>
-    <label>رقم هاتف ${label} (12 رقمًا)<input name="${kind}Phone" type="tel" inputmode="numeric" maxlength="12" pattern="[0-9٠-٩۰-۹]{12}" list="${kind}-phones" autocomplete="off" placeholder="اكتب 12 رقمًا"></label>
+    <label>رقم هاتف ${label} * (12 رقمًا)<input name="${kind}Phone" type="tel" inputmode="numeric" maxlength="12" pattern="[0-9٠-٩۰-۹]{12}" list="${kind}-phones" autocomplete="off" required placeholder="اكتب 12 رقمًا"></label>
     <datalist id="${kind}-phones">${[...phones].map(([phone, name]) => `<option value="${esc(phone)}" label="${esc(name)}"></option>`).join("")}</datalist>
-    <p class="hint">لو اتعاملت مع الشخص قبل كده، هتظهر بياناته ضمن الاقتراحات أثناء الكتابة.</p>
+    <p class="hint">اختيار اسم أو رقم مسجل يكمّل بيانات الشخص تلقائيًا. رقم الهاتف مطلوب من 12 رقمًا.</p>
   </div>`;
 }
 function contactData(f, kind) {
   const name = String(f.get(kind + "Name") || "").trim();
   const rawPhone = String(f.get(kind + "Phone") || "").trim();
-  return { name, phone: rawPhone ? M.normalizePhone(rawPhone) : "" };
+  if (!name) throw Error(`اكتب اسم ${kind === "customer" ? "العميل" : "المورد"}`);
+  if (!rawPhone) throw Error(`اكتب رقم هاتف ${kind === "customer" ? "العميل" : "المورد"}`);
+  return { name, phone: M.normalizePhone(rawPhone) };
+}
+function bindPersonSuggestions(d, kind) {
+  const people = M.peopleSummary(state, kind).filter((person) => person.phone || person.name !== "بدون اسم");
+  const nameInput = d.querySelector(`[name="${kind}Name"]`);
+  const phoneInput = d.querySelector(`[name="${kind}Phone"]`);
+  if (!nameInput || !phoneInput) return;
+  nameInput.addEventListener("change", () => {
+    const value = nameInput.value.trim().toLocaleLowerCase("ar");
+    const person = people.find((item) => item.name.toLocaleLowerCase("ar") === value);
+    if (person?.phone && !phoneInput.value) phoneInput.value = person.phone;
+  });
+  phoneInput.addEventListener("change", () => {
+    let digits = "";
+    try { digits = M.normalizePhone(phoneInput.value); } catch {}
+    const person = people.find((item) => item.phone === digits);
+    if (person && !nameInput.value.trim()) nameInput.value = person.name;
+  });
 }
 const reserveFields = (kind) =>
   `<label class="check"><input type="checkbox" name="reserve" id="reserve"><span>إضافة كمحجوز ${kind === "customer" ? "للعميل" : "من المورد"}</span></label><div id="reserve-box" hidden>${field("تاريخ الحجز", "rdate", M.today(), { type: "date" })}</div>`;
@@ -585,6 +604,8 @@ function bindReserve(d, label) {
   const cb = d.querySelector("#reserve"),
     box = d.querySelector("#reserve-box"),
     btn = d.querySelector("[type=submit]");
+  const personKind = d.querySelector('[name="customerName"]') ? "customer" : "supplier";
+  bindPersonSuggestions(d, personKind);
   cb.onchange = () => {
     box.hidden = !cb.checked;
     const contact = d.querySelector("#customer-contact, #supplier-contact");
@@ -629,7 +650,7 @@ function bookDialog(editId) {
     field("المؤلف", "author", old?.author || "", { max: 200 }) +
     field("دار النشر", "publisher", old?.publisher || "", { max: 200 }) +
     field("عدد أجزاء الكتاب بالكامل *", "partsTotal", N, { num: 1, max: 4 }) +
-    (old ? "" : `<div id="owned-box"></div><div id="buy-box"></div><details class="more"><summary>مصاريف الشراء</summary>${field("تكاليف شراء إضافية للدفعة بالكامل (ج)", "extra", "0", { num: 1 })}${field("تاريخ الشراء", "date", M.today(), { type: "date" })}</details><details class="more" id="supplier-contact"><summary>بيانات المورد (اختياري)</summary>${personFields("supplier")}</details>`) +
+    (old ? "" : `<div id="owned-box"></div><div id="buy-box"></div><details class="more"><summary>مصاريف الشراء</summary>${field("تكاليف شراء إضافية للدفعة بالكامل (ج)", "extra", "0", { num: 1 })}${field("تاريخ الشراء", "date", M.today(), { type: "date" })}</details><details class="more" id="supplier-contact" open><summary>بيانات المورد</summary>${personFields("supplier")}</details>`) +
     `<div id="sell-box"></div>` +
     (old ? '<p class="hint">تعديل بيانات الكتاب لا يغيّر أرباح المبيعات السابقة. لتصحيح سعر شراء قديم استخدم «تصحيح» في دفعات الشراء داخل التفاصيل.</p>' : reserveFields("supplier") + '<p id="preview" class="preview"></p>');
   function renderOwned() {
@@ -756,7 +777,7 @@ function addMissingDialog(bookId) {
   const html =
     `<p>${esc(b.title)}</p><div class="section-label">الأجزاء الناقصة — اختر ما اشتريته *</div><div class="pick-grid">${chips(st.missing, picked)}</div>` +
     (st.present.length ? `<details class="more"><summary>نسخة إضافية من جزء موجود</summary><p class="hint">لو اشتريت نسخة ثانية من جزء عندك بالفعل، اخترها هنا.</p><div class="pick-grid">${chips(st.present, picked)}</div></details>` : "") +
-    `<div id="buy-box"></div><details class="more"><summary>مصاريف الشراء</summary>${field("تكاليف شراء إضافية للدفعة بالكامل (ج)", "extra", "0", { num: 1 })}${field("تاريخ الشراء", "date", M.today(), { type: "date" })}</details><details class="more"><summary>بيانات المورد (اختياري)</summary>${personFields("supplier")}</details>${reserveFields("supplier")}<p id="preview" class="preview"></p>`;
+    `<div id="buy-box"></div><details class="more"><summary>مصاريف الشراء</summary>${field("تكاليف شراء إضافية للدفعة بالكامل (ج)", "extra", "0", { num: 1 })}${field("تاريخ الشراء", "date", M.today(), { type: "date" })}</details><details class="more" open><summary>بيانات المورد</summary>${personFields("supplier")}</details>${reserveFields("supplier")}<p id="preview" class="preview"></p>`;
   d = modal("إضافة أجزاء ناقصة", html, async (f) => {
     if (!picked.size) throw Error("اختر جزءًا واحدًا على الأقل");
     const r = buy.read(),
@@ -824,7 +845,7 @@ function sellDialog(bookId) {
     `<div id="price-box"></div>` +
     field("تاريخ البيع *", "date", M.today(), { type: "date" }) +
     `<details class="more"><summary>مصاريف وتفاصيل إضافية</summary>${field("مصاريف البيع للعملية بالكامل (ج)", "expenses", "0", { num: 1 })}${field("شحن يتحمله البائع للعملية بالكامل (ج)", "shipping", "0", { num: 1 })}${field("ملاحظة قصيرة", "note", "", { max: 300 })}</details>` +
-    `<details class="more" id="customer-contact"><summary>بيانات العميل (اختياري)</summary>${personFields("customer")}</details>` +
+    `<details class="more" id="customer-contact" open><summary>بيانات العميل</summary>${personFields("customer")}</details>` +
     reserveFields("customer") +
     `<p id="preview" class="preview"></p>`;
   function build(f, final) {

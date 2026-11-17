@@ -2,7 +2,15 @@ import { test, expect } from "@playwright/test";
 
 const dlg = (page) => page.locator("dialog[open]");
 const save = (page, name = "حفظ") => dlg(page).getByRole("button", { name, exact: true }).click();
-const closed = (page) => expect(page.locator("dialog[open]")).toHaveCount(0);
+const closed = async (page) => {
+  const opened = page.locator("dialog[open]");
+  try {
+    await expect(opened).toHaveCount(0, { timeout: 5000 });
+  } catch {
+    const message = await opened.locator("#form-error").innerText().catch(() => "");
+    throw new Error("Dialog remained open" + (message ? ": " + message : " without a form error"));
+  }
+};
 const nav = (page, name) => page.locator("nav").getByRole("button", { name }).click();
 
 async function start(page, name = "معتز") {
@@ -13,9 +21,14 @@ async function start(page, name = "معتز") {
 }
 /** يضيف كتابًا. parts>1 يختار الأجزاء owned. */
 async function addBook(page, o = {}) {
-  const { title = "رحلة في عالم الكتب", parts = 1, owned = [], buy = "500", extra = "50", sell, qty, reserve } = o;
+  const { title = "رحلة في عالم الكتب", parts = 1, owned = [], buy = "500", extra = "50", sell, qty, reserve, editor = "", author = "", publisher = "" } = o;
   await page.getByRole("button", { name: "+ إضافة كتاب" }).first().click();
   await dlg(page).getByLabel("اسم الكتاب *").fill(title);
+  await dlg(page).locator('input[name=editor]').fill(editor);
+  await dlg(page).locator('input[name=author]').fill(author);
+  await dlg(page).locator('input[name=publisher]').fill(publisher);
+  await dlg(page).locator('input[name=supplierName]').fill(reserve?.name || "مورد تجريبي");
+  await dlg(page).locator('input[name=supplierPhone]').fill(reserve?.phone || "201012345678");
   if (parts > 1) {
     await dlg(page).getByLabel("عدد أجزاء الكتاب بالكامل *").fill(String(parts));
     for (const p of owned) await dlg(page).locator(`[data-part="${p}"]`).check({ force: true });
@@ -28,17 +41,28 @@ async function addBook(page, o = {}) {
   if (sell) await dlg(page).locator("input[name=sellTotal]").fill(sell);
   if (reserve) {
     await dlg(page).locator("#reserve").check();
-    await dlg(page).locator("input[name=rname]").fill(reserve.name);
-    await dlg(page).locator("input[name=rphone]").fill(reserve.phone);
     await save(page, "إضافة كمحجوز");
   } else await save(page);
   await closed(page);
+}
+async function fillCustomer(page, name = "عميل تجريبي", phone = "201011112222") {
+  await dlg(page).locator('input[name=customerName]').fill(name);
+  await dlg(page).locator('input[name=customerPhone]').fill(phone);
+}
+async function rateReview(page, rating = 5, note = "تم التعامل بنجاح") {
+  await dlg(page).locator(`input[name=reviewRating][value="${rating}"]`).check({ force: true });
+  await dlg(page).locator('textarea[name=reviewNote]').fill(note);
 }
 async function sellSingle(page, price = "750", shipping = "30") {
   await page.getByRole("button", { name: "تسجيل بيع", exact: true }).first().click();
   await dlg(page).getByLabel("سعر بيع النسخة الواحدة (ج) *").fill(price);
   await dlg(page).getByText("مصاريف وتفاصيل إضافية").click();
   await dlg(page).locator("input[name=shipping]").fill(shipping);
+  await fillCustomer(page);
+  const submittedPhone = await dlg(page).locator("form").evaluate((form) =>
+    new FormData(form).get("customerPhone"),
+  );
+  expect(submittedPhone).toBe("201011112222");
   await save(page, "تأكيد البيع");
   await closed(page);
 }
@@ -72,6 +96,8 @@ test("single-part book stays simple; English digits; 500+50 then 750-30 gives 17
   await expect(dlg(page).getByText("تفاصيل شراء إضافية")).toBeHidden();
   await expect(dlg(page).getByText("تفاصيل بيع إضافية")).toBeHidden();
   await dlg(page).getByLabel("اسم الكتاب *").fill("كتاب واحد");
+  await dlg(page).locator('input[name=supplierName]').fill("المورد الأول");
+  await dlg(page).locator('input[name=supplierPhone]').fill("201012345678");
   await dlg(page).locator("input[name=buyTotal]").fill("500");
   await dlg(page).getByText("مصاريف الشراء", { exact: true }).click();
   await dlg(page).locator("input[name=extra]").fill("50");
@@ -83,6 +109,7 @@ test("single-part book stays simple; English digits; 500+50 then 750-30 gives 17
   await dlg(page).getByText("مصاريف وتفاصيل إضافية").click();
   await dlg(page).locator("input[name=shipping]").fill("30");
   await expect(dlg(page).locator("#preview")).toContainText("170");
+  await fillCustomer(page);
   await save(page, "تأكيد البيع");
   await closed(page);
   await nav(page, "الرئيسية");
@@ -97,6 +124,8 @@ test("purchase price distribution: 100 over 3, edit one, redistribute, all manua
   await start(page);
   await page.getByRole("button", { name: "+ إضافة كتاب" }).first().click();
   await dlg(page).getByLabel("اسم الكتاب *").fill("ثلاثة أجزاء");
+  await dlg(page).locator('input[name=supplierName]').fill("مورد الأسعار");
+  await dlg(page).locator('input[name=supplierPhone]').fill("201022233344");
   await dlg(page).getByLabel("عدد أجزاء الكتاب بالكامل *").fill("3");
   for (const p of [1, 2, 3]) await dlg(page).locator(`[data-part="${p}"]`).check({ force: true });
   await dlg(page).locator("input[name=buyTotal]").fill("100");
@@ -140,6 +169,7 @@ test("sale price details work the same way and whole-book price is saved as defa
   await expect(rows.nth(1)).toHaveValue("20");
   await expect(rows.nth(2)).toHaveValue("20");
   await expect(dlg(page).locator("#preview")).toContainText("10");
+  await fillCustomer(page);
   await save(page, "تأكيد البيع");
   await closed(page);
   await nav(page, "الرئيسية");
@@ -175,6 +205,8 @@ test("shortages: only incomplete books, complete ones disappear immediately, ext
   await expect(dlg(page).locator(".pick-grid").first().locator(".pick")).toHaveCount(4);
   await dlg(page).locator('[data-part="2"]').check({ force: true });
   await dlg(page).locator("input[name=buyTotal]").fill("40");
+  await dlg(page).locator('input[name=supplierName]').fill("مورد النواقص");
+  await dlg(page).locator('input[name=supplierPhone]').fill("201055566677");
   await expect(dlg(page).getByText("المزيد: سعر كل جزء")).toBeHidden();
   await save(page);
   await closed(page);
@@ -182,6 +214,8 @@ test("shortages: only incomplete books, complete ones disappear immediately, ext
   await expect(page.locator(".book")).toContainText("4، 5، 6");
   await page.getByRole("button", { name: "إضافة", exact: true }).click();
   for (const p of [4, 5, 6]) await dlg(page).locator(`[data-part="${p}"]`).check({ force: true });
+  await dlg(page).locator('input[name=supplierName]').fill("مورد النواقص 2");
+  await dlg(page).locator('input[name=supplierPhone]').fill("201077788899");
   await dlg(page).locator("input[name=buyTotal]").fill("100");
   await dlg(page).getByText("المزيد: سعر كل جزء").click();
   await expect(dlg(page).locator("#buy-box input[data-pw=price]")).toHaveCount(3);
@@ -201,6 +235,8 @@ test("second copy of an existing part is added (no duplicate error) and sold ind
   await dlg(page).getByText("نسخة إضافية من جزء موجود").click();
   await dlg(page).locator('[data-part="1"]').check({ force: true });
   await dlg(page).locator("input[name=buyTotal]").fill("35");
+  await dlg(page).locator('input[name=supplierName]').fill("مورد النسخ");
+  await dlg(page).locator('input[name=supplierPhone]').fill("201066677788");
   await save(page);
   await closed(page);
   await page.getByRole("button", { name: "تفاصيل", exact: true }).click();
@@ -217,6 +253,7 @@ test("partial and whole sales of a multi-part book with exact profit", async ({ 
   await expect(dlg(page).locator("input[name=sellTotal]")).toHaveValue("33");
   await dlg(page).locator("input[name=sellTotal]").fill("50");
   await expect(dlg(page).locator("#preview")).toContainText("30");
+  await fillCustomer(page);
   await save(page, "تأكيد البيع");
   await closed(page);
   await nav(page, "الرئيسية");
@@ -228,6 +265,7 @@ test("partial and whole sales of a multi-part book with exact profit", async ({ 
   await dlg(page).locator('#sell-pick [data-part="1"]').check({ force: true });
   await dlg(page).locator('#sell-pick [data-part="3"]').check({ force: true });
   await expect(dlg(page).locator("input[name=sellTotal]")).toHaveValue("67");
+  await fillCustomer(page);
   await save(page, "تأكيد البيع");
   await closed(page);
   await nav(page, "الرئيسية");
@@ -241,8 +279,8 @@ async function reserveOne(page) {
   await expect(dlg(page).getByRole("button", { name: "تأكيد البيع" })).toBeVisible();
   await dlg(page).locator("#reserve").check();
   await expect(dlg(page).getByRole("button", { name: "إضافة كمحجوز" })).toBeVisible();
-  await dlg(page).locator("input[name=rname]").fill("أحمد");
-  await dlg(page).locator("input[name=rphone]").fill("01001234567");
+  await dlg(page).locator('input[name=customerName]').fill("أحمد");
+  await dlg(page).locator('input[name=customerPhone]').fill("201001234567");
   await save(page, "إضافة كمحجوز");
   await closed(page);
 }
@@ -263,14 +301,15 @@ test("customer reservation: no sale/profit, stock held, confirm once, then real 
   await expect(page.getByRole("button", { name: "تسجيل بيع", exact: true })).toHaveCount(0);
   await nav(page, "المحجوزات");
   await page.locator(".res .res-main").click();
-  await expect(dlg(page)).toContainText("01001234567");
+  await expect(dlg(page)).toContainText("201001234567");
   await expect(dlg(page)).toContainText("صافي الربح المتوقع");
   await expect(dlg(page)).toContainText("200 ج");
   await dlg(page).getByRole("button", { name: "إغلاق" }).click();
   await closed(page);
   await page.locator(".res").getByRole("button", { name: "تأكيد", exact: true }).click();
-  await expect(dlg(page)).toContainText("عملية بيع فعلية");
-  await dlg(page).getByRole("button", { name: "تأكيد", exact: true }).evaluate((b) => { b.click(); b.click(); });
+  await expect(dlg(page)).toContainText("هيتسجل البيع الفعلي");
+  await rateReview(page, 5, "التزم بالاتفاق");
+  await dlg(page).getByRole("button", { name: "تأكيد البيع", exact: true }).evaluate((b) => { b.click(); b.click(); });
   await closed(page);
   await expect(page.locator(".res")).toHaveCount(0);
   await nav(page, "الرئيسية");
@@ -287,7 +326,8 @@ test("cancelling a customer reservation frees the stock and records nothing", as
   await nav(page, "المحجوزات");
   await page.locator(".res").getByRole("button", { name: "إلغاء", exact: true }).click();
   await expect(dlg(page)).toContainText("الأجزاء المحجوزة");
-  await dlg(page).getByRole("button", { name: "إلغاء الحجز", exact: true }).click();
+  await rateReview(page, 2, "ألغى الحجز");
+  await save(page, "تأكيد الإلغاء");
   await closed(page);
   await expect(page.locator(".res")).toHaveCount(0);
   await page.getByRole("button", { name: /^عرض/ }).click();
@@ -300,7 +340,7 @@ test("cancelling a customer reservation frees the stock and records nothing", as
 
 test("supplier reservation adds no stock until confirmed; cancel changes nothing", async ({ page }) => {
   await start(page);
-  await addBook(page, { title: "كتاب المورد", parts: 3, owned: [1, 2], buy: "100", extra: "", reserve: { name: "حاج علي", phone: "0111" } });
+  await addBook(page, { title: "كتاب المورد", parts: 3, owned: [1, 2], buy: "100", extra: "", reserve: { name: "حاج علي", phone: "201011112222" } });
   await expect(page.locator(".res")).toContainText("كتاب المورد");
   await expect(page.locator(".res")).toContainText("حاج علي");
   await nav(page, "الكتب");
@@ -311,6 +351,7 @@ test("supplier reservation adds no stock until confirmed; cancel changes nothing
   await nav(page, "المحجوزات");
   await page.locator(".res").getByRole("button", { name: "تأكيد", exact: true }).click();
   await expect(dlg(page)).toContainText("راجع تفاصيل الشراء");
+  await rateReview(page, 5, "وصلت الأجزاء");
   await dlg(page).getByRole("button", { name: "تأكيد الشراء", exact: true }).click();
   await closed(page);
   await nav(page, "الكتب");
@@ -319,9 +360,10 @@ test("supplier reservation adds no stock until confirmed; cancel changes nothing
   await expect(page.locator(".book")).toContainText("3");
   await nav(page, "الرئيسية");
   await expect(page.locator(".stats").nth(1).locator(".stat").nth(1)).toContainText("100 ج");
-  await addBook(page, { title: "ملغي", buy: "70", extra: "", reserve: { name: "س", phone: "1" } });
+  await addBook(page, { title: "ملغي", buy: "70", extra: "", reserve: { name: "س", phone: "201099998888" } });
   await page.locator(".res").getByRole("button", { name: "إلغاء", exact: true }).click();
-  await dlg(page).getByRole("button", { name: "إلغاء الحجز", exact: true }).click();
+  await rateReview(page, 1, "تأخر وألغى");
+  await save(page, "تأكيد الإلغاء");
   await closed(page);
   await nav(page, "الكتب");
   await expect(page.locator("#book-list")).not.toContainText("ملغي");
@@ -460,8 +502,8 @@ test("missing parts can be reserved from a supplier for an existing book, then c
   await dlg(page).locator('[data-part="2"]').check({ force: true });
   await dlg(page).locator("input[name=buyTotal]").fill("40");
   await dlg(page).locator("#reserve").check();
-  await dlg(page).locator("input[name=rname]").fill("مورد");
-  await dlg(page).locator("input[name=rphone]").fill("010");
+  await dlg(page).locator('input[name=supplierName]').fill("مورد");
+  await dlg(page).locator('input[name=supplierPhone]').fill("201055566677");
   await save(page, "إضافة كمحجوز");
   await closed(page);
   await expect(page.locator(".res")).toContainText("الجزء 2");
@@ -469,11 +511,48 @@ test("missing parts can be reserved from a supplier for an existing book, then c
   await expect(page.locator(".book")).toContainText("2، 3");
   await nav(page, "المحجوزات");
   await page.locator(".res").getByRole("button", { name: "تأكيد", exact: true }).click();
+  await rateReview(page, 5, "التزم بموعد التوريد");
   await dlg(page).getByRole("button", { name: "تأكيد الشراء", exact: true }).click();
   await closed(page);
   await nav(page, "النواقص");
   await expect(page.locator(".book")).toContainText("معايا جزأين من 3");
   await expect(page.locator(".book")).toContainText("الأجزاء الناقصة: 3");
+});
+
+test("book metadata and customer supplier analytics show saved people", async ({ page }) => {
+  await start(page);
+  await addBook(page, {
+    title: "كتاب بياناته",
+    editor: "محقق الاختبار",
+    author: "مؤلف الاختبار",
+    publisher: "دار الاختبار",
+    buy: "100",
+    extra: "",
+    sell: "180",
+  });
+  await nav(page, "الكتب");
+  await expect(page.locator(".book")).toContainText("المحقق: محقق الاختبار");
+  await expect(page.locator(".book")).toContainText("المؤلف: مؤلف الاختبار");
+  await expect(page.locator(".book")).toContainText("دار الاختبار");
+
+  await sellSingle(page, "180", "0");
+  await nav(page, "المحجوزات");
+  const pageErrors = [];
+  page.on("pageerror", (error) => pageErrors.push(error.stack || error.message));
+  await page.getByRole("button", { name: "الإحصائيات", exact: true }).click();
+  try {
+    await expect(page.locator(".heading h1")).toHaveText("إحصائيات الأشخاص");
+  } catch {
+    throw new Error("Analytics page did not render. Browser errors: " + pageErrors.join(" || "));
+  }
+  await expect(page.locator("main")).toContainText("عميل تجريبي");
+  await expect(page.locator("main")).toContainText("201011112222");
+
+  await page.locator('[data-people-kind="supplier"]').click();
+  await expect(page.locator("main")).toContainText("مورد تجريبي");
+  await expect(page.locator("main")).toContainText("201012345678");
+  await page.locator('[data-people-kind="customer"]').click();
+  await expect(page.locator("main")).toContainText("عميل تجريبي");
 });
 
 test("serving source files directly shows startup help instead of a blank page", async ({ page }) => {

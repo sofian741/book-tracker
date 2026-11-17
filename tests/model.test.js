@@ -328,3 +328,91 @@ test("rejects malformed version 3 reservations without mutating the source", () 
   assert.equal(legacy.version, 3);
   assert.equal(legacy.reservations[0].type, "unknown");
 });
+
+
+test("phone numbers normalize Arabic digits and require exactly 12 digits", () => {
+  assert.equal(M.normalizePhone("٠١٠١٢٣٤٥٦٧٨٩"), "010123456789");
+  assert.equal(M.normalizePhone("201012345678"), "201012345678");
+  assert.equal(M.normalizePhone(""), "");
+  assert.throws(() => M.normalizePhone("01012345678"), /12 رقمًا/);
+  assert.throws(() => M.normalizePhone("2010123456789"), /12 رقمًا/);
+  assert.throws(() => M.normalizePhone("2010ABC45678"), /أرقام فقط/);
+});
+
+test("people summary groups customer sales and confirmed reservation by phone and transaction", () => {
+  const s = M.empty();
+  s.sales.push(
+    { id: "sale-a", transaction: "sale-set", customerName: "أحمد", customerPhone: "201012345678", unit: 5000, qty: 1, date: "2026-03-01" },
+    { id: "sale-b", transaction: "sale-set", customerName: "أحمد", customerPhone: "201012345678", unit: 7000, qty: 1, date: "2026-03-01" },
+  );
+  s.reservations.push(
+    {
+      id: "sale-set", kind: "customer", status: "confirmed", book: "book",
+      name: "أحمد", phone: "201012345678", date: "2026-03-01", resolved: "2026-03-01",
+      items: [{ part: 1, qty: 2, unit: 6000 }], expenses: 0, shipping: 0, extra: 0,
+      review: { rating: 5, tag: "committed", note: "التزم بالميعاد", date: "2026-03-01" },
+    },
+    {
+      id: "cancelled-customer", kind: "customer", status: "cancelled", book: "book",
+      name: "أحمد", phone: "201012345678", date: "2026-03-02", resolved: "2026-03-02",
+      items: [{ part: 1, qty: 1, unit: 5000 }], expenses: 0, shipping: 0, extra: 0,
+      review: { rating: 2, tag: "cancelled", note: "ألغى بعد التأكيد", date: "2026-03-02" },
+    },
+  );
+
+  const [person] = M.peopleSummary(s, "customer");
+  assert.equal(M.peopleSummary(s, "customer").length, 1);
+  assert.equal(person.name, "أحمد");
+  assert.equal(person.phone, "201012345678");
+  assert.equal(person.transactions, 1);
+  assert.equal(person.amount, 12000);
+  assert.equal(person.cancelled, 1);
+  assert.equal(person.tags.committed, 1);
+  assert.equal(person.tags.cancelled, 1);
+  assert.equal(person.averageRating, 3.5);
+});
+
+test("people summary groups supplier purchases by shared transaction and phone", () => {
+  const s = M.empty();
+  s.batches.push(
+    { id: "buy-a", transaction: "purchase-set", supplierName: "مكتبة النور", supplierPhone: "201055566677", book: "book-a", unit: 3000, qty: 2, extra: 100, date: "2026-04-01" },
+    { id: "buy-b", transaction: "purchase-set", supplierName: "مكتبة النور", supplierPhone: "201055566677", book: "book-b", unit: 4000, qty: 1, extra: 50, date: "2026-04-01" },
+  );
+  s.reservations.push(
+    {
+      id: "purchase-set", kind: "supplier", status: "confirmed", book: "book-a",
+      name: "مكتبة النور", phone: "201055566677", date: "2026-04-01", resolved: "2026-04-01",
+      items: [{ part: 1, qty: 2, unit: 3000 }, { part: 1, qty: 1, unit: 4000 }],
+      extra: 150, note: "",
+      review: { rating: 4, tag: "committed", note: "", date: "2026-04-01" },
+    },
+    {
+      id: "supplier-cancel", kind: "supplier", status: "cancelled", book: "book-a",
+      name: "مكتبة النور", phone: "201055566677", date: "2026-04-02", resolved: "2026-04-02",
+      items: [{ part: 1, qty: 1, unit: 3000 }], extra: 0, note: "",
+      review: { rating: 1, tag: "late", note: "تأخر في التوريد", date: "2026-04-02" },
+    },
+  );
+
+  const [person] = M.peopleSummary(s, "supplier");
+  assert.equal(M.peopleSummary(s, "supplier").length, 1);
+  assert.equal(person.name, "مكتبة النور");
+  assert.equal(person.phone, "201055566677");
+  assert.equal(person.transactions, 1);
+  assert.equal(person.amount, 14050);
+  assert.equal(person.cancelled, 1);
+  assert.equal(person.tags.committed, 1);
+  assert.equal(person.tags.late, 1);
+  assert.equal(person.averageRating, 2.5);
+});
+
+test("book editor and author are optional metadata and survive validation", () => {
+  const s = setup();
+  s.books[0].editor = "محقق تجريبي";
+  s.books[0].author = "مؤلف تجريبي";
+  assert.equal(M.validate(s).books[0].editor, "محقق تجريبي");
+  assert.equal(M.validate(s).books[0].author, "مؤلف تجريبي");
+  delete s.books[0].editor;
+  delete s.books[0].author;
+  assert.doesNotThrow(() => M.validate(s));
+});

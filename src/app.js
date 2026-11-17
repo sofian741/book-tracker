@@ -574,7 +574,7 @@ function personFields(kind) {
   return `<div class="person-fields">
     <label>اسم ${label} *<input name="${kind}Name" list="${kind}-names" maxlength="200" autocomplete="off" required placeholder="اكتب الاسم أو اختاره"></label>
     <datalist id="${kind}-names">${names.map((name) => `<option value="${esc(name)}"></option>`).join("")}</datalist>
-    <label>رقم هاتف ${label} * (12 رقمًا)<input name="${kind}Phone" type="tel" inputmode="numeric" maxlength="12" pattern="[0-9٠-٩۰-۹]{12}" list="${kind}-phones" autocomplete="off" required placeholder="اكتب 12 رقمًا"></label>
+    <label>رقم هاتف ${label} * (12 رقمًا)<input name="${kind}Phone" type="tel" inputmode="numeric" maxlength="12" pattern="[0-9٠-٩۰-۹]{12}" list="${kind}-phones" autocomplete="off" required placeholder="مثال: 201012345678"></label>
     <datalist id="${kind}-phones">${[...phones].map(([phone, name]) => `<option value="${esc(phone)}" label="${esc(name)}"></option>`).join("")}</datalist>
     <p class="hint">اختيار اسم أو رقم مسجل يكمّل بيانات الشخص تلقائيًا. رقم الهاتف مطلوب من 12 رقمًا.</p>
   </div>`;

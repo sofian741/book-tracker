@@ -309,7 +309,8 @@ test("migrates version 3 profile and reservations without losing legacy fields",
   assert.equal(migrated.reservations[1].kind, "supplier");
   assert.equal(migrated.reservations[1].extra, 200);
   assert.equal(migrated.reservations[1].items[0].extra, 200);
-  assert.equal(M.available(migrated, "book"), 2);
+  assert.equal(M.available(migrated, "book"), 3);
+  assert.equal(M.sellable(migrated, "book"), 2);
   assert.equal(legacy.version, 3);
   assert.equal(legacy.reservations[0].kind, undefined);
 });

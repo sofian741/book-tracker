@@ -462,10 +462,13 @@ export function peopleSummary(s, kind) {
   const ensure = (name, phone, fallback) => {
     const cleanName = String(name ?? "").trim();
     const digits = phoneDigits(phone);
+    const displayPhone = digits.length === 12 && digits.startsWith("20")
+      ? "0" + digits.slice(2)
+      : digits;
     const normalizedName = cleanName.toLocaleLowerCase("ar").replace(/\s+/g, " ");
     const key = digits ? "phone:" + digits : normalizedName ? "name:" + normalizedName : "record:" + fallback;
     if (!people.has(key)) people.set(key, {
-      key, name: cleanName || "بدون اسم", phone: digits || String(phone ?? ""),
+      key, name: cleanName || "بدون اسم", phone: displayPhone || String(phone ?? ""),
       transactions: 0, amount: 0, reservations: 0, active: 0,
       confirmed: 0, cancelled: 0, tags: { committed: 0, cancelled: 0, late: 0, unreliable: 0 },
       ratingTotal: 0, ratingCount: 0, reviews: [], transactionIds: new Set(),
@@ -473,7 +476,7 @@ export function peopleSummary(s, kind) {
     });
     const person = people.get(key);
     if (cleanName && (!person.name || person.name === "بدون اسم")) person.name = cleanName;
-    if (digits) person.phone = digits;
+    if (digits) person.phone = displayPhone;
     return person;
   };
   const addTransaction = (person, transactionId, amount, date) => {

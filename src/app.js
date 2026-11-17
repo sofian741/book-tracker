@@ -578,7 +578,7 @@ function personFields(kind) {
   const phones = new Map();
   for (const person of people) {
     try {
-      const phone = M.normalizePhone(person.phone);
+      const phone = M.normalizeStoredPhone(person.phone);
       if (phone) phones.set(phone, person.name);
     } catch {}
   }
@@ -586,9 +586,9 @@ function personFields(kind) {
   return `<div class="person-fields">
     <label>اسم ${label} *<input name="${kind}Name" list="${kind}-names" maxlength="200" autocomplete="off" required placeholder="اكتب الاسم أو اختاره"></label>
     <datalist id="${kind}-names">${names.map((name) => `<option value="${esc(name)}"></option>`).join("")}</datalist>
-    <label>رقم هاتف ${label} * (12 رقمًا)<input name="${kind}Phone" type="tel" inputmode="numeric" maxlength="12" pattern="[0-9٠-٩۰-۹]{12}" list="${kind}-phones" autocomplete="off" required placeholder="مثال: 201012345678"></label>
+    <label>رقم هاتف ${label} * (11 رقمًا)<input name="${kind}Phone" type="tel" inputmode="numeric" maxlength="11" pattern="[0-9٠-٩۰-۹]{11}" list="${kind}-phones" autocomplete="off" required placeholder="مثال: 01012345678"></label>
     <datalist id="${kind}-phones">${[...phones].map(([phone, name]) => `<option value="${esc(phone)}" label="${esc(name)}"></option>`).join("")}</datalist>
-    <p class="hint">اختيار اسم أو رقم مسجل يكمّل بيانات الشخص تلقائيًا. رقم الهاتف مطلوب من 12 رقمًا.</p>
+    <p class="hint">اختيار اسم أو رقم مسجل يكمّل بيانات الشخص تلقائيًا. رقم الهاتف مطلوب من 11 رقمًا.</p>
   </div>`;
 }
 function contactData(f, kind) {

@@ -416,3 +416,67 @@ test("book editor and author are optional metadata and survive validation", () =
   delete s.books[0].author;
   assert.doesNotThrow(() => M.validate(s));
 });
+
+
+test("confirmed customer reservations keep contact details on the resulting sale", () => {
+  const s = batch(setup(), 1000, 2);
+  M.addCustomerReservation(s, {
+    id: "customer-reservation",
+    book: "book",
+    name: "عميل الاختبار",
+    phone: "201012345678",
+    date: "2026-05-01",
+    items: [{ part: 1, qty: 1, unit: 2500 }],
+    expenses: 0,
+    shipping: 0,
+    note: "",
+  });
+  M.confirmCustomerReservation(s, "customer-reservation", "2026-05-02");
+  assert.equal(s.sales[0].customerName, "عميل الاختبار");
+  assert.equal(s.sales[0].customerPhone, "201012345678");
+  const [person] = M.peopleSummary(s, "customer");
+  assert.equal(person.transactions, 1);
+  assert.equal(person.name, "عميل الاختبار");
+});
+
+test("confirmed supplier reservations keep supplier contact details on purchase batches", () => {
+  const s = setup();
+  M.addSupplierReservation(s, {
+    id: "supplier-reservation",
+    book: "book",
+    name: "مورد الاختبار",
+    phone: "201055566677",
+    date: "2026-05-01",
+    items: [{ part: 1, qty: 2, unit: 1000 }],
+    extra: 100,
+    note: "",
+  });
+  M.confirmSupplierReservation(s, "supplier-reservation", { date: "2026-05-02" });
+  assert.equal(s.batches[0].supplierName, "مورد الاختبار");
+  assert.equal(s.batches[0].supplierPhone, "201055566677");
+  assert.equal(s.batches[0].transaction, "supplier-reservation");
+  const [person] = M.peopleSummary(s, "supplier");
+  assert.equal(person.transactions, 1);
+  assert.equal(person.amount, 2100);
+});
+
+test("reservation reviews are validated and limited to one through five stars", () => {
+  const s = batch(setup(), 1000, 2);
+  M.addCustomerReservation(s, {
+    id: "review-reservation",
+    book: "book",
+    name: "عميل",
+    phone: "201012345678",
+    date: "2026-05-01",
+    items: [{ part: 1, qty: 1, unit: 2500 }],
+    expenses: 0,
+    shipping: 0,
+    note: "",
+  });
+  s.reservations[0].review = {
+    rating: 5, tag: "committed", note: "ملتزم", date: "2026-05-02",
+  };
+  assert.doesNotThrow(() => M.validate(s));
+  s.reservations[0].review.rating = 6;
+  assert.throws(() => M.validate(s), /من 5 نجوم/);
+});

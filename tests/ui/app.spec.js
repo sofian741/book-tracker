@@ -84,6 +84,8 @@ test("single-part book stays simple; English digits; 500+50 then 750-30 gives 17
   await expect(dlg(page).getByText("تفاصيل شراء إضافية")).toBeHidden();
   await expect(dlg(page).getByText("تفاصيل بيع إضافية")).toBeHidden();
   await dlg(page).getByLabel("اسم الكتاب *").fill("كتاب واحد");
+  await dlg(page).locator('input[name=supplierName]').fill("المورد الأول");
+  await dlg(page).locator('input[name=supplierPhone]').fill("201012345678");
   await dlg(page).locator("input[name=buyTotal]").fill("500");
   await dlg(page).getByText("مصاريف الشراء", { exact: true }).click();
   await dlg(page).locator("input[name=extra]").fill("50");
@@ -110,6 +112,8 @@ test("purchase price distribution: 100 over 3, edit one, redistribute, all manua
   await start(page);
   await page.getByRole("button", { name: "+ إضافة كتاب" }).first().click();
   await dlg(page).getByLabel("اسم الكتاب *").fill("ثلاثة أجزاء");
+  await dlg(page).locator('input[name=supplierName]').fill("مورد الأسعار");
+  await dlg(page).locator('input[name=supplierPhone]').fill("201022233344");
   await dlg(page).getByLabel("عدد أجزاء الكتاب بالكامل *").fill("3");
   for (const p of [1, 2, 3]) await dlg(page).locator(`[data-part="${p}"]`).check({ force: true });
   await dlg(page).locator("input[name=buyTotal]").fill("100");
@@ -198,6 +202,8 @@ test("shortages: only incomplete books, complete ones disappear immediately, ext
   await expect(page.locator(".book")).toContainText("4، 5، 6");
   await page.getByRole("button", { name: "إضافة", exact: true }).click();
   for (const p of [4, 5, 6]) await dlg(page).locator(`[data-part="${p}"]`).check({ force: true });
+  await dlg(page).locator('input[name=supplierName]').fill("مورد النواقص 2");
+  await dlg(page).locator('input[name=supplierPhone]').fill("201077788899");
   await dlg(page).locator("input[name=buyTotal]").fill("100");
   await dlg(page).getByText("المزيد: سعر كل جزء").click();
   await expect(dlg(page).locator("#buy-box input[data-pw=price]")).toHaveCount(3);
@@ -493,6 +499,7 @@ test("missing parts can be reserved from a supplier for an existing book, then c
   await expect(page.locator(".book")).toContainText("2، 3");
   await nav(page, "المحجوزات");
   await page.locator(".res").getByRole("button", { name: "تأكيد", exact: true }).click();
+  await rateReview(page, 5, "التزم بموعد التوريد");
   await dlg(page).getByRole("button", { name: "تأكيد الشراء", exact: true }).click();
   await closed(page);
   await nav(page, "النواقص");

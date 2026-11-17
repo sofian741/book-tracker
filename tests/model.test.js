@@ -365,7 +365,7 @@ test("people summary groups customer sales and confirmed reservation by phone an
   const [person] = M.peopleSummary(s, "customer");
   assert.equal(M.peopleSummary(s, "customer").length, 1);
   assert.equal(person.name, "أحمد");
-  assert.equal(person.phone, "201012345678");
+  assert.equal(person.phone, "01012345678");
   assert.equal(person.transactions, 1);
   assert.equal(person.amount, 12000);
   assert.equal(person.cancelled, 1);
@@ -399,7 +399,7 @@ test("people summary groups supplier purchases by shared transaction and phone",
   const [person] = M.peopleSummary(s, "supplier");
   assert.equal(M.peopleSummary(s, "supplier").length, 1);
   assert.equal(person.name, "مكتبة النور");
-  assert.equal(person.phone, "201055566677");
+  assert.equal(person.phone, "01055566677");
   assert.equal(person.transactions, 1);
   assert.equal(person.amount, 10150);
   assert.equal(person.cancelled, 1);
@@ -481,4 +481,23 @@ test("reservation reviews are validated and limited to one through five stars", 
   assert.doesNotThrow(() => M.validate(s));
   s.reservations[0].review.rating = 6;
   assert.throws(() => M.validate(s), /نجمة إلى 5 نجوم/);
+});
+
+test("legacy international and new local phone formats identify the same person", () => {
+  const state = {
+    ...M.empty(),
+    reservations: [{
+      id: "old-reservation", kind: "customer", status: "cancelled",
+      name: "أحمد", phone: "201012345678", date: "2026-01-01",
+      items: [{ part: 1, qty: 1, unit: 100 }],
+    }],
+    sales: [{
+      id: "new-sale", transaction: "new-sale", customerName: "أحمد",
+      customerPhone: "01012345678", unit: 100, qty: 1, date: "2026-01-02",
+    }],
+  };
+  const people = M.peopleSummary(state, "customer");
+  assert.equal(people.length, 1);
+  assert.equal(people[0].phone, "01012345678");
+  assert.equal(people[0].transactions, 1);
 });

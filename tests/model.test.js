@@ -478,5 +478,5 @@ test("reservation reviews are validated and limited to one through five stars", 
   };
   assert.doesNotThrow(() => M.validate(s));
   s.reservations[0].review.rating = 6;
-  assert.throws(() => M.validate(s), /من 5 نجوم/);
+  assert.throws(() => M.validate(s), /نجمة إلى 5 نجوم/);
 });

@@ -48,6 +48,13 @@ const icon = (name) =>
   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="${ICONS[name]}"/></svg>`;
 const button = (label, action, extra = "") => `<button type="button" data-action="${action}" ${extra}>${label}</button>`;
 const bookOf = (id) => state.books.find((b) => b.id === id);
+function bookMetadata(book) {
+  return [
+    book.publisher || "بدون دار نشر",
+    book.editor ? "المحقق: " + book.editor : "",
+    book.author ? "المؤلف: " + book.author : "",
+  ].filter(Boolean).map(esc).join(" · ");
+}
 const userName = () => state?.settings?.userName || "";
 const active = (kind) => (state.reservations || []).filter((r) => r.kind === kind && r.status === "active");
 const resTitle = (r) => bookOf(r.book)?.title || r.newBook?.title || "كتاب";
@@ -95,14 +102,18 @@ function render() {
   if (!state) return;
   if (!userName()) return onboarding();
   const nm = { home: home, books: books, short: shortages, res: reservations };
-  const content = sub?.t === "settings" ? settings() : sub?.t === "detail" && bookOf(sub.id) ? detail() : ((sub = null), nm[tab]());
+  const content = sub?.t === "settings" ? settings() : sub?.t === "people" ? peopleAnalytics() : sub?.t === "detail" && bookOf(sub.id) ? detail() : ((sub = null), nm[tab]());
   const t = M.totals(state);
   const badge = (n) => (n ? `<i class="dot">${num(n)}</i>` : "");
   app.innerHTML =
     `<header><div class="brand">${icon("books")}<div><strong>تاجر</strong><small>كل كتاب… وحسابه</small></div></div>` +
-    (tab === "home" && !sub
-      ? `<button type="button" class="icon-btn" data-action="settings" aria-label="الإعدادات">${icon("settings")}</button>`
-      : `<span class="local">محفوظ على جهازك</span>`) +
+    (sub?.t === "people"
+      ? button("‹ المحجوزات", "back", 'class="subtle header-link"')
+      : tab === "res" && !sub
+        ? button("الإحصائيات", "people-stats", 'class="subtle header-link"')
+        : tab === "home" && !sub
+          ? `<button type="button" class="icon-btn" data-action="settings" aria-label="الإعدادات">${icon("settings")}</button>`
+          : `<span class="local">محفوظ على جهازك</span>`) +
     `</header><main>${content}</main><nav aria-label="التنقل الرئيسي">` +
     [
       ["home", "الرئيسية", 0],
@@ -193,7 +204,7 @@ function bookCard(b, short = false) {
     ? `${owned(st.present.length, b.partsTotal)} · ${st.complete ? "مكتمل" : "غير مكتمل"}`
     : phys > 0 ? `متاح ${num(phys)} ${phys === 1 ? "نسخة" : "نسخ"}` : "تم بيعه";
   return (
-    `<article class="book"><button type="button" class="book-title" data-book="${b.id}"><span class="book-mark">${icon("books")}</span><span><strong>${esc(b.title)}</strong><small>${esc(b.publisher) || "بدون دار نشر"}${multi ? " · " + num(b.partsTotal) + " أجزاء" : ""}</small></span></button>` +
+    `<article class="book"><button type="button" class="book-title" data-book="${b.id}"><span class="book-mark">${icon("books")}</span><span><strong>${esc(b.title)}</strong><small>${bookMetadata(b)}${multi ? " · " + num(b.partsTotal) + " أجزاء" : ""}</small></span></button>` +
     `<div class="book-info"><span class="badge ${(multi ? st.complete : phys > 0) ? "" : "muted"}">${badge}</span><span>${num(q)} قطعة للبيع${held ? " · محجوز " + num(held) : ""} · تكلفة المتبقي ${cash(bookStock(b.id))}</span></div>` +
     (short ? `<p class="miss">الأجزاء الناقصة: ${st.missing.map(num).join("، ")}</p>` : "") +
     `<div class="actions">` +
@@ -262,7 +273,7 @@ function detail() {
   };
   return (
     button("‹ العودة", "back", 'class="subtle"') +
-    `<h1>${esc(b.title)}</h1><p>${esc(b.publisher) || "بدون دار نشر"}${multi ? " · " + num(b.partsTotal) + " أجزاء إجمالًا" : ""}</p>` +
+    `<h1>${esc(b.title)}</h1><p>${bookMetadata(b)}${multi ? " · " + num(b.partsTotal) + " أجزاء إجمالًا" : ""}</p>` +
     (b.note ? `<p>${esc(b.note)}</p>` : "") +
     `<div class="panel"><dl>` +
     (multi ? `<dt>الأجزاء الموجودة</dt><dd>${num(st.present.length)} من ${num(b.partsTotal)}</dd><dt>حالة الكتاب</dt><dd>${st.complete ? "مكتمل" : "غير مكتمل"}</dd>` : "") +
@@ -288,7 +299,7 @@ function resCard(r, history = false) {
     st = { active: "", confirmed: "تم التأكيد", cancelled: "ملغي" }[r.status];
   return (
     `<article class="res ${r.status}"><button type="button" class="res-main" data-res-open="${r.id}"><strong>${esc(resTitle(r))}</strong><small>${esc(r.name) || (cust ? "بدون اسم عميل" : "بدون اسم مورد")} · ${r.date}</small>` +
-    (cust ? "" : `<small>${esc(r.phone)}${r.phone ? " · " : ""}${esc(resParts(r))}</small>`) +
+    (r.phone ? `<small>${esc(r.phone)}</small>` : "") + `<small>${esc(resParts(r))}</small>` +
     `<b>${cust ? "سعر البيع" : "متوقع"} ${cash(resTotal(r))}</b></button>` +
     (history ? `<span class="badge ${r.status === "cancelled" ? "muted" : ""}">${st}${r.resolved ? " · " + r.resolved : ""}</span>` : `<div class="actions">${button("تأكيد", "res-confirm", `data-id="${r.id}" class="primary"`)}${button("إلغاء", "res-cancel", `data-id="${r.id}" class="danger"`)}</div>`) +
     `</article>`
@@ -457,8 +468,27 @@ const dateOf = (f, name, label) => {
 };
 const chips = (parts, sel, attr = "data-part") =>
   parts.map((p) => `<label class="pick"><input type="checkbox" ${attr}="${p}" ${sel.has(p) ? "checked" : ""}><span>${num(p)}</span></label>`).join("");
+function personFields(kind) {
+  const people = M.peopleSummary(state, kind).filter((person) => person.phone || person.name !== "بدون اسم");
+  const names = [...new Set(people.map((person) => person.name).filter(Boolean))];
+  const phones = new Map();
+  for (const person of people) if (person.phone) phones.set(person.phone, person.name);
+  const label = kind === "customer" ? "العميل" : "المورد";
+  return `<div class="person-fields">
+    <label>اسم ${label}<input name="${kind}Name" list="${kind}-names" maxlength="200" autocomplete="off" placeholder="اكتب الاسم أو اختاره"></label>
+    <datalist id="${kind}-names">${names.map((name) => `<option value="${esc(name)}"></option>`).join("")}</datalist>
+    <label>رقم هاتف ${label} (12 رقمًا)<input name="${kind}Phone" type="tel" inputmode="numeric" maxlength="12" pattern="[0-9٠-٩۰-۹]{12}" list="${kind}-phones" autocomplete="off" placeholder="اكتب 12 رقمًا"></label>
+    <datalist id="${kind}-phones">${[...phones].map(([phone, name]) => `<option value="${esc(phone)}" label="${esc(name)}"></option>`).join("")}</datalist>
+    <p class="hint">لو اتعاملت مع الشخص قبل كده، هتظهر بياناته ضمن الاقتراحات أثناء الكتابة.</p>
+  </div>`;
+}
+function contactData(f, kind) {
+  const name = String(f.get(kind + "Name") || "").trim();
+  const rawPhone = String(f.get(kind + "Phone") || "").trim();
+  return { name, phone: rawPhone ? M.normalizePhone(rawPhone) : "" };
+}
 const reserveFields = (kind) =>
-  `<label class="check"><input type="checkbox" name="reserve" id="reserve"><span>إضافة كمحجوز</span></label><div id="reserve-box" hidden>${field(kind === "customer" ? "اسم العميل" : "اسم الشخص أو المورد", "rname", "", { max: 200 })}${field("رقم الهاتف", "rphone", "", { type: "tel", max: 50 })}${field("تاريخ الحجز", "rdate", M.today(), { type: "date" })}</div>`;
+  `<label class="check"><input type="checkbox" name="reserve" id="reserve"><span>إضافة كمحجوز ${kind === "customer" ? "للعميل" : "من المورد"}</span></label><div id="reserve-box" hidden>${field("تاريخ الحجز", "rdate", M.today(), { type: "date" })}</div>`;
 function bindReserve(d, label) {
   const cb = d.querySelector("#reserve"),
     box = d.querySelector("#reserve-box"),
@@ -468,16 +498,20 @@ function bindReserve(d, label) {
     btn.textContent = cb.checked ? "إضافة كمحجوز" : label;
   };
 }
-const reserveData = (f) => ({
-  name: (f.get("rname") || "").trim(),
-  phone: (f.get("rphone") || "").trim(),
+const reserveData = (f, kind) => ({
+  ...contactData(f, kind),
   date: dateOf(f, "rdate", "تاريخ الحجز"),
 });
-function makeBatches(bookId, entries, extra, date) {
-  const ex = M.splitByCount(extra, entries.map((e) => e.qty));
+function makeBatches(bookId, entries, extra, date, supplier = {}) {
+  const ex = M.splitByCount(extra, entries.map((e) => e.qty)),
+    transaction = M.id();
   return entries.map((e, i) => {
     const unit = Math.floor(e.cents / e.qty);
-    return { id: M.id(), book: bookId, part: e.part, qty: e.qty, unit, extra: e.cents - unit * e.qty + ex[i], date };
+    return {
+      id: M.id(), transaction, book: bookId, part: e.part, qty: e.qty, unit,
+      extra: e.cents - unit * e.qty + ex[i], date,
+      supplierName: supplier.name || "", supplierPhone: supplier.phone || "",
+    };
   });
 }
 const sortedSet = (s) => [...s].sort((a, b) => a - b);
@@ -497,9 +531,11 @@ function bookDialog(editId) {
   const defs = () => new Map(keys().map((k) => [k, pounds(oldPrices[k - 1] ?? 0)]));
   const html =
     field("اسم الكتاب *", "title", old?.title || "", { max: 200 }) +
+    field("المحقق", "editor", old?.editor || "", { max: 200 }) +
+    field("المؤلف", "author", old?.author || "", { max: 200 }) +
     field("دار النشر", "publisher", old?.publisher || "", { max: 200 }) +
     field("عدد أجزاء الكتاب بالكامل *", "partsTotal", N, { num: 1, max: 4 }) +
-    (old ? "" : `<div id="owned-box"></div><div id="buy-box"></div><details class="more"><summary>مصاريف الشراء</summary>${field("تكاليف شراء إضافية للدفعة بالكامل (ج)", "extra", "0", { num: 1 })}${field("تاريخ الشراء", "date", M.today(), { type: "date" })}</details>`) +
+    (old ? "" : `<div id="owned-box"></div><div id="buy-box"></div><details class="more"><summary>مصاريف الشراء</summary>${field("تكاليف شراء إضافية للدفعة بالكامل (ج)", "extra", "0", { num: 1 })}${field("تاريخ الشراء", "date", M.today(), { type: "date" })}</details><details class="more"><summary>بيانات المورد (اختياري)</summary>${personFields("supplier")}</details>`) +
     `<div id="sell-box"></div>` +
     (old ? '<p class="hint">تعديل بيانات الكتاب لا يغيّر أرباح المبيعات السابقة. لتصحيح سعر شراء قديم استخدم «تصحيح» في دفعات الشراء داخل التفاصيل.</p>' : reserveFields("supplier") + '<p id="preview" class="preview"></p>');
   function renderOwned() {
@@ -540,7 +576,10 @@ function bookDialog(editId) {
       sr = sell.read(),
       salePrices = {};
     sr.keys.forEach((k, i) => (salePrices[k] = sr.prices[i] * 100));
-    const base = { title, publisher: (f.get("publisher") || "").trim(), volumes: N, partsTotal: N, salePrices };
+    const base = {
+      title, editor: (f.get("editor") || "").trim(), author: (f.get("author") || "").trim(),
+      publisher: (f.get("publisher") || "").trim(), volumes: N, partsTotal: N, salePrices,
+    };
     if (old) {
       const used = Math.max(0, ...state.batches.filter((x) => x.book === old.id).map((x) => x.part), ...state.sales.filter((x) => x.book === old.id).map((x) => x.part), ...(state.reservations || []).filter((r) => r.book === old.id).flatMap((r) => r.items.map((i) => i.part)));
       if (N < used) throw Error(`لا يمكن تقليل عدد الأجزاء عن ${num(used)} لوجود سجلات للجزء ${num(used)}`);
@@ -555,17 +594,18 @@ function bookDialog(editId) {
     const extra = readCents(f, "extra"),
       b = { id: M.id(), note: "", suggested: 0, ...base };
     if (f.get("reserve") === "on") {
-      const rd = reserveData(f);
+      const rd = reserveData(f, "supplier");
+      if (!rd.name) throw Error("اكتب اسم المورد للحجز");
       const items = entries.map((e) => ({ part: e.part, qty: e.qty, unit: Math.floor(e.cents / e.qty) }));
       const rem = entries.reduce((s, e) => s + e.cents - Math.floor(e.cents / e.qty) * e.qty, 0);
-      M.addSupplierReservation(n, { id: M.id(), book: b.id, newBook: { title, publisher: base.publisher, note: "", partsTotal: N, suggested: 0, salePrices }, name: rd.name, phone: rd.phone, date: rd.date, items, extra: extra + rem });
+      M.addSupplierReservation(n, { id: M.id(), book: b.id, newBook: { title, editor: base.editor, author: base.author, publisher: base.publisher, note: "", partsTotal: N, suggested: 0, salePrices }, name: rd.name, phone: rd.phone, date: rd.date, items, extra: extra + rem });
       selectTab("res");
       resTab = "supplier";
       await commit(n, "تمت إضافة الحجز. لم يدخل المخزون قبل التأكيد");
       return;
     }
     n.books.push(b);
-    n.batches.push(...makeBatches(b.id, entries, extra, dateOf(f, "date", "تاريخ الشراء")));
+    n.batches.push(...makeBatches(b.id, entries, extra, dateOf(f, "date", "تاريخ الشراء"), contactData(f, "supplier")));
     selectTab("books");
     await commit(n, "تمت إضافة الكتاب");
   }, {
@@ -622,21 +662,22 @@ function addMissingDialog(bookId) {
   const html =
     `<p>${esc(b.title)}</p><div class="section-label">الأجزاء الناقصة — اختر ما اشتريته *</div><div class="pick-grid">${chips(st.missing, picked)}</div>` +
     (st.present.length ? `<details class="more"><summary>نسخة إضافية من جزء موجود</summary><p class="hint">لو اشتريت نسخة ثانية من جزء عندك بالفعل، اخترها هنا.</p><div class="pick-grid">${chips(st.present, picked)}</div></details>` : "") +
-    `<div id="buy-box"></div><details class="more"><summary>مصاريف الشراء</summary>${field("تكاليف شراء إضافية للدفعة بالكامل (ج)", "extra", "0", { num: 1 })}${field("تاريخ الشراء", "date", M.today(), { type: "date" })}</details>${reserveFields("supplier")}<p id="preview" class="preview"></p>`;
+    `<div id="buy-box"></div><details class="more"><summary>مصاريف الشراء</summary>${field("تكاليف شراء إضافية للدفعة بالكامل (ج)", "extra", "0", { num: 1 })}${field("تاريخ الشراء", "date", M.today(), { type: "date" })}</details><details class="more"><summary>بيانات المورد (اختياري)</summary>${personFields("supplier")}</details>${reserveFields("supplier")}<p id="preview" class="preview"></p>`;
   d = modal("إضافة أجزاء ناقصة", html, async (f) => {
     if (!picked.size) throw Error("اختر جزءًا واحدًا على الأقل");
     const r = buy.read(),
       n = structuredClone(state),
       entries = r.keys.map((p, i) => ({ part: p, qty: 1, cents: r.prices[i] * 100 }));
     if (f.get("reserve") === "on") {
-      const rd = reserveData(f);
+      const rd = reserveData(f, "supplier");
+      if (!rd.name) throw Error("اكتب اسم المورد للحجز");
       M.addSupplierReservation(n, { id: M.id(), book: b.id, name: rd.name, phone: rd.phone, date: rd.date, items: entries.map((e) => ({ part: e.part, qty: 1, unit: e.cents })), extra: readCents(f, "extra") });
       selectTab("res");
       resTab = "supplier";
       await commit(n, "تمت إضافة الحجز. لم يدخل المخزون قبل التأكيد");
       return;
     }
-    n.batches.push(...makeBatches(b.id, entries, readCents(f, "extra"), dateOf(f, "date", "تاريخ الشراء")));
+    n.batches.push(...makeBatches(b.id, entries, readCents(f, "extra"), dateOf(f, "date", "تاريخ الشراء"), contactData(f, "supplier")));
     await commit(n, "تمت إضافة الأجزاء للمخزون");
   }, {
     onInput: preview,
@@ -660,7 +701,11 @@ function addSaleLines(n, bookId, x) {
     counts = x.items.map((i) => i.qty),
     ex = M.splitByCount(x.expenses, counts),
     sh = M.splitByCount(x.shipping, counts);
-  x.items.forEach((it, k) => M.addSale(n, { id: M.id(), transaction: tx, book: bookId, part: it.part, qty: it.qty, unit: it.unit, expenses: ex[k], shipping: sh[k], date: x.date, note: x.note }));
+  x.items.forEach((it, k) => M.addSale(n, {
+    id: M.id(), transaction: tx, book: bookId, part: it.part, qty: it.qty, unit: it.unit,
+    expenses: ex[k], shipping: sh[k], date: x.date, note: x.note,
+    customerName: x.customerName || "", customerPhone: x.customerPhone || "",
+  }));
   return tx;
 }
 function sellDialog(bookId) {
@@ -685,6 +730,7 @@ function sellDialog(bookId) {
     `<div id="price-box"></div>` +
     field("تاريخ البيع *", "date", M.today(), { type: "date" }) +
     `<details class="more"><summary>مصاريف وتفاصيل إضافية</summary>${field("مصاريف البيع للعملية بالكامل (ج)", "expenses", "0", { num: 1 })}${field("شحن يتحمله البائع للعملية بالكامل (ج)", "shipping", "0", { num: 1 })}${field("ملاحظة قصيرة", "note", "", { max: 300 })}</details>` +
+    `<details class="more"><summary>بيانات العميل (اختياري)</summary>${personFields("customer")}</details>` +
     reserveFields("customer") +
     `<p id="preview" class="preview"></p>`;
   function build(f, final) {
@@ -720,9 +766,13 @@ function sellDialog(bookId) {
   }
   d = modal("تسجيل بيع", html, async (f) => {
     const x = build(f, true),
+      contact = contactData(f, "customer"),
       n = structuredClone(state);
+    x.customerName = contact.name;
+    x.customerPhone = contact.phone;
     if (f.get("reserve") === "on") {
-      const rd = reserveData(f);
+      const rd = reserveData(f, "customer");
+      if (!rd.name) throw Error("اكتب اسم العميل للحجز");
       M.addCustomerReservation(n, { id: M.id(), book: b.id, name: rd.name, phone: rd.phone, date: rd.date, items: x.items, expenses: x.expenses, shipping: x.shipping, note: x.note });
       selectTab("res");
       resTab = "customer";

@@ -189,13 +189,16 @@ test("default numeric values are selected on focus so typing replaces them", asy
 
 test("shortages: only incomplete books, complete ones disappear immediately, extra copy allowed", async ({ page }) => {
   await start(page);
-  await addBook(page, { title: "موسوعة العلوم", parts: 6, owned: [1, 3], buy: "100", extra: "" });
+  await addBook(page, { title: "موسوعة العلوم", parts: 6, owned: [1, 3], buy: "100", extra: "", publisher: "دار التجربة", editor: "محقق التجربة", author: "مؤلف التجربة" });
   await addBook(page, { title: "كتاب مكتمل", parts: 2, owned: [1, 2], buy: "50", extra: "" });
   await nav(page, "النواقص");
   await expect(page.locator(".book")).toHaveCount(1);
   await expect(page.locator(".book")).toContainText("موسوعة العلوم");
   await expect(page.locator(".book")).toContainText("معايا جزأين من 6");
   await expect(page.locator(".book")).toContainText("2، 4، 5، 6");
+  await expect(page.locator(".shortages-page .book")).toHaveCSS("border-radius", "16px");
+  await expect(page.locator(".shortages-page .book-metadata .metadata-line")).toHaveCount(3);
+  await expect(page.locator(".shortages-page .book-metadata")).toHaveCSS("flex-direction", "column");
   await expect(page.locator("main")).not.toContainText("كتاب مكتمل");
   await page.getByRole("button", { name: "إضافة", exact: true }).click();
   await expect(dlg(page).locator(".pick-grid").first().locator(".pick")).toHaveCount(4);
@@ -532,6 +535,8 @@ test("book metadata and customer supplier analytics show saved people", async ({
   await expect(page.locator(".book")).toContainText("المحقق: محقق الاختبار");
   await expect(page.locator(".book")).toContainText("المؤلف: مؤلف الاختبار");
   await expect(page.locator(".book")).toContainText("دار الاختبار");
+  await expect(page.locator(".books-page .book-metadata .metadata-line")).toHaveCount(3);
+  await expect(page.locator(".books-page .book-metadata")).toHaveCSS("flex-direction", "column");
 
   await sellSingle(page, "180", "0");
   await nav(page, "المحجوزات");

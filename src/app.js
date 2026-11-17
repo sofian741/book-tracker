@@ -437,7 +437,16 @@ function modal(title, html, submit, opts = {}) {
     dirty = true;
     opts.onInput?.(e);
   };
-  d.onchange = (e) => opts.onChange?.(e);
+  d.onchange = (e) => {
+    if (e.target.name === "reviewRating") {
+      const rating = Number(e.target.value);
+      d.querySelectorAll(".rating-stars label").forEach((label) => {
+        const input = label.querySelector('input[name="reviewRating"]');
+        label.classList.toggle("filled", Number(input?.value) <= rating);
+      });
+    }
+    opts.onChange?.(e);
+  };
   d.onclick = (e) => opts.onClick?.(e);
   const form = d.querySelector("form");
   form.onsubmit = async (e) => {

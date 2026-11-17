@@ -330,13 +330,15 @@ test("rejects malformed version 3 reservations without mutating the source", () 
 });
 
 
-test("phone numbers normalize Arabic digits and require exactly 12 digits", () => {
-  assert.equal(M.normalizePhone("٠١٠١٢٣٤٥٦٧٨٩"), "010123456789");
-  assert.equal(M.normalizePhone("201012345678"), "201012345678");
+test("new phone numbers require 11 digits and legacy +20 contacts remain reusable", () => {
+  assert.equal(M.normalizePhone("٠١٠١٢٣٤٥٦٧٨"), "01012345678");
+  assert.equal(M.normalizePhone("01012345678"), "01012345678");
   assert.equal(M.normalizePhone(""), "");
-  assert.throws(() => M.normalizePhone("01012345678"), /12 رقمًا/);
-  assert.throws(() => M.normalizePhone("2010123456789"), /12 رقمًا/);
-  assert.throws(() => M.normalizePhone("2010ABC45678"), /أرقام فقط/);
+  assert.throws(() => M.normalizePhone("201012345678"), /11 رقمًا/);
+  assert.throws(() => M.normalizePhone("010123456789"), /11 رقمًا/);
+  assert.throws(() => M.normalizePhone("010ABC56789"), /أرقام فقط/);
+  assert.equal(M.normalizeStoredPhone("201012345678"), "01012345678");
+  assert.equal(M.normalizeStoredPhone("+20 10 1234 5678"), "01012345678");
 });
 
 test("people summary groups customer sales and confirmed reservation by phone and transaction", () => {

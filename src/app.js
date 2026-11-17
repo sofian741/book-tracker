@@ -170,6 +170,7 @@ function home() {
   const segs = [["all", "الكل"], ["today", "اليوم"], ["month", "هذا الشهر"], ["range", "فترة"]];
   const [f, e] = bounds();
   return (
+    `<div class="home-page">` +
     `<div class="heading"><p class="eyebrow">نظرة على تجارتك</p><h1>أهلًا أ/ ${esc(userName())}</h1></div>` +
     button("+ إضافة كتاب", "add", 'class="primary wide"') +
     `<div class="section-title"><h2>المبيعات والأرباح</h2><span>حسب تاريخ البيع</span></div><div class="segments">` +
@@ -190,7 +191,8 @@ function home() {
     `</div><details class="panel"><summary>تفاصيل الحسابات</summary><dl><dt>مصاريف البيع وشحن البائع · الفترة</dt><dd>${cash(t.expenses)}</dd><dt>عدد عمليات البيع · الفترة</dt><dd>${num(t.count)}</dd><dt>عدد القطع في المخزون</dt><dd>${num(t.qty)}</dd></dl><p class="hint">شراء مخزون ليس خسارة. الربح يظهر عند البيع الفعلي فقط.</p></details>` +
     `<div class="section-title"><h2>آخر المبيعات</h2></div>` +
     saleList(state.sales.filter((x) => x.date >= f && x.date <= e).slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 10)) +
-    (!state.books.length ? `<div class="empty">${icon("books")}<h2>أول كتاب، بداية الدفتر</h2><p>أضف كتابًا وسعر شرائه. عند بيعه سترى مكسبك الفعلي هنا.</p></div>` : "")
+    (!state.books.length ? `<div class="empty">${icon("books")}<h2>أول كتاب، بداية الدفتر</h2><p>أضف كتابًا وسعر شرائه. عند بيعه سترى مكسبك الفعلي هنا.</p></div>` : "") +
+    `</div>`
   );
 }
 function searchBox(id, value, ph) {
@@ -223,11 +225,13 @@ function books() {
   else list = list.slice().reverse();
   const opt = (v, l, cur) => `<option value="${v}" ${v === cur ? "selected" : ""}>${l}</option>`;
   return (
+    `<div class="books-page">` +
     `<div class="heading"><p class="eyebrow">مكتبتك التجارية</p><h1>الكتب</h1><p>كل عنوان وأجزاؤه، في مكان واحد.</p></div>` +
     button("+ إضافة كتاب", "add", 'class="primary wide"') +
     searchBox("search", query, "ابحث عن كتاب…") +
     `<div class="toolbar"><select id="filter" aria-label="حالة المخزون">${[["all", "كل الكتب"], ["available", "المتاح"], ["complete", "المكتمل"], ["incomplete", "غير المكتمل"], ["sold", "المباع بالكامل"]].map(([v, l]) => opt(v, l, filter)).join("")}</select><select id="sort" aria-label="ترتيب الكتب">${opt("new", "الأحدث", sort)}${opt("name", "الاسم", sort)}</select></div>` +
-    `<div id="book-list">${list.length ? list.map((b) => bookCard(b)).join("") : `<div class="empty"><h2>لا توجد كتب هنا بعد</h2><p>أضف كتابك الأول أو غيّر البحث والفلتر.</p></div>`}</div>`
+    `<div id="book-list">${list.length ? list.map((b) => bookCard(b)).join("") : `<div class="empty"><h2>لا توجد كتب هنا بعد</h2><p>أضف كتابك الأول أو غيّر البحث والفلتر.</p></div>`}</div>` +
+    `</div>`
   );
 }
 function shortages() {

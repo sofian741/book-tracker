@@ -2,7 +2,13 @@ import { test, expect } from "@playwright/test";
 
 const dlg = (page) => page.locator("dialog[open]");
 const save = (page, name = "حفظ") => dlg(page).getByRole("button", { name, exact: true }).click();
-const closed = (page) => expect(page.locator("dialog[open]")).toHaveCount(0);
+const closed = async (page) => {
+  const opened = page.locator("dialog[open]");
+  if (await opened.count()) {
+    const message = await opened.locator("#form-error").innerText().catch(() => "");
+    throw new Error("Dialog remained open" + (message ? ": " + message : " without a form error"));
+  }
+};
 const nav = (page, name) => page.locator("nav").getByRole("button", { name }).click();
 
 async function start(page, name = "معتز") {

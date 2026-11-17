@@ -189,6 +189,8 @@ test("shortages: only incomplete books, complete ones disappear immediately, ext
   await expect(dlg(page).locator(".pick-grid").first().locator(".pick")).toHaveCount(4);
   await dlg(page).locator('[data-part="2"]').check({ force: true });
   await dlg(page).locator("input[name=buyTotal]").fill("40");
+  await dlg(page).locator('input[name=supplierName]').fill("مورد النواقص");
+  await dlg(page).locator('input[name=supplierPhone]').fill("201055566677");
   await expect(dlg(page).getByText("المزيد: سعر كل جزء")).toBeHidden();
   await save(page);
   await closed(page);
@@ -215,6 +217,8 @@ test("second copy of an existing part is added (no duplicate error) and sold ind
   await dlg(page).getByText("نسخة إضافية من جزء موجود").click();
   await dlg(page).locator('[data-part="1"]').check({ force: true });
   await dlg(page).locator("input[name=buyTotal]").fill("35");
+  await dlg(page).locator('input[name=supplierName]').fill("مورد النسخ");
+  await dlg(page).locator('input[name=supplierPhone]').fill("201066677788");
   await save(page);
   await closed(page);
   await page.getByRole("button", { name: "تفاصيل", exact: true }).click();

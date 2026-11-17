@@ -564,7 +564,12 @@ function personFields(kind) {
   const people = M.peopleSummary(state, kind).filter((person) => person.phone || person.name !== "بدون اسم");
   const names = [...new Set(people.map((person) => person.name).filter(Boolean))];
   const phones = new Map();
-  for (const person of people) if (person.phone) phones.set(person.phone, person.name);
+  for (const person of people) {
+    try {
+      const phone = M.normalizePhone(person.phone);
+      if (phone) phones.set(phone, person.name);
+    } catch {}
+  }
   const label = kind === "customer" ? "العميل" : "المورد";
   return `<div class="person-fields">
     <label>اسم ${label} *<input name="${kind}Name" list="${kind}-names" maxlength="200" autocomplete="off" required placeholder="اكتب الاسم أو اختاره"></label>
@@ -588,8 +593,9 @@ function bindPersonSuggestions(d, kind) {
   if (!nameInput || !phoneInput) return;
   nameInput.addEventListener("change", () => {
     const value = nameInput.value.trim().toLocaleLowerCase("ar");
-    const person = people.find((item) => item.name.toLocaleLowerCase("ar") === value);
-    if (person?.phone && !phoneInput.value) phoneInput.value = person.phone;
+    const matches = people.filter((item) => item.name.toLocaleLowerCase("ar") === value && item.phone);
+    if (matches.length !== 1 || phoneInput.value) return;
+    try { phoneInput.value = M.normalizePhone(matches[0].phone); } catch {}
   });
   phoneInput.addEventListener("change", () => {
     let digits = "";

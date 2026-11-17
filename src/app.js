@@ -338,13 +338,13 @@ function peopleAnalytics() {
   let list = all.filter((person) => {
     const haystack = [person.name, person.phone, ...person.reviews.map((review) => review.note)].join(" ").toLocaleLowerCase("ar");
     if (peopleQuery && !haystack.includes(peopleQuery.toLocaleLowerCase("ar"))) return false;
-    if (peopleFilter !== "all" && !person.tags[peopleFilter]) return false;
+    if (peopleFilter === "cancelled" && !person.cancelled) return false;
+    if (peopleFilter !== "all" && peopleFilter !== "cancelled" && !person.tags[peopleFilter]) return false;
     return true;
   });
   const metric = isCustomer ? "المبيعات" : "المشتريات",
     transactionCount = all.reduce((sum, person) => sum + person.transactions, 0),
     cancelledCount = all.reduce((sum, person) => sum + person.cancelled, 0),
-    activeCount = all.reduce((sum, person) => sum + person.active, 0),
     ratedCount = all.reduce((sum, person) => sum + person.ratingCount, 0),
     ratingTotal = all.reduce((sum, person) => sum + person.ratingTotal, 0),
     average = ratedCount ? (ratingTotal / ratedCount).toFixed(1) + " / 5" : "—",
@@ -995,8 +995,7 @@ function resConfirm(id) {
   if (!r || r.status !== "active") return toast("تمت معالجة هذا الحجز من قبل");
   if (r.kind === "customer")
     return modal("تأكيد بيع حجز العميل", `<p>بمجرد التأكيد هيتسجل البيع الفعلي وتتحسب التكلفة والربح، والكمية هتخرج من المحجوز.</p>` + reviewFields("committed"), async (f) => {
-      const n = structuredClone(state),
-        target = findRes(id);
+      const n = structuredClone(state);
       n.reservations.find((item) => item.id === id).review = readReview(f);
       M.confirmCustomerReservation(n, id, M.today());
       await commit(n, "تم تأكيد الحجز وتسجيل البيع والتقييم");

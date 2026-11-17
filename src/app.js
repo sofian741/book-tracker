@@ -611,7 +611,7 @@ function bindPersonSuggestions(d, kind) {
     const value = nameInput.value.trim().toLocaleLowerCase("ar");
     const matches = people.filter((item) => item.name.toLocaleLowerCase("ar") === value && item.phone);
     if (matches.length !== 1 || phoneInput.value) return;
-    try { phoneInput.value = M.normalizePhone(matches[0].phone); } catch {}
+    try { phoneInput.value = M.normalizeStoredPhone(matches[0].phone); } catch {}
   });
   phoneInput.addEventListener("change", () => {
     let digits = "";

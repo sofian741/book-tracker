@@ -271,3 +271,60 @@ test("ID generation falls back to secure random bytes without randomUUID", () =>
   assert.match(M.id(), /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
   assert.throws(() => M.id({}), /معرفات آمنة/);
 });
+
+
+test("migrates version 3 profile and reservations without losing legacy fields", () => {
+  const legacy = {
+    version: 3,
+    profile: { name: "اسم التاجر" },
+    books: [{ ...book }],
+    batches: [{
+      id: "legacy-batch", book: "book", part: 1,
+      qty: 3, unit: 1000, extra: 0, date: "2026-01-01",
+    }],
+    sales: [],
+    reservations: [
+      {
+        id: "legacy-customer", type: "customer", status: "active",
+        book: "book", name: "عميل", phone: "01000000000",
+        date: "2026-02-01", total: 1500, expenses: 0, shipping: 0,
+        note: "", items: [{ part: 1, qty: 1, unit: 1500 }],
+      },
+      {
+        id: "legacy-supplier", type: "supplier", status: "active",
+        book: "book", name: "مورد", phone: "",
+        date: "2026-02-02", total: 1200, expenses: 0, shipping: 0,
+        note: "", items: [{ part: 1, qty: 1, unit: 1000, extra: 200 }],
+      },
+    ],
+  };
+
+  const migrated = M.migrate(legacy);
+  assert.equal(migrated.version, 2);
+  assert.deepEqual(migrated.profile, { name: "اسم التاجر" });
+  assert.equal(migrated.settings.userName, "اسم التاجر");
+  assert.equal(migrated.reservations[0].kind, "customer");
+  assert.equal(migrated.reservations[0].type, "customer");
+  assert.equal(migrated.reservations[0].resolved, null);
+  assert.equal(migrated.reservations[1].kind, "supplier");
+  assert.equal(migrated.reservations[1].extra, 200);
+  assert.equal(migrated.reservations[1].items[0].extra, 200);
+  assert.equal(M.available(migrated, "book"), 3);
+  assert.equal(M.sellable(migrated, "book"), 2);
+  assert.equal(legacy.version, 3);
+  assert.equal(legacy.reservations[0].kind, undefined);
+});
+
+test("rejects malformed version 3 reservations without mutating the source", () => {
+  const legacy = {
+    version: 3,
+    profile: { name: "اسم" },
+    books: [{ ...book }],
+    batches: [],
+    sales: [],
+    reservations: [{ id: "bad", type: "unknown", items: [] }],
+  };
+  assert.throws(() => M.migrate(legacy), /نوع حجز قديم غير صالح/);
+  assert.equal(legacy.version, 3);
+  assert.equal(legacy.reservations[0].type, "unknown");
+});

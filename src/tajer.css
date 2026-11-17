@@ -230,14 +230,16 @@ input.manual { border-color: var(--gold); background: #fffaf0; }
   background: #fff;
 }
 
-.books-page .book {
+.books-page .book,
+.shortages-page .book {
   margin: 14px 0;
   padding: 18px;
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 16px;
 }
-.books-page .book-title {
+.books-page .book-title,
+.shortages-page .book-title {
   min-height: 58px;
   padding: 0;
   display: flex;
@@ -248,9 +250,10 @@ input.manual { border-color: var(--gold); background: #fffaf0; }
   border: 0;
   border-radius: 0;
 }
-.books-page .book-title strong { display: block; font-size: 1.0625rem; font-weight: 800; overflow-wrap: anywhere; }
-.books-page .book-title small { display: block; margin-top: 3px; color: var(--muted); font-size: .78rem; font-weight: 400; }
-.books-page .book-mark {
+.books-page .book-title strong, .shortages-page .book-title strong { display: block; font-size: 1.0625rem; font-weight: 800; overflow-wrap: anywhere; }
+.books-page .book-title small, .shortages-page .book-title small { display: block; margin-top: 3px; color: var(--muted); font-size: .78rem; font-weight: 400; }
+.books-page .book-mark,
+.shortages-page .book-mark {
   width: 52px;
   height: 52px;
   display: grid;
@@ -262,8 +265,9 @@ input.manual { border-color: var(--gold); background: #fffaf0; }
   border: 0;
   border-radius: 12px;
 }
-.books-page .book-mark svg { width: 25px; height: 28px; }
-.books-page .book-info {
+.books-page .book-mark svg, .shortages-page .book-mark svg { width: 25px; height: 28px; }
+.books-page .book-info,
+.shortages-page .book-info {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 12px;
@@ -273,12 +277,26 @@ input.manual { border-color: var(--gold); background: #fffaf0; }
   color: var(--muted);
   font-size: .75rem;
 }
-.books-page .badge { display: inline-block; padding: 4px 10px; color: #3c6950; background: #edf3eb; border-radius: 7px; }
-.books-page .badge.muted { color: #7c796e; background: #f1f0eb; }
-.books-page .actions { gap: 8px; }
-.books-page .actions button { min-height: 46px; }
+.books-page .badge, .shortages-page .badge { display: inline-block; padding: 4px 10px; color: #3c6950; background: #edf3eb; border-radius: 7px; }
+.books-page .badge.muted, .shortages-page .badge.muted { color: #7c796e; background: #f1f0eb; }
+.books-page .actions, .shortages-page .actions { gap: 8px; }
+.books-page .actions button, .shortages-page .actions button { min-height: 46px; }
 @media (max-width: 360px) {
   .home-page .stats { gap: 8px; }
   .home-page .stat { padding: 13px 10px; }
   .home-page .stat strong { font-size: 1.18rem; }
+}
+
+
+/* بيانات الكتاب مرتبة كسطور مستقلة لسهولة القراءة */
+.book-metadata {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  margin-top: 4px;
+}
+.book-metadata .metadata-line {
+  display: block;
+  line-height: 1.7;
 }

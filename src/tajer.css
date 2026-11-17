@@ -222,6 +222,13 @@ input.manual { border-color: var(--gold); background: #fffaf0; }
 .home-page .stat.green { background: #e5eee5; border-color: #ccdccc; }
 .home-page .stat.loss { background: #f9e7e1; border-color: #efc9bf; }
 .home-page .stat.loss strong { color: #9f3d2e; }
+.home-page .panel {
+  margin: 18px 0;
+  padding: 19px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fff;
+}
 
 .books-page .book {
   margin: 14px 0;

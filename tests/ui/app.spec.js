@@ -33,8 +33,6 @@ async function addBook(page, o = {}) {
   if (sell) await dlg(page).locator("input[name=sellTotal]").fill(sell);
   if (reserve) {
     await dlg(page).locator("#reserve").check();
-    await dlg(page).locator("input[name=rname]").fill(reserve.name);
-    await dlg(page).locator("input[name=rphone]").fill(reserve.phone);
     await save(page, "إضافة كمحجوز");
   } else await save(page);
   await closed(page);
@@ -97,6 +95,7 @@ test("single-part book stays simple; English digits; 500+50 then 750-30 gives 17
   await dlg(page).getByText("مصاريف وتفاصيل إضافية").click();
   await dlg(page).locator("input[name=shipping]").fill("30");
   await expect(dlg(page).locator("#preview")).toContainText("170");
+  await fillCustomer(page);
   await save(page, "تأكيد البيع");
   await closed(page);
   await nav(page, "الرئيسية");
@@ -154,6 +153,7 @@ test("sale price details work the same way and whole-book price is saved as defa
   await expect(rows.nth(1)).toHaveValue("20");
   await expect(rows.nth(2)).toHaveValue("20");
   await expect(dlg(page).locator("#preview")).toContainText("10");
+  await fillCustomer(page);
   await save(page, "تأكيد البيع");
   await closed(page);
   await nav(page, "الرئيسية");
@@ -231,6 +231,7 @@ test("partial and whole sales of a multi-part book with exact profit", async ({ 
   await expect(dlg(page).locator("input[name=sellTotal]")).toHaveValue("33");
   await dlg(page).locator("input[name=sellTotal]").fill("50");
   await expect(dlg(page).locator("#preview")).toContainText("30");
+  await fillCustomer(page);
   await save(page, "تأكيد البيع");
   await closed(page);
   await nav(page, "الرئيسية");
@@ -242,6 +243,7 @@ test("partial and whole sales of a multi-part book with exact profit", async ({ 
   await dlg(page).locator('#sell-pick [data-part="1"]').check({ force: true });
   await dlg(page).locator('#sell-pick [data-part="3"]').check({ force: true });
   await expect(dlg(page).locator("input[name=sellTotal]")).toHaveValue("67");
+  await fillCustomer(page);
   await save(page, "تأكيد البيع");
   await closed(page);
   await nav(page, "الرئيسية");
@@ -327,7 +329,6 @@ test("supplier reservation adds no stock until confirmed; cancel changes nothing
   await nav(page, "المحجوزات");
   await page.locator(".res").getByRole("button", { name: "تأكيد", exact: true }).click();
   await expect(dlg(page)).toContainText("راجع تفاصيل الشراء");
-  await rateReview(page, 5, "مورد ملتزم");
   await rateReview(page, 5, "وصلت الأجزاء");
   await dlg(page).getByRole("button", { name: "تأكيد الشراء", exact: true }).click();
   await closed(page);

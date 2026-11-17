@@ -258,3 +258,16 @@ test("different purchase prices per part keep FIFO cost and profit independent",
   assert.equal(M.totals(s).profit, 6000);
   assert.equal(M.totals(s).stock, 0);
 });
+
+
+test("ID generation falls back to secure random bytes without randomUUID", () => {
+  const source = {
+    getRandomValues(bytes) {
+      bytes.set(Array.from({ length: 16 }, (_, i) => i));
+      return bytes;
+    },
+  };
+  assert.equal(M.id(source), "00010203-0405-4607-8809-0a0b0c0d0e0f");
+  assert.match(M.id(), /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  assert.throws(() => M.id({}), /معرفات آمنة/);
+});

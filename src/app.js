@@ -33,10 +33,10 @@ let modalEl = null,
   closeArmed = false,
   toastTimer;
 const app = document.querySelector("#app");
-const errorMessage = (error) =>
-  /[\u0600-\u06ff]/.test(error?.message || "")
-    ? error.message
-    : "تعذر إتمام العملية. تأكد من مساحة الجهاز وحاول مرة أخرى.";
+const errorMessage = (error) => {
+  const message = typeof error?.message === "string" ? error.message.trim() : "";
+  return message || "حدث خطأ غير معروف. حاول مرة أخرى.";
+};
 const ICONS = {
   home: "M3 10 12 3l9 7v11h-6v-7H9v7H3Z",
   books: "M3 4h7l2 2 2-2h7v16h-7l-2 2-2-2H3Z M12 6v16",

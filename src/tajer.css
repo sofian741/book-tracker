@@ -155,7 +155,7 @@ input.manual { border-color: var(--gold); background: #fffaf0; }
   transition: color .12s ease, transform .12s ease;
 }
 .rating-stars label:has(input:checked) span,
-.rating-stars label:has(input:checked) ~ label span { color: #c49a36; }
+.rating-stars label:has(~ label input:checked) span { color: #c49a36; }
 .rating-stars label:has(input:focus-visible) span { outline: 3px solid #c7a95c; outline-offset: 3px; border-radius: 4px; }
 .review-box textarea {
   display: block;

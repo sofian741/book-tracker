@@ -52,7 +52,7 @@ function text(v, max = 500) {
   if (typeof v !== "string" || v.length > max)
     throw Error("النص غير صالح أو طويل جدًا");
 }
-/** Normalize entered phone numbers to exactly 12 digits, accepting Arabic numerals. */
+/** Normalize newly entered mobile numbers to exactly 11 digits. */
 export function normalizePhone(value) {
   const raw = String(value ?? "").trim()
     .replace(/[٠-٩]/g, (c) => "٠١٢٣٤٥٦٧٨٩".indexOf(c))
@@ -61,9 +61,24 @@ export function normalizePhone(value) {
   if (!/^[+0-9\s()-]+$/.test(raw))
     throw Error("رقم الهاتف لازم يحتوي على أرقام فقط");
   const digits = raw.replace(/\D/g, "");
-  if (digits.length !== 12)
-    throw Error("رقم الهاتف لازم يتكوّن من 12 رقمًا بالضبط");
+  if (digits.length !== 11)
+    throw Error("رقم الهاتف لازم يتكوّن من 11 رقمًا بالضبط");
   return digits;
+}
+
+/** Read older saved contacts (including +20 format) without changing stored data. */
+export function normalizeStoredPhone(value) {
+  const raw = String(value ?? "").trim()
+    .replace(/[٠-٩]/g, (c) => "٠١٢٣٤٥٦٧٨٩".indexOf(c))
+    .replace(/[۰-۹]/g, (c) => "۰۱۲۳۴۵۶۷۸۹".indexOf(c));
+  if (!raw) return "";
+  if (!/^[+0-9\s()-]+$/.test(raw))
+    throw Error("رقم الهاتف المسجل غير صالح");
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 11) return digits;
+  if (digits.length === 12 && digits.startsWith("20"))
+    return "0" + digits.slice(2);
+  throw Error("رقم الهاتف المسجل غير صالح");
 }
 
 
@@ -430,10 +445,15 @@ export function totals(s, from = "", to = "9999") {
 
 /* ---------- سجل العملاء والموردين ---------- */
 const personTags = ["committed", "cancelled", "late", "unreliable"];
-const phoneDigits = (value) => String(value ?? "")
-  .replace(/[٠-٩]/g, (c) => "٠١٢٣٤٥٦٧٨٩".indexOf(c))
-  .replace(/[۰-۹]/g, (c) => "۰۱۲۳۴۵۶۷۸۹".indexOf(c))
-  .replace(/\D/g, "");
+const phoneDigits = (value) => {
+  const digits = String(value ?? "")
+    .replace(/[٠-٩]/g, (c) => "٠١٢٣٤٥٦٧٨٩".indexOf(c))
+    .replace(/[۰-۹]/g, (c) => "۰۱۲۳۴۵۶۷۸۹".indexOf(c))
+    .replace(/\D/g, "");
+  return digits.length === 11 && digits.startsWith("01")
+    ? "20" + digits.slice(1)
+    : digits;
+};
 
 export function peopleSummary(s, kind) {
   if (!["customer", "supplier"].includes(kind))

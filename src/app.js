@@ -937,6 +937,34 @@ function editBatchDialog(id) {
 
 /* ---------------- الحجوزات ---------------- */
 const findRes = (id) => (state.reservations || []).find((x) => x.id === id);
+function reviewFields(defaultTag) {
+  const options = [
+    ["committed", "ملتزم"],
+    ["cancelled", "إلغاء متكرر"],
+    ["late", "تأخير"],
+    ["unreliable", "غير موثوق / حرامي"],
+  ];
+  return `<section class="review-box">
+    <h3>تقييم التعامل</h3>
+    <p class="hint">اختار تقييمك بنفسك. التقييم والتصنيف والملاحظات هتظهر في إحصائيات ${resTab === "customer" ? "العملاء" : "الموردين"}.</p>
+    <div class="rating-stars" role="radiogroup" aria-label="التقييم من نجمة إلى خمس نجوم" dir="rtl">
+      ${[1, 2, 3, 4, 5].map((value) => `<label title="${value} من 5"><input type="radio" name="reviewRating" value="${value}"><span aria-hidden="true">★</span><b class="sr-only">${value}</b></label>`).join("")}
+    </div>
+    <label>تصنيف التعامل<select name="reviewTag">${options.map(([value, label]) => `<option value="${value}" ${value === defaultTag ? "selected" : ""}>${label}</option>`).join("")}</select></label>
+    <label>ملاحظات<textarea name="reviewNote" maxlength="1000" rows="3" placeholder="اكتب أي ملاحظة تساعدك تفتكر التعامل"></textarea></label>
+  </section>`;
+}
+function readReview(f) {
+  const rating = Number(f.get("reviewRating")),
+    tag = String(f.get("reviewTag") || ""),
+    note = String(f.get("reviewNote") || "").trim();
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5)
+    throw Error("اختار تقييمًا من نجمة إلى 5 نجوم");
+  if (!["committed", "cancelled", "late", "unreliable"].includes(tag))
+    throw Error("اختار تصنيف التعامل");
+  return { rating, tag, note, date: M.today() };
+}
+
 function resDetail(id) {
   const r = findRes(id);
   if (!r) return;
@@ -953,6 +981,10 @@ function resDetail(id) {
     if (f) body += `<div class="profit-box ${f.profit < 0 ? "neg" : ""}"><span>${r.status === "active" ? "صافي الربح المتوقع" : "صافي الربح"}</span><strong>${cash(f.profit)}</strong><small>${r.status === "active" ? "متوقع وليس محققًا؛ يتحول لربح فعلي بعد التأكيد" : "ربح فعلي من البيع المؤكد"}</small></div>`;
     else if (r.status === "active") body += '<p class="notice">تعذّر حساب الربح المتوقع: النسخ المطلوبة لم تعد متاحة.</p>';
   } else body += `<dt>القيمة المتوقعة للشراء</dt><dd>${cash(resTotal(r))}</dd></dl>`;
+  if (r.review) {
+    const stars = "★".repeat(r.review.rating) + "☆".repeat(5 - r.review.rating);
+    body += `<section class="review-result"><strong>تقييم التعامل</strong><div class="review-result-stars">${stars}</div><p>${esc(personTagLabels[r.review.tag] || "")}</p>${r.review.note ? `<small>${esc(r.review.note)}</small>` : ""}</section>`;
+  }
   if (r.status === "active") body += `<div class="actions">${button("تأكيد", "res-confirm", `data-id="${r.id}" class="primary"`)}${button("إلغاء الحجز", "res-cancel", `data-id="${r.id}" class="danger"`)}</div>`;
   modal(cust ? "تفاصيل حجز عميل" : "تفاصيل حجز من مورد", body, null, { noSubmit: true });
 }
@@ -960,28 +992,35 @@ function resConfirm(id) {
   const r = findRes(id);
   if (!r || r.status !== "active") return toast("تمت معالجة هذا الحجز من قبل");
   if (r.kind === "customer")
-    return confirmAction("تأكيد الحجز؟", "التأكيد سيحوّل هذا الحجز إلى عملية بيع فعلية، ويخصم الأجزاء من المخزون، ويحسب الربح. هل تريد المتابعة؟", async () => {
-      const n = structuredClone(state);
+    return modal("تأكيد بيع حجز العميل", `<p>بمجرد التأكيد هيتسجل البيع الفعلي وتتحسب التكلفة والربح، والكمية هتخرج من المحجوز.</p>` + reviewFields("committed"), async (f) => {
+      const n = structuredClone(state),
+        target = findRes(id);
+      n.reservations.find((item) => item.id === id).review = readReview(f);
       M.confirmCustomerReservation(n, id, M.today());
-      await commit(n, "تم تأكيد الحجز وتسجيل البيع");
-    });
+      await commit(n, "تم تأكيد الحجز وتسجيل البيع والتقييم");
+    }, { submitLabel: "تأكيد البيع" });
   supplierConfirmDialog(r);
 }
 function resCancel(id) {
   const r = findRes(id);
   if (!r || r.status !== "active") return toast("تمت معالجة هذا الحجز من قبل");
-  confirmAction("إلغاء الحجز؟", r.kind === "customer" ? "الإلغاء سيحرر الأجزاء المحجوزة لتصبح متاحة للبيع، ولن يُسجَّل أي بيع أو ربح." : "الإلغاء لن يضيف أي مخزون أو مصروفات شراء.", async () => {
+  const message = r.kind === "customer"
+    ? "الإلغاء هيحرر الأجزاء المحجوزة للبيع، ومش هيتسجل أي بيع أو ربح."
+    : "الإلغاء مش هيضيف مخزون أو مصروفات شراء.";
+  modal("تسجيل إلغاء الحجز", `<p>${message}</p>` + reviewFields("cancelled"), async (f) => {
     const n = structuredClone(state);
+    n.reservations.find((item) => item.id === id).review = readReview(f);
     M.cancelReservation(n, id, M.today());
-    await commit(n, "تم إلغاء الحجز");
-  }, "إلغاء الحجز");
+    await commit(n, "تم إلغاء الحجز وحفظ التقييم");
+  }, { submitLabel: "تأكيد الإلغاء" });
 }
 function supplierConfirmDialog(r) {
   const keys = r.items.map((i) => i.part);
   let pr, d;
   const html =
     `<p>${esc(resTitle(r))}${r.name ? " — " + esc(r.name) : ""}</p><p class="notice">راجع تفاصيل الشراء. عند التأكيد يدخل المخزون وتُسجَّل المشتريات.</p><div id="buy-box"></div>` +
-    `<details class="more"><summary>مصاريف الشراء</summary>${field("تكاليف شراء إضافية بالكامل (ج)", "extra", pounds(r.extra || 0), { num: 1 })}${field("تاريخ الشراء", "date", M.today(), { type: "date" })}</details>`;
+    `<details class="more"><summary>مصاريف الشراء</summary>${field("تكاليف شراء إضافية بالكامل (ج)", "extra", pounds(r.extra || 0), { num: 1 })}${field("تاريخ الشراء", "date", M.today(), { type: "date" })}</details>` +
+    reviewFields("committed");
   d = modal("تأكيد شراء من مورد", html, async (f) => {
     const x = pr.read(),
       same = x.prices.every((p, i) => p === pounds(r.items[i].unit * r.items[i].qty)) && String(f.get("extra") ?? "").trim() === String(pounds(r.extra || 0)),
@@ -1000,8 +1039,9 @@ function supplierConfirmDialog(r) {
       });
       opts = { date: dateOf(f, "date", "تاريخ الشراء"), items, extra: readCents(f, "extra", r.extra || 0) + rem };
     }
+    n.reservations.find((item) => item.id === r.id).review = readReview(f);
     M.confirmSupplierReservation(n, r.id, opts);
-    await commit(n, "تم تأكيد الشراء وإضافته للمخزون");
+    await commit(n, "تم تأكيد الشراء وإضافته للمخزون وحفظ التقييم");
   }, { submitLabel: "تأكيد الشراء" });
   pr = partPricing(d.querySelector("#buy-box"), { name: "buyTotal", totalLabel: "سعر الشراء الإجمالي (ج)", detailsLabel: "المزيد: سعر كل جزء" });
   pr.setItems(keys, new Map(r.items.map((i) => [i.part, pounds(i.unit * i.qty)])));

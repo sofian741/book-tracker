@@ -537,8 +537,14 @@ test("book metadata and customer supplier analytics show saved people", async ({
 
   await sellSingle(page, "180", "0");
   await nav(page, "المحجوزات");
+  const pageErrors = [];
+  page.on("pageerror", (error) => pageErrors.push(error.stack || error.message));
   await page.getByRole("button", { name: "الإحصائيات", exact: true }).click();
-  await expect(page.locator(".heading h1")).toHaveText("إحصائيات الأشخاص");
+  try {
+    await expect(page.locator(".heading h1")).toHaveText("إحصائيات الأشخاص");
+  } catch {
+    throw new Error("Analytics page did not render. Browser errors: " + pageErrors.join(" || "));
+  }
   await expect(page.locator("main")).toContainText("عميل تجريبي");
   await expect(page.locator("main")).toContainText("201011112222");
 

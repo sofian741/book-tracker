@@ -52,11 +52,12 @@ const icon = (name) =>
 const button = (label, action, extra = "") => `<button type="button" data-action="${action}" ${extra}>${label}</button>`;
 const bookOf = (id) => state.books.find((b) => b.id === id);
 function bookMetadata(book) {
-  return [
-    book.publisher || "بدون دار نشر",
-    book.editor ? "المحقق: " + book.editor : "",
-    book.author ? "المؤلف: " + book.author : "",
-  ].filter(Boolean).map(esc).join(" · ");
+  const rows = [
+    ["دار النشر", book.publisher || "بدون دار نشر"],
+    ["المحقق", book.editor],
+    ["المؤلف", book.author],
+  ].filter(([, value]) => Boolean(value));
+  return `<span class="book-metadata">${rows.map(([label, value]) => `<span class="metadata-line">${label}: ${esc(value)}</span>`).join("")}</span>`;
 }
 const userName = () => state?.settings?.userName || "";
 const active = (kind) => (state.reservations || []).filter((r) => r.kind === kind && r.status === "active");
@@ -239,10 +240,11 @@ function shortages() {
   const list = M.missingBooks(state).filter((b) => (b.title + " " + b.publisher).includes(sQuery)).filter(ok[sFilter] || ok.all);
   const opt = (v, l) => `<option value="${v}" ${v === sFilter ? "selected" : ""}>${l}</option>`;
   return (
-    `<div class="heading"><p class="eyebrow">كتب ينقصها أجزاء</p><h1>النواقص</h1><p>الكتاب يختفي من هنا بمجرد اكتمال أجزائه.</p></div>` +
+    `<div class="shortages-page"><div class="heading"><p class="eyebrow">كتب ينقصها أجزاء</p><h1>النواقص</h1><p>الكتاب يختفي من هنا بمجرد اكتمال أجزائه.</p></div>` +
     searchBox("s-search", sQuery, "ابحث في النواقص…") +
     `<div class="toolbar"><select id="s-filter" aria-label="فلترة النواقص">${opt("all", "كل النواقص")}${opt("one", "ناقص جزء واحد")}${opt("many", "ناقص أكثر من جزء")}</select></div>` +
-    (list.length ? list.map((b) => bookCard(b, true)).join("") : `<div class="empty"><h2>لا توجد نواقص</h2><p>كل كتبك في المخزون مكتملة${sQuery || sFilter !== "all" ? " (أو غيّر البحث والفلتر)" : ""}.</p></div>`)
+    (list.length ? list.map((b) => bookCard(b, true)).join("") : `<div class="empty"><h2>لا توجد نواقص</h2><p>كل كتبك في المخزون مكتملة${sQuery || sFilter !== "all" ? " (أو غيّر البحث والفلتر)" : ""}.</p></div>`) +
+    `</div>`
   );
 }
 function saleList(sales) {

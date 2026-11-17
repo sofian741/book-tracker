@@ -4,7 +4,9 @@ const dlg = (page) => page.locator("dialog[open]");
 const save = (page, name = "حفظ") => dlg(page).getByRole("button", { name, exact: true }).click();
 const closed = async (page) => {
   const opened = page.locator("dialog[open]");
-  if (await opened.count()) {
+  try {
+    await expect(opened).toHaveCount(0, { timeout: 5000 });
+  } catch {
     const message = await opened.locator("#form-error").innerText().catch(() => "");
     throw new Error("Dialog remained open" + (message ? ": " + message : " without a form error"));
   }

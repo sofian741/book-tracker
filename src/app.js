@@ -318,6 +318,98 @@ function reservations() {
     (showHistory ? (his.length ? his.map((r) => resCard(r, true)).join("") : '<p class="hint">لا يوجد سجل بعد.</p>') : "")
   );
 }
+const personTagLabels = {
+  committed: "ملتزم",
+  cancelled: "إلغاء",
+  late: "تأخير",
+  unreliable: "غير موثوق / حرامي",
+};
+function peopleAnalytics() {
+  const kind = peopleKind,
+    isCustomer = kind === "customer",
+    all = M.peopleSummary(state, kind),
+    filterLabels = [
+      ["all", "كل الأشخاص"],
+      ["committed", "الأكثر التزامًا"],
+      ["cancelled", "الأكثر إلغاءً"],
+      ["late", "التأخير"],
+      ["unreliable", "غير موثوق"],
+    ];
+  let list = all.filter((person) => {
+    const haystack = [person.name, person.phone, ...person.reviews.map((review) => review.note)].join(" ").toLocaleLowerCase("ar");
+    if (peopleQuery && !haystack.includes(peopleQuery.toLocaleLowerCase("ar"))) return false;
+    if (peopleFilter !== "all" && !person.tags[peopleFilter]) return false;
+    return true;
+  });
+  const metric = isCustomer ? "المبيعات" : "المشتريات",
+    transactionCount = all.reduce((sum, person) => sum + person.transactions, 0),
+    cancelledCount = all.reduce((sum, person) => sum + person.cancelled, 0),
+    activeCount = all.reduce((sum, person) => sum + person.active, 0),
+    ratedCount = all.reduce((sum, person) => sum + person.ratingCount, 0),
+    ratingTotal = all.reduce((sum, person) => sum + person.ratingTotal, 0),
+    average = ratedCount ? (ratingTotal / ratedCount).toFixed(1) + " / 5" : "—",
+    best = all.filter((person) => person.ratingCount).slice().sort((a, b) =>
+      b.averageRating - a.averageRating || b.tags.committed - a.tags.committed || b.transactions - a.transactions
+    )[0],
+    mostCancelled = all.slice().sort((a, b) =>
+      b.cancelled - a.cancelled || b.reservations - a.reservations
+    )[0],
+    opt = (value, label) => `<option value="${value}" ${peopleFilter === value ? "selected" : ""}>${label}</option>`;
+  const tagSummary = (person) => Object.entries(person.tags)
+    .filter(([, count]) => count)
+    .map(([tag, count]) => `<span class="person-tag tag-${tag}">${personTagLabels[tag]}: ${num(count)}</span>`)
+    .join("");
+  const card = (person) => {
+    const latest = person.reviews[0];
+    return `<article class="person-card">
+      <div class="person-card-head">
+        <div><strong>${esc(person.name)}</strong><small>${person.phone ? `<a href="tel:${esc(person.phone)}" dir="ltr">${esc(person.phone)}</a>` : "رقم الهاتف غير مسجل"}</small></div>
+        <span class="person-rating">${person.ratingCount ? "★ " + person.averageRating.toFixed(1) + " / 5" : "بدون تقييم"}</span>
+      </div>
+      <div class="person-metrics">
+        <span>${metric}: ${num(person.transactions)}</span>
+        <span>إلغاءات: ${num(person.cancelled)}</span>
+        <span>نشط: ${num(person.active)}</span>
+        <span>إجمالي ${isCustomer ? "المبيعات" : "المشتريات"}: ${cash(person.amount)}</span>
+      </div>
+      ${tagSummary(person) ? `<div class="person-tags">${tagSummary(person)}</div>` : ""}
+      ${latest ? `<p class="person-note">آخر تقييم ${num(latest.rating)}/5 · ${esc(personTagLabels[latest.tag] || "")}${latest.note ? " · " + esc(latest.note) : ""}</p>` : ""}
+      <small class="hint">آخر تعامل: ${esc(person.lastActivity || "غير محدد")} · حجوزات: ${num(person.reservations)} · مؤكدة: ${num(person.confirmed)}</small>
+    </article>`;
+  };
+  const sorted = peopleFilter === "committed"
+    ? list.slice().sort((a, b) => b.tags.committed - a.tags.committed || b.averageRating - a.averageRating || b.transactions - a.transactions)
+    : peopleFilter === "cancelled"
+      ? list.slice().sort((a, b) => b.cancelled - a.cancelled || b.reservations - a.reservations)
+      : peopleFilter === "late"
+        ? list.slice().sort((a, b) => b.tags.late - a.tags.late || b.reservations - a.reservations)
+        : peopleFilter === "unreliable"
+          ? list.slice().sort((a, b) => b.tags.unreliable - a.tags.unreliable || b.cancelled - a.cancelled)
+          : list;
+  return `
+    <div class="heading"><p class="eyebrow">متابعة التعاملات</p><h1>إحصائيات الأشخاص</h1><p>كل عميل أو مورد له سجل واحد، والتجميع بيكون برقم الهاتف كلما كان متاحًا.</p></div>
+    <div class="segments people-switch">
+      <button type="button" data-people-kind="customer" class="${isCustomer ? "chosen" : ""}">العملاء</button>
+      <button type="button" data-people-kind="supplier" class="${!isCustomer ? "chosen" : ""}">الموردون</button>
+    </div>
+    <div class="stats people-summary">
+      ${stat("عدد الأشخاص", num(all.length), isCustomer ? "عملاء ظهر لهم تعامل مسجل" : "موردون ظهر لهم تعامل مسجل")}
+      ${stat("عدد العمليات", num(transactionCount), metric + " مؤكدة أو مباشرة")}
+      ${stat("الحجوزات الملغاة", num(cancelledCount), "سجل الإلغاء المحفوظ")}
+      ${stat("متوسط التقييم", average, num(ratedCount) + " تقييم")}
+    </div>
+    <div class="people-highlights">
+      <article><small>الأعلى تقييمًا</small><strong>${best ? esc(best.name) : "لا توجد تقييمات بعد"}</strong><span>${best ? best.averageRating.toFixed(1) + " / 5" : "قيّم التعامل عند التأكيد أو الإلغاء"}</span></article>
+      <article><small>الأكثر إلغاءً</small><strong>${mostCancelled?.cancelled ? esc(mostCancelled.name) : "لا توجد إلغاءات بعد"}</strong><span>${mostCancelled?.cancelled ? num(mostCancelled.cancelled) + " إلغاء" : "سجل الإلغاء هيظهر هنا"}</span></article>
+    </div>
+    <div class="section-title"><h2>سجل ${isCustomer ? "العملاء" : "الموردين"}</h2><span>${num(sorted.length)} شخص</span></div>
+    <div class="toolbar"><select id="people-filter" aria-label="فلترة الأشخاص">${filterLabels.map(([value, label]) => opt(value, label)).join("")}</select></div>
+    <label class="search">بحث بالاسم أو الهاتف أو الملاحظات<input id="people-search" type="search" value="${esc(peopleQuery)}" placeholder="اكتب اسمًا أو رقمًا…"></label>
+    ${sorted.length ? sorted.map(card).join("") : `<div class="empty compact"><h2>${all.length ? "لا توجد نتائج مطابقة" : "لسه مفيش تعاملات مسجلة"}</h2><p>${all.length ? "غيّر الفلتر أو البحث." : isCustomer ? "بيانات العملاء هتتجمع تلقائيًا من المبيعات والحجوزات." : "بيانات الموردين هتتجمع تلقائيًا من المشتريات والحجوزات."}</p></div>`}
+    <p class="hint">التأخير وعدم الموثوقية تصنيفات بتحددها أنت وقت تقييم الحجز. التطبيق لا يستنتجها من الاسم أو رقم الهاتف.</p>
+  `;
+}
+
 function settings() {
   return (
     button("‹ العودة", "back", 'class="subtle"') +

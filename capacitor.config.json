@@ -1,6 +1,6 @@
 {
   "appId": "com.sufyan.booktracker",
-  "appName": "الكُتًبٍية",
+  "appName": "الكتبية",
   "webDir": "www",
   "android": {
     "adjustMarginsForEdgeToEdge": "auto"

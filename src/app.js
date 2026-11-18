@@ -902,54 +902,74 @@ function bookDialog(editId, copyFrom = null) {
 function addMissingDialog(bookId) {
   const b = bookOf(bookId),
     st = M.bookStatus(state, b.id);
-  if (!st.missing.length) return toast("هذا الكتاب مكتمل");
-  const picked = new Set();
+  if (!st.incompleteCopies || !st.missing.length) return toast("لا توجد أجزاء ناقصة في هذا الكتاب");
   let buy, d;
+  const selected = () => st.missing.filter((part) => {
+    const value = String(d.querySelector(`[name="missingQty${part}"]`)?.value || "0").trim();
+    return value !== "" && Number(value) > 0;
+  });
+  const quantities = () => new Map(st.missing.map((part) => {
+    const raw = String(d.querySelector(`[name="missingQty${part}"]`)?.value || "0").trim();
+    const quantity = raw === "" ? 0 : M.wholeMoney(raw);
+    if (quantity < 0 || quantity > 1000) throw Error("عدد النسخ المطلوب غير صالح");
+    return [part, quantity];
+  }));
+  const syncPricing = () => {
+    if (!buy) return;
+    const keys = selected();
+    const current = buy.peek().keys;
+    if (keys.length !== current.length || keys.some((part, i) => part !== current[i])) buy.setItems(keys);
+    preview();
+  };
   const preview = () => {
     const p = d.querySelector("#preview");
     try {
-      const r = buy.peek(),
-        f = new FormData(d.querySelector("form"));
-      p.innerHTML = r.blank ? "اختر الأجزاء واكتب السعر" : `إجمالي الشراء: ${cash(r.total * 100 + readCents(f, "extra"))} · عدد الأجزاء: ${num(picked.size)}`;
-    } catch {
-      p.textContent = "";
-    }
+      const counts = quantities(),
+        totalQty = [...counts.values()].reduce((sum, qty) => sum + qty, 0),
+        pricing = buy?.peek();
+      p.textContent = totalQty && pricing && !pricing.blank
+        ? `إجمالي الشراء: ${cash(pricing.total * 100 + readCents(new FormData(d.querySelector("form")), "extra"))} · عدد الأجزاء: ${num(totalQty)}`
+        : "حدد عدد كل جزء وأدخل إجمالي سعر الشراء";
+    } catch { p.textContent = "راجع أعداد الأجزاء المدخلة"; }
   };
   const html =
-    `<p>${esc(b.title)}</p><div class="section-label">الأجزاء الناقصة — اختر ما اشتريته *</div><div class="pick-grid">${chips(st.missing, picked)}</div>` +
-    (st.present.some((part) => !st.missing.includes(part)) ? `<details class="more"><summary>نسخة إضافية من جزء مكتمل</summary><p class="hint">اختر جزءًا تريد شراء نسخة إضافية منه.</p><div class="pick-grid">${chips(st.present.filter((part) => !st.missing.includes(part)), picked)}</div></details>` : "") +
+    `<p>${esc(b.title)}</p><p class="hint">دي أجزاء ناقصة من نسخ إضافية للكتاب. اكتب عدد النسخ اللي اشتريتها من كل جزء، ومش لازم تكمل كل النواقص في مرة واحدة.</p>` +
+    `<div class="missing-parts-list">${st.missing.map((part) => `<label class="missing-part-row"><span><strong>الجزء ${num(part)}</strong><small>محتاج ${num(st.missingCounts[part - 1])} نسخة لإكمال النواقص الحالية</small></span><input name="missingQty${part}" type="number" inputmode="numeric" min="0" max="1000" step="1" value="0" aria-label="عدد نسخ الجزء ${num(part)}"></label>`).join("")}</div>` +
     `<div id="buy-box"></div><details class="more"><summary>مصاريف الشراء</summary>${field("تكاليف شراء إضافية للدفعة بالكامل (ج)", "extra", "0", { num: 1 })}${field("تاريخ الشراء", "date", M.today(), { type: "date" })}</details><details class="more" open><summary>بيانات المورد</summary>${personFields("supplier")}</details>${reserveFields("supplier")}<p id="preview" class="preview"></p>`;
-  d = modal("إضافة أجزاء ناقصة", html, async (f) => {
-    if (!picked.size) throw Error("اختر جزءًا واحدًا على الأقل");
+  d = modal("إضافة أجزاء للنسخ الناقصة", html, async (f) => {
+    const counts = quantities(),
+      keys = [...counts.keys()].filter((part) => counts.get(part) > 0);
+    if (!keys.length) throw Error("اكتب عدد نسخة واحدة على الأقل");
     const r = buy.read(),
       n = structuredClone(state),
-      entries = r.keys.map((p, i) => ({ part: p, qty: 1, cents: r.prices[i] * 100 }));
+      entries = r.keys.map((part, i) => ({ part, qty: counts.get(part) || 0, cents: r.prices[i] * 100 })),
+      extra = readCents(f, "extra");
     if (f.get("reserve") === "on") {
       const rd = reserveData(f, "supplier");
-      M.addSupplierReservation(n, { id: M.id(), book: b.id, name: rd.name, phone: rd.phone, date: rd.date, items: entries.map((e) => ({ part: e.part, qty: 1, unit: e.cents })), extra: readCents(f, "extra") });
+      const items = entries.map((e) => ({ part: e.part, qty: e.qty, unit: Math.floor(e.cents / e.qty) }));
+      const remainder = entries.reduce((sum, e) => sum + e.cents - Math.floor(e.cents / e.qty) * e.qty, 0);
+      M.addSupplierReservation(n, { id: M.id(), book: b.id, name: rd.name, phone: rd.phone, date: rd.date, items, extra: extra + remainder });
       selectTab("res");
       resTab = "supplier";
       await commit(n, "تمت إضافة الحجز. لم يدخل المخزون قبل التأكيد");
       return;
     }
-    n.batches.push(...makeBatches(b.id, entries, readCents(f, "extra"), dateOf(f, "date", "تاريخ الشراء"), contactData(f, "supplier")));
+    n.batches.push(...makeBatches(b.id, entries, extra, dateOf(f, "date", "تاريخ الشراء"), contactData(f, "supplier")));
     await commit(n, "تمت إضافة الأجزاء للمخزون");
   }, {
-    onInput: preview,
+    onInput: (e) => {
+      if (e.target.name?.startsWith("missingQty")) syncPricing();
+      else preview();
+    },
     onChange: (e) => {
-      const p = e.target.dataset?.part;
-      if (!p) return;
-      e.target.checked ? picked.add(+p) : picked.delete(+p);
-      buy.setItems(sortedSet(picked));
-      preview();
+      if (e.target.name?.startsWith("missingQty")) syncPricing();
     },
   });
-  buy = partPricing(d.querySelector("#buy-box"), { name: "buyTotal", totalLabel: "سعر الشراء الإجمالي (ج) *", detailsLabel: "المزيد: سعر كل جزء", required: true, requiredMessage: "اكتب سعر الشراء", onChange: preview });
+  buy = partPricing(d.querySelector("#buy-box"), { name: "buyTotal", totalLabel: "إجمالي سعر شراء الأجزاء المحددة (ج) *", detailsLabel: "تفاصيل سعر كل جزء", required: true, requiredMessage: "اكتب سعر الشراء", onChange: preview });
   buy.setItems([]);
   bindReserve(d, "حفظ");
   preview();
 }
-
 /* ---------------- تسجيل البيع ---------------- */
 function addSaleLines(n, bookId, x) {
   const tx = M.id(),

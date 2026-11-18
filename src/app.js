@@ -360,7 +360,7 @@ function detail() {
     (q ? button("تسجيل بيع", "sell", `data-id="${b.id}" class="primary"`) : "") +
     (st.incompleteCopies ? button("إضافة الأجزاء الناقصة", "add-missing", `data-id="${b.id}" class="primary"`) : "") +
     button("تعديل الكتاب", "edit-book", `data-id="${b.id}"`) +
-    (!sales.length && !batches.length ? button("حذف الكتاب", "delete-book", `data-id="${b.id}" class="danger"`) : "") +
+    (!sales.length ? button("حذف الكتاب", "delete-book", `data-id="${b.id}" class="danger"`) : "") +
     `</div><section class="detail-section"><h2>دفعات الشراء</h2>` +
     (batches.length ? batches.map((x) => `<article class="row"><div><strong>${multi ? "الجزء " + num(x.part) + " · " : ""}${num(x.qty)} ${x.qty === 1 ? "نسخة" : "نسخ"} · ${cash(x.unit)} للنسخة</strong><small>${x.date} · مصاريف الدفعة ${cash(x.extra)}</small><small>الإجمالي ${cash(x.unit * x.qty + x.extra)}</small></div>${button("تصحيح", "edit-batch", `data-id="${x.id}"`)}</article>`).join("") : '<p class="hint">لا توجد دفعات شراء مسجلة.</p>') +
     `</section><section class="detail-section"><h2>سجل المبيعات</h2>` + saleList(sales) + `</section></div>`

@@ -242,11 +242,11 @@ function bookCard(b, short = false, sold = false) {
     total = state.batches.filter((x) => x.book === b.id).reduce((n, x) => n + x.qty, 0);
   const badge = sold ? "تم بيع كل النسخ" : st.complete
     ? "مكتمل نسختين"
-    : st.sets > 0 ? `نسخة مكتملة واحدة · ناقص ${num(st.missingCopies)} نسخة`
-    : `غير مكتمل · ناقص ${num(st.missingCopies)} نسخة`;
+    : st.sets > 0 ? `نسخة مكتملة واحدة · ناقص ${num(st.missingCopies)} ${st.missingCopies === 1 ? "نسخة" : "نسخ"}`
+    : `غير مكتمل · ناقص ${num(st.missingCopies)} ${st.missingCopies === 1 ? "نسخة" : "نسخ"}`;
   return (
     `<article class="book"><button type="button" class="book-title" data-book="${b.id}"><span class="book-mark">${icon("books")}</span><span><strong>${esc(b.title)}</strong><small>${bookMetadata(b)}${multi ? " · " + num(b.partsTotal) + " أجزاء" : ""}</small></span></button>` +
-    `<div class="book-info"><span class="badge ${(multi ? st.complete : phys > 0) ? "" : "muted"}">${badge}</span><span>${num(q)} قطعة للبيع${held ? " · محجوز " + num(held) : ""} · تكلفة المتبقي ${cash(bookStock(b.id))}</span></div>` +
+    `<div class="book-info"><span class="badge ${st.complete && !sold ? "" : "muted"}">${badge}</span><span>${num(q)} قطعة للبيع${held ? " · محجوز " + num(held) : ""} · تكلفة المتبقي ${cash(bookStock(b.id))}</span></div>` +
     (short ? `<p class="miss">المطلوب لإكمال نسختين: ${st.missing.map((p) => `الجزء ${num(p)} (ناقص ${num(2 - st.quantities[p - 1])})`).join("، ")}</p>` : "") +
     `<div class="actions">` +
     (sold ? button("إضافة كتاب مشابه", "copy-book", `data-id="${b.id}" class="primary"`) : short ? button("إضافة نسخة ناقصة", "add-missing", `data-id="${b.id}" class="primary"`) : q ? button("تسجيل بيع", "sell", `data-id="${b.id}" class="primary"`) : "") +

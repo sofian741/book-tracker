@@ -322,7 +322,7 @@ function detail() {
     return '<span class="part-chip ' + (c >= 2 ? "owned" : "missing") + '"><b>الجزء ' + num(part) + '</b><small>' + status + (r ? " (محجوز " + num(r) + ")" : "") + '</small></span>';
   };
   return (
-    button("‹ العودة", "back", 'class="subtle"') +
+    `<div class="book-detail">` + button("‹ العودة", "back", 'class="subtle"') +
     `<h1>${esc(b.title)}</h1><p>${bookMetadata(b)}${multi ? " · " + num(b.partsTotal) + " أجزاء إجمالًا" : ""}</p>` +
     (b.note ? `<p>${esc(b.note)}</p>` : "") +
     `<div class="panel"><dl>` +
@@ -773,7 +773,6 @@ function bookDialog(editId, copyFrom = null) {
       b = { id: M.id(), note: "", suggested: 0, ...base };
     if (f.get("reserve") === "on") {
       const rd = reserveData(f, "supplier");
-      if (!rd.name) throw Error("اكتب اسم المورد للحجز");
       const items = entries.map((e) => ({ part: e.part, qty: e.qty, unit: Math.floor(e.cents / e.qty) }));
       const rem = entries.reduce((s, e) => s + e.cents - Math.floor(e.cents / e.qty) * e.qty, 0);
       M.addSupplierReservation(n, { id: M.id(), book: b.id, newBook: { title, editor: base.editor, author: base.author, publisher: base.publisher, note: "", partsTotal: N, suggested: 0, salePrices }, name: rd.name, phone: rd.phone, date: rd.date, items, extra: extra + rem });
@@ -848,7 +847,6 @@ function addMissingDialog(bookId) {
       entries = r.keys.map((p, i) => ({ part: p, qty: 1, cents: r.prices[i] * 100 }));
     if (f.get("reserve") === "on") {
       const rd = reserveData(f, "supplier");
-      if (!rd.name) throw Error("اكتب اسم المورد للحجز");
       M.addSupplierReservation(n, { id: M.id(), book: b.id, name: rd.name, phone: rd.phone, date: rd.date, items: entries.map((e) => ({ part: e.part, qty: 1, unit: e.cents })), extra: readCents(f, "extra") });
       selectTab("res");
       resTab = "supplier";

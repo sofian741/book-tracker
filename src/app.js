@@ -318,21 +318,19 @@ function detail() {
   const chip = (part) => {
     const c = M.available(state, b.id, part),
       r = M.reserved(state, b.id, part);
-    return `<span class="part-chip ${c ? "owned" : "missing"}"><b>الجزء ${num(part)}</b><small>${c ? "متاح · " + num(c) + (c === 1 ? " نسخة" : " نسخ") + (r ? " (محجوز " + num(r) + ")" : "") : "غير موجود"}</small></span>`;
+    const status = c >= 2 ? "متاح " + num(c) + " نسخ" : c === 1 ? "معاك نسخة · ناقص نسخة" : "غير موجود · ناقص نسختين";
+    return '<span class="part-chip ' + (c >= 2 ? "owned" : "missing") + '"><b>الجزء ' + num(part) + '</b><small>' + status + (r ? " (محجوز " + num(r) + ")" : "") + '</small></span>';
   };
   return (
     button("‹ العودة", "back", 'class="subtle"') +
     `<h1>${esc(b.title)}</h1><p>${bookMetadata(b)}${multi ? " · " + num(b.partsTotal) + " أجزاء إجمالًا" : ""}</p>` +
     (b.note ? `<p>${esc(b.note)}</p>` : "") +
     `<div class="panel"><dl>` +
-    (multi ? `<dt>الأجزاء الموجودة</dt><dd>${num(st.present.length)} من ${num(b.partsTotal)}</dd><dt>حالة الكتاب</dt><dd>${st.complete ? "مكتمل" : "غير مكتمل"}</dd>` : "") +
+    `<dt>النسخ المكتملة</dt><dd>${num(st.sets)} ${st.sets === 2 ? "نسختين" : "نسخ"}</dd><dt>حالة المخزون</dt><dd>${st.complete ? "مكتمل" : "يحتاج استكمالًا"}</dd><dt>النسخ المطلوبة لإكمال نسختين</dt><dd>${num(st.missingCopies)}</dd>` +
     `<dt>عدد القطع المتاحة للبيع</dt><dd>${num(q)}${held ? " (محجوز " + num(held) + ")" : ""}</dd><dt>تكلفة المخزون المتبقي</dt><dd>${cash(bookStock(b.id))}</dd><dt>${gain < 0 ? "الخسارة المحققة" : "صافي الربح المحقق"}</dt><dd>${cash(Math.abs(gain))}</dd>` +
     (M.bookSaleTotal(b) ? `<dt>سعر البيع المسجل للكتاب · ليس إيرادًا</dt><dd>${cash(M.bookSaleTotal(b))}</dd>` : "") +
     `</dl></div>` +
-    (multi
-      ? `<h2>الأجزاء الموجودة</h2><div class="parts-grid">${st.present.map(chip).join("") || '<p class="hint">لا توجد أجزاء متاحة.</p>'}</div><h2>الأجزاء الناقصة</h2>` +
-        (st.missing.length ? `<div class="parts-grid">${st.missing.map(chip).join("")}</div>` : '<p class="good-text">كل أجزاء الكتاب متوفرة عندك 🎉</p>')
-      : "") +
+    `<h2>تفاصيل النسخ حسب الجزء</h2><div class="parts-grid">${Array.from({ length: b.partsTotal }, (_, i) => chip(i + 1)).join("")}</div>` +
     `<div class="actions">` +
     (q ? button("تسجيل بيع", "sell", `data-id="${b.id}" class="primary"`) : "") +
     (tab === "short" && st.missing.length ? button("إضافة الأجزاء الناقصة", "add-missing", `data-id="${b.id}" class="primary"`) : "") +
@@ -340,7 +338,7 @@ function detail() {
     (!sales.length ? button("حذف الكتاب", "delete-book", `data-id="${b.id}" class="danger"`) : "") +
     `</div><h2>دفعات الشراء</h2>` +
     batches.map((x) => `<article class="row"><div><strong>${multi ? "الجزء " + num(x.part) + " · " : ""}${num(x.qty)} ${x.qty === 1 ? "نسخة" : "نسخ"} · ${cash(x.unit)} للنسخة</strong><small>${x.date} · مصاريف الدفعة ${cash(x.extra)}</small><small>الإجمالي ${cash(x.unit * x.qty + x.extra)}</small></div>${button("تصحيح", "edit-batch", `data-id="${x.id}"`)}</article>`).join("") +
-    `<h2>سجل المبيعات</h2>` + saleList(sales)
+    `<h2>سجل المبيعات</h2>` + saleList(sales) + `</div>`
   );
 }
 function resCard(r, history = false) {
@@ -841,7 +839,7 @@ function addMissingDialog(bookId) {
   };
   const html =
     `<p>${esc(b.title)}</p><div class="section-label">الأجزاء الناقصة — اختر ما اشتريته *</div><div class="pick-grid">${chips(st.missing, picked)}</div>` +
-    (st.present.length ? `<details class="more"><summary>نسخة إضافية من جزء موجود</summary><p class="hint">لو اشتريت نسخة ثانية من جزء عندك بالفعل، اخترها هنا.</p><div class="pick-grid">${chips(st.present, picked)}</div></details>` : "") +
+    (st.present.some((part) => !st.missing.includes(part)) ? `<details class="more"><summary>نسخة إضافية من جزء مكتمل</summary><p class="hint">اختر جزءًا تريد شراء نسخة إضافية منه.</p><div class="pick-grid">${chips(st.present.filter((part) => !st.missing.includes(part)), picked)}</div></details>` : "") +
     `<div id="buy-box"></div><details class="more"><summary>مصاريف الشراء</summary>${field("تكاليف شراء إضافية للدفعة بالكامل (ج)", "extra", "0", { num: 1 })}${field("تاريخ الشراء", "date", M.today(), { type: "date" })}</details><details class="more" open><summary>بيانات المورد</summary>${personFields("supplier")}</details>${reserveFields("supplier")}<p id="preview" class="preview"></p>`;
   d = modal("إضافة أجزاء ناقصة", html, async (f) => {
     if (!picked.size) throw Error("اختر جزءًا واحدًا على الأقل");

@@ -398,6 +398,7 @@ test("cancelling a customer reservation frees the stock and records nothing", as
   await addBook(page, { title: "كتاب", buy: "100", extra: "", sell: "200" });
   await reserveOne(page);
   await nav(page, "الكتب");
+  await expect(page.locator(".book")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "تسجيل بيع", exact: true })).toHaveCount(0);
   await nav(page, "المحجوزات");
   await page.locator(".res").getByRole("button", { name: "إلغاء", exact: true }).click();

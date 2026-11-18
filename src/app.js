@@ -1072,7 +1072,10 @@ function sellDialog(bookId) {
     }
   }, {
     submitLabel: "تأكيد البيع",
-    onInput: preview,
+    onInput: (e) => {
+      if (e.target.name === "customerName" || e.target.name === "customerPhone") return;
+      preview();
+    },
     onChange: (e) => {
       const t = e.target;
       if (t.name === "mode") {

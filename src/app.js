@@ -5,12 +5,13 @@ import "./tajer.css";
 import * as M from "./model.js";
 import * as DB from "./storage.js";
 import { Capacitor, registerPlugin } from "@capacitor/core";
-const ContactPicker = registerPlugin("ContactPicker");
 import { Filesystem, Directory } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
 import { esc, num, cash, cashText, pounds, partsWord, owned } from "./fmt.js";
 import { createPricing } from "./pricing.js";
 import { createNav } from "./nav.js";
+
+const ContactPicker = registerPlugin("ContactPicker");
 
 const VERSION = "1.2.0";
 let state,

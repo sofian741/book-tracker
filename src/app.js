@@ -221,7 +221,7 @@ function home() {
     stat("قيمة المخزون", cash(st.stock), "بتكلفة الشراء · الآن") +
     stat("قيمة المشتريات", cash(st.spent), "كل ما اشتريته فعليًا") +
     stat("عدد الكتب", `${num(st.books)}`, `${num(st.complete)} مكتمل · ${num(st.incomplete)} غير مكتمل`, "", "books") +
-    stat("النسخ الناقصة", `${num(st.missingParts)}`, `لإكمال نسختين من ${num(st.incomplete)} كتاب`, "", "short") +
+    stat("النسخ غير المكتملة", `${num(st.incompleteCopies)}`, `${num(st.missingParts)} جزء ناقص لإكمالها`, "", "short") +
     `</div><div class="section-title"><h2>الحجوزات</h2><span>لا تدخل في الأرباح قبل التأكيد</span></div><div class="stats">` +
     stat("حجوزات العملاء", num(st.customerReservations), `ربح متوقع ${cashText(expProfit)}`, "", "res-customer") +
     stat("حجوزات الموردين", num(st.supplierReservations), `قيمة متوقعة ${cashText(supTotal)}`, "", "res-supplier") +
@@ -238,27 +238,31 @@ function searchBox(id, value, ph) {
 function bookCard(b, short = false, sold = false) {
   const st = M.bookStatus(state, b.id),
     q = M.sellable(state, b.id),
-    phys = M.available(state, b.id),
     held = M.reserved(state, b.id),
     multi = b.partsTotal > 1,
     total = state.batches.filter((x) => x.book === b.id).reduce((n, x) => n + x.qty, 0);
-  const badge = sold ? "تم بيع كل النسخ" : st.complete
-    ? "مكتمل نسختين"
-    : st.sets > 0 ? `نسخة مكتملة واحدة · ناقص ${num(st.missingCopies)} ${st.missingCopies === 1 ? "نسخة" : "نسخ"}`
-    : `غير مكتمل · ناقص ${num(st.missingCopies)} ${st.missingCopies === 1 ? "نسخة" : "نسخ"}`;
+  const badge = sold ? "تم بيع كل المخزون"
+    : st.completeCopies && st.incompleteCopies
+      ? `${num(st.completeCopies)} كتاب كامل · ${num(st.incompleteCopies)} نسخة ناقصة`
+      : st.completeCopies
+        ? `${num(st.completeCopies)} كتاب كامل`
+        : `${num(st.incompleteCopies)} نسخة غير مكتملة`;
+  const shortageText = st.missing.map((part) =>
+    `الجزء ${num(part)}: ناقص ${num(st.missingCounts[part - 1])}`
+  ).join(" · ");
   return (
-    `<article class="book"><button type="button" class="book-title" data-book="${b.id}"><span class="book-mark">${icon("books")}</span><span><strong>${esc(b.title)}</strong><small>${bookMetadata(b)}${multi ? " · " + num(b.partsTotal) + " أجزاء" : ""}</small></span></button>` +
-    `<div class="book-info"><span class="badge ${st.complete && !sold ? "" : "muted"}">${badge}</span><span>${num(q)} قطعة للبيع${held ? " · محجوز " + num(held) : ""} · تكلفة المتبقي ${cash(bookStock(b.id))}</span></div>` +
-    (short ? `<p class="miss">المطلوب لإكمال نسختين: ${st.missing.map((p) => `الجزء ${num(p)} (ناقص ${num(2 - st.quantities[p - 1])})`).join("، ")}</p>` : "") +
+    `<article class="book"><button type="button" class="book-title" data-book="${b.id}"><span class="book-mark">${icon("books")}</span><span><strong>${esc(b.title)}</strong><small>${bookMetadata(b)}${multi ? " · " + num(b.partsTotal) + " أجزاء للكتاب" : ""}</small></span></button>` +
+    `<div class="book-info"><span class="badge ${st.completeCopies ? "" : "muted"}">${badge}</span><span>${num(q)} جزء متاح للبيع${held ? " · محجوز " + num(held) : ""}</span></div>` +
+    (short ? `<div class="shortage-summary"><strong>${num(st.incompleteCopies)} نسخة غير مكتملة</strong><span>${shortageText || "لا توجد أجزاء ناقصة"}</span></div>` : "") +
     `<div class="actions">` +
-    (sold ? button("إضافة كتاب مشابه", "copy-book", `data-id="${b.id}" class="primary"`) : short ? button("إضافة نسخة ناقصة", "add-missing", `data-id="${b.id}" class="primary"`) : q ? button("تسجيل بيع", "sell", `data-id="${b.id}" class="primary"`) : "") +
+    (sold ? button("إضافة كتاب مشابه", "copy-book", `data-id="${b.id}" class="primary"`) : short ? button("إضافة الأجزاء الناقصة", "add-missing", `data-id="${b.id}" class="primary"`) : q ? button("تسجيل بيع", "sell", `data-id="${b.id}" class="primary"`) : "") +
     button("تفاصيل", "detail", `data-id="${b.id}" class="subtle"`) +
-    `</div>${short ? "" : `<small class="hint">${num(total)} قطعة تم شراؤها إجمالًا</small>`}</article>`
+    `</div>${short ? "" : `<small class="hint">${num(total)} جزء تم شراؤه إجمالًا · تكلفة المخزون المتبقي ${cash(bookStock(b.id))}</small>`}</article>`
   );
 }
 function books() {
   const hidden = (b) => M.available(state, b.id) > 0 && M.sellable(state, b.id) === 0 && M.reserved(state, b.id) > 0;
-  const ok = { all: () => true, available: (b) => M.sellable(state, b.id) > 0, complete: (b) => M.bookStatus(state, b.id).complete, incomplete: (b) => { const s = M.bookStatus(state, b.id); return s.present.length > 0 && !s.complete; } };
+  const ok = { all: () => true, available: (b) => M.sellable(state, b.id) > 0, complete: (b) => M.bookStatus(state, b.id).completeCopies > 0, incomplete: (b) => M.bookStatus(state, b.id).incompleteCopies > 0 };
   let list = state.books.filter((b) => M.available(state, b.id) > 0 && !hidden(b) && (b.title + " " + b.publisher).includes(query)).filter(ok[filter] || ok.all);
   if (sort === "name") list = list.slice().sort((a, b) => a.title.localeCompare(b.title, "ar"));
   else list = list.slice().reverse();
@@ -268,7 +272,7 @@ function books() {
     `<div class="heading"><p class="eyebrow">مكتبتك التجارية</p><h1>الكتب</h1><p>كل عنوان وأجزاؤه، في مكان واحد.</p></div>` +
     button("+ إضافة كتاب", "add", 'class="primary wide"') +
     searchBox("search", query, "ابحث عن كتاب…") +
-    `<div class="toolbar"><select id="filter" aria-label="حالة المخزون">${[["all", "كل الكتب"], ["available", "المتاح للبيع"], ["complete", "مكتمل نسختين"], ["incomplete", "يحتاج استكمالًا"]].map(([v, l]) => opt(v, l, filter)).join("")}</select><select id="sort" aria-label="ترتيب الكتب">${opt("new", "الأحدث", sort)}${opt("name", "الاسم", sort)}</select></div>` +
+    `<div class="toolbar"><select id="filter" aria-label="حالة المخزون">${[["all", "كل الكتب"], ["available", "المتاح للبيع"], ["complete", "له نسخة كاملة"], ["incomplete", "له نسخ ناقصة"]].map(([v, l]) => opt(v, l, filter)).join("")}</select><select id="sort" aria-label="ترتيب الكتب">${opt("new", "الأحدث", sort)}${opt("name", "الاسم", sort)}</select></div>` +
     `<div id="book-list">${list.length ? list.map((b) => bookCard(b)).join("") : `<div class="empty"><h2>لا توجد كتب هنا بعد</h2><p>أضف كتابك الأول أو غيّر البحث والفلتر.</p></div>`}</div>` +
     `</div>`
   );
@@ -279,11 +283,11 @@ function soldBooks() {
   return `<div class="books-page sold-books-page"><div class="heading"><p class="eyebrow">أرشيف المخزون المنتهي</p><h1>الكتب المباعة</h1><p>من هنا تقدر تضيف كتابًا مشابهًا ببياناته الأساسية وتعدّلها قبل الحفظ.</p></div>${searchBox("search", query, "ابحث عن كتاب مباع…")}${list.length ? list.slice().reverse().map((b) => bookCard(b, false, true)).join("") : `<div class="empty"><h2>مفيش كتب مباعة بالكامل</h2><p>الكتب اللي يخلص مخزونها هتظهر هنا تلقائيًا.</p></div>`}</div>`;
 }
 function shortages() {
-  const ok = { all: () => true, one: (b) => M.bookStatus(state, b.id).missingCopies === 1, many: (b) => M.bookStatus(state, b.id).missingCopies > 1 };
+  const ok = { all: () => true, one: (b) => M.bookStatus(state, b.id).incompleteCopies === 1, many: (b) => M.bookStatus(state, b.id).incompleteCopies > 1 };
   const list = M.missingBooks(state).filter((b) => (b.title + " " + b.publisher).includes(sQuery)).filter(ok[sFilter] || ok.all);
   const opt = (v, l) => `<option value="${v}" ${v === sFilter ? "selected" : ""}>${l}</option>`;
   return (
-    `<div class="shortages-page"><div class="heading"><p class="eyebrow">كتب ينقصها أجزاء</p><h1>النواقص</h1><p>الكتاب يختفي من هنا بمجرد اكتمال نسختين كاملتين منه.</p></div>` +
+    `<div class="shortages-page"><div class="heading"><p class="eyebrow">كتب ينقصها أجزاء</p><h1>النواقص</h1><p>قد يكون للكتاب نسخة كاملة، ومع ذلك تظهر هنا أي نسخة إضافية غير مكتملة منه.</p></div>` +
     searchBox("s-search", sQuery, "ابحث في النواقص…") +
     `<div class="toolbar"><select id="s-filter" aria-label="فلترة النواقص">${opt("all", "كل النواقص")}${opt("one", "ناقص جزء واحد")}${opt("many", "ناقص أكثر من جزء")}</select></div>` +
     (list.length ? list.map((b) => bookCard(b, true)).join("") : `<div class="empty"><h2>لا توجد نواقص</h2><p>كل كتبك في المخزون مكتملة${sQuery || sFilter !== "all" ? " (أو غيّر البحث والفلتر)" : ""}.</p></div>`) +

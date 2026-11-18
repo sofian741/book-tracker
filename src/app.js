@@ -4,14 +4,15 @@ import "./style.css";
 import "./tajer.css";
 import * as M from "./model.js";
 import * as DB from "./storage.js";
-import { Capacitor } from "@capacitor/core";
+import { Capacitor, registerPlugin } from "@capacitor/core";
+const ContactPicker = registerPlugin("ContactPicker");
 import { Filesystem, Directory } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
 import { esc, num, cash, cashText, pounds, partsWord, owned } from "./fmt.js";
 import { createPricing } from "./pricing.js";
 import { createNav } from "./nav.js";
 
-const VERSION = "1.1.0";
+const VERSION = "1.2.0";
 let state,
   tab = "home",
   sub = null,
@@ -36,6 +37,35 @@ let modalEl = null,
   closeArmed = false,
   toastTimer;
 const app = document.querySelector("#app");
+const VIEW_KEY = "kotobiya-view-v1";
+function persistView() {
+  try { localStorage.setItem(VIEW_KEY, JSON.stringify({ tab, sub, resTab, showHistory, query, filter, sort, sQuery, sFilter, peopleKind, peopleFilter, peopleQuery, period, from, to })); } catch {}
+}
+function restoreView() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(VIEW_KEY) || "null");
+    if (!saved || typeof saved !== "object") return;
+    if (["home", "books", "short", "res"].includes(saved.tab)) tab = saved.tab;
+    if (saved.sub && ["settings", "people", "detail", "sold"].includes(saved.sub.t) && (saved.sub.t !== "detail" || state.books.some((b) => b.id === saved.sub.id))) sub = saved.sub;
+    if (["customer", "supplier"].includes(saved.resTab)) resTab = saved.resTab;
+    for (const key of ["showHistory", "query", "filter", "sort", "sQuery", "sFilter", "peopleKind", "peopleFilter", "peopleQuery", "period", "from", "to"]) {
+      if (saved[key] !== undefined) {
+        if (key === "showHistory") showHistory = saved[key];
+        else if (key === "query") query = saved[key];
+        else if (key === "filter") filter = saved[key];
+        else if (key === "sort") sort = saved[key];
+        else if (key === "sQuery") sQuery = saved[key];
+        else if (key === "sFilter") sFilter = saved[key];
+        else if (key === "peopleKind") peopleKind = saved[key];
+        else if (key === "peopleFilter") peopleFilter = saved[key];
+        else if (key === "peopleQuery") peopleQuery = saved[key];
+        else if (key === "period") period = saved[key];
+        else if (key === "from") from = saved[key];
+        else if (key === "to") to = saved[key];
+      }
+    }
+  } catch {}
+}
 const errorMessage = (error) => {
   const message = typeof error?.message === "string" ? error.message.trim() : "";
   return message || "حدث خطأ غير معروف. حاول مرة أخرى.";
@@ -106,7 +136,7 @@ function render() {
   if (!state) return;
   if (!userName()) return onboarding();
   const nm = { home: home, books: books, short: shortages, res: reservations };
-  const content = sub?.t === "settings" ? settings() : sub?.t === "people" ? peopleAnalytics() : sub?.t === "detail" && bookOf(sub.id) ? detail() : ((sub = null), nm[tab]());
+  const content = sub?.t === "settings" ? settings() : sub?.t === "people" ? peopleAnalytics() : sub?.t === "sold" ? soldBooks() : sub?.t === "detail" && bookOf(sub.id) ? detail() : ((sub = null), nm[tab]());
   const t = M.totals(state);
   const badge = (n) => (n ? `<i class="dot">${num(n)}</i>` : "");
   app.innerHTML =
@@ -115,6 +145,8 @@ function render() {
       ? button("‹ المحجوزات", "back", 'class="subtle header-link"')
       : tab === "res" && !sub
         ? button("الإحصائيات", "people-stats", 'class="subtle header-link"')
+        : tab === "books" && !sub
+          ? button("الكتب المباعة", "sold-books", 'class="subtle header-link"')
         : tab === "home" && !sub
           ? `<button type="button" class="icon-btn" data-action="settings" aria-label="الإعدادات">${icon("settings")}</button>`
           : `<span class="local">محفوظ على جهازك</span>`) +
@@ -128,6 +160,7 @@ function render() {
       .map(([k, l, n]) => `<button type="button" data-tab="${k}" class="${tab === k && !sub ? "active" : ""}">${icon(k)}<span>${l}</span>${badge(n)}</button>`)
       .join("") +
     `</nav><div id="toast" role="status"></div><dialog id="modal"></dialog>`;
+  persistView();
 }
 function onboarding() {
   app.innerHTML = `<main class="welcome"><div class="logo">${icon("books")}</div><h1>أهلًا بك في تاجر</h1><p>اكتب اسمك لنبدأ. هيتحفظ على جهازك فقط.</p><form id="name-form" novalidate><label>اسمك<input name="userName" autocomplete="name" maxlength="100"></label><p id="form-error" role="alert"></p><button class="primary wide" type="submit">ابدأ</button></form></main><div id="toast" role="status"></div>`;

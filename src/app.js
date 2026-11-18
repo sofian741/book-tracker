@@ -642,13 +642,13 @@ const dateOf = (f, name, label) => {
 const chips = (parts, sel, attr = "data-part") =>
   parts.map((p) => `<label class="pick"><input type="checkbox" ${attr}="${p}" ${sel.has(p) ? "checked" : ""}><span>${num(p)}</span></label>`).join("");
 function personFields(kind) {
+  const label = kind === "customer" ? "العميل" : "المورد";
   return `<div class="person-fields">
-    <label>اسم ${kind === "customer" ? "العميل" : "المورد"} (اختياري)
-      <div class="person-input-row"><input name="${kind}Name" maxlength="200" autocomplete="off" placeholder="اكتب الاسم أو اختاره">${kind === "customer" ? `<button type="button" class="contact-pick" data-contact-pick="customer">جهات الاتصال</button>` : ""}</div>
-      <div class="person-suggestions" data-suggestions="${kind}" hidden></div>
-    </label>
-    <label>رقم هاتف ${kind === "customer" ? "العميل" : "المورد"} (اختياري)<input name="${kind}Phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="50" placeholder="رقم الهاتف كاملًا"></label>
-    <p class="hint">الاسم ورقم الهاتف اختياريان. اكتب الرقم كاملًا بأي صيغة محلية أو دولية.</p>
+    <label>اسم ${label} (اختياري)<input name="${kind}Name" maxlength="200" autocomplete="off" placeholder="اكتب الاسم هنا"></label>
+    <div class="person-suggestions" data-suggestions="${kind}" hidden></div>
+    <label>رقم هاتف ${label} (اختياري)<input name="${kind}Phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="50" placeholder="رقم الهاتف كاملًا"></label>
+    <button type="button" class="contact-pick wide" data-contact-pick="${kind}">👤 اختيار الاسم والرقم من جهات الاتصال</button>
+    <p class="hint">الاسم ورقم الهاتف اختياريان. يمكنك كتابتهما أو اختيارهما مباشرة من جهات الاتصال.</p>
   </div>`;
 }
 function contactData(f, kind) {
@@ -693,13 +693,17 @@ function bindPersonSuggestions(d, kind) {
     });
     if (person && !nameInput.value.trim()) nameInput.value = person.name;
   });
-  d.addEventListener("click", (event) => {
-    const pick = event.target.closest("[data-contact-pick]");
-    if (pick) chooseContact(pick.dataset.contactPick);
+  const contactButton = d.querySelector(`[data-contact-pick="${kind}"]`);
+  contactButton?.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    chooseContact(kind);
   });
 }
 async function chooseContact(kind) {
   if (!Capacitor.isNativePlatform()) return toast("اختيار جهات الاتصال متاح من تطبيق أندرويد فقط");
+  if (typeof ContactPicker?.pickContact !== "function")
+    return toast("اختيار جهات الاتصال غير متاح في نسخة التطبيق الحالية. حدّث نسخة أندرويد.");
   try {
     const contact = await ContactPicker.pickContact();
     if (!contact) return;
@@ -708,8 +712,15 @@ async function chooseContact(kind) {
     if (name) name.value = contact.name || "";
     if (phone) phone.value = contact.phone || "";
     name?.dispatchEvent(new Event("input", { bubbles: true }));
+    name?.dispatchEvent(new Event("change", { bubbles: true }));
     phone?.dispatchEvent(new Event("input", { bubbles: true }));
-  } catch (error) { toast("تعذر فتح جهات الاتصال: " + errorMessage(error)); }
+    phone?.dispatchEvent(new Event("change", { bubbles: true }));
+    const suggestions = modalEl?.querySelector(`[data-suggestions="${kind}"]`);
+    if (suggestions) suggestions.hidden = true;
+    name?.focus();
+  } catch (error) {
+    toast("تعذر فتح جهات الاتصال: " + errorMessage(error));
+  }
 }
 const reserveFields = (kind) =>
   `<label class="check"><input type="checkbox" name="reserve" id="reserve"><span>إضافة كمحجوز ${kind === "customer" ? "للعميل" : "من المورد"}</span></label><div id="reserve-box" hidden>${field("تاريخ الحجز", "rdate", M.today(), { type: "date" })}</div>`;
@@ -828,7 +839,12 @@ function bookDialog(editId, copyFrom = null) {
       await commit(n, "تم تعديل بيانات الكتاب");
       return;
     }
-    if (N > 1 && !copiesFinished) throw Error("حدد هل توجد نسخ أخرى باختيار نعم أو لا");
+    if (N > 1 && !copiesFinished) {
+      // Saving without choosing نعم أو لا means لا: finish the current selected copy.
+      if (picked.size) copies.push(sortedSet(picked));
+      picked.clear();
+      copiesFinished = true;
+    }
     const parts = buyKeys();
     if (!parts.length) throw Error("اختر الجزء أو الأجزاء اللي معاك");
     const br = buy.read(), counts = selectedCounts();

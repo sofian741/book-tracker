@@ -218,7 +218,7 @@ function home() {
     stat("قيمة المخزون", cash(st.stock), "بتكلفة الشراء · الآن") +
     stat("قيمة المشتريات", cash(st.spent), "كل ما اشتريته فعليًا") +
     stat("عدد الكتب", `${num(st.books)}`, `${num(st.complete)} مكتمل · ${num(st.incomplete)} غير مكتمل`, "", "books") +
-    stat("الأجزاء الناقصة", `${num(st.missingParts)}`, `في ${num(st.incomplete)} كتاب`, "", "short") +
+    stat("النسخ الناقصة", `${num(st.missingParts)}`, `لإكمال نسختين من ${num(st.incomplete)} كتاب`, "", "short") +
     `</div><div class="section-title"><h2>الحجوزات</h2><span>لا تدخل في الأرباح قبل التأكيد</span></div><div class="stats">` +
     stat("حجوزات العملاء", num(st.customerReservations), `ربح متوقع ${cashText(expProfit)}`, "", "res-customer") +
     stat("حجوزات الموردين", num(st.supplierReservations), `قيمة متوقعة ${cashText(supTotal)}`, "", "res-supplier") +
@@ -239,7 +239,7 @@ function bookCard(b, short = false, sold = false) {
     held = M.reserved(state, b.id),
     multi = b.partsTotal > 1,
     total = state.batches.filter((x) => x.book === b.id).reduce((n, x) => n + x.qty, 0);
-  const badge = st.complete
+  const badge = sold ? "تم بيع كل النسخ" : st.complete
     ? `مكتمل ${num(st.sets)} ${st.sets === 2 ? "نسختين" : "نسخ"}`
     : st.sets > 0 ? `نسخة مكتملة واحدة · ناقص ${num(st.missingCopies)} نسخة`
     : `غير مكتمل · ناقص ${num(st.missingCopies)} نسخة`;
@@ -276,7 +276,7 @@ function soldBooks() {
   return `<div class="books-page sold-books-page"><div class="heading"><p class="eyebrow">أرشيف المخزون المنتهي</p><h1>الكتب المباعة</h1><p>من هنا تقدر تضيف كتابًا مشابهًا ببياناته الأساسية وتعدّلها قبل الحفظ.</p></div>${searchBox("search", query, "ابحث عن كتاب مباع…")}${list.length ? list.slice().reverse().map((b) => bookCard(b, false, true)).join("") : `<div class="empty"><h2>مفيش كتب مباعة بالكامل</h2><p>الكتب اللي يخلص مخزونها هتظهر هنا تلقائيًا.</p></div>`}</div>`;
 }
 function shortages() {
-  const ok = { all: () => true, one: (b) => M.bookStatus(state, b.id).missing.length === 1, many: (b) => M.bookStatus(state, b.id).missing.length > 1 };
+  const ok = { all: () => true, one: (b) => M.bookStatus(state, b.id).missingCopies === 1, many: (b) => M.bookStatus(state, b.id).missingCopies > 1 };
   const list = M.missingBooks(state).filter((b) => (b.title + " " + b.publisher).includes(sQuery)).filter(ok[sFilter] || ok.all);
   const opt = (v, l) => `<option value="${v}" ${v === sFilter ? "selected" : ""}>${l}</option>`;
   return (
@@ -622,7 +622,7 @@ function personFields(kind) {
       <div class="person-input-row"><input name="${kind}Name" maxlength="200" autocomplete="off" placeholder="اكتب الاسم أو اختاره">${kind === "customer" ? `<button type="button" class="contact-pick" data-contact-pick="customer">جهات الاتصال</button>` : ""}</div>
       <div class="person-suggestions" data-suggestions="${kind}" hidden></div>
     </label>
-    <label>رقم هاتف ${kind === "customer" ? "العميل" : "المورد"} (اختياري)<input name="${kind}Phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="رقم الهاتف كاملًا"></label>
+    <label>رقم هاتف ${kind === "customer" ? "العميل" : "المورد"} (اختياري)<input name="${kind}Phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="50" placeholder="رقم الهاتف كاملًا"></label>
     <p class="hint">الاسم ورقم الهاتف اختياريان. اكتب الرقم كاملًا بأي صيغة محلية أو دولية.</p>
   </div>`;
 }

@@ -119,7 +119,7 @@ test("supplier reservation adds nothing until confirmed (new book)", () => {
   assert.equal(s.books.length, 2);
   assert.equal(s.batches.length, 4);
   assert.equal(M.totals(s).spent, spent + 203);
-  assert.deepEqual(M.bookStatus(s, "newbook").missing, [3]);
+  assert.deepEqual(M.bookStatus(s, "newbook").missing, [1, 2, 3]);
   assert.equal(s.reservations[0].status, "confirmed");
   assert.throws(() => M.confirmSupplierReservation(s, "sr1"));
   assert.equal(s.books.length, 2);
@@ -133,7 +133,8 @@ test("supplier reservation for parts of an existing book, with review before con
   M.confirmSupplierReservation(s, "sr2", { date: "2026-03-02", items: [{ part: 2, qty: 1, unit: 700 }, { part: 1, qty: 1, unit: 600 }] });
   assert.equal(M.available(s, "book", 2), 1);
   assert.equal(M.available(s, "book", 1), 3, "extra copy of an existing part is allowed");
-  assert.equal(M.bookStatus(s, "book").complete, true);
+  assert.equal(M.bookStatus(s, "book").complete, false);
+  assert.deepEqual(M.bookStatus(s, "book").missing, [2, 3]);
 });
 
 test("cancelled supplier reservation leaves accounts untouched", () => {
@@ -150,13 +151,13 @@ test("shortages: only incomplete books that have stock; stats separate the cases
   s.books.push({ id: "one", title: "كتاب", publisher: "", volumes: 1, partsTotal: 1, suggested: 0, note: "" });
   s.batches.push({ id: "bo", book: "one", part: 1, unit: 100, qty: 1, extra: 0, date: "2026-01-01" });
   s.books.push({ id: "gone", title: "مباع", publisher: "", volumes: 1, partsTotal: 2, suggested: 0, note: "" });
-  assert.deepEqual(M.missingBooks(s).map((b) => b.id), ["book"]);
-  assert.deepEqual(M.bookStatus(s, "book").missing, [2]);
+  assert.deepEqual(M.missingBooks(s).map((b) => b.id), ["book", "one"]);
+  assert.deepEqual(M.bookStatus(s, "book").missing, [2, 3]);
   const st = M.stats(s);
-  assert.equal(st.complete, 1);
-  assert.equal(st.incomplete, 1);
+  assert.equal(st.complete, 0);
+  assert.equal(st.incomplete, 2);
   assert.equal(st.soldOut, 1);
-  assert.equal(st.missingParts, 1);
+  assert.equal(st.missingParts, 4);
 });
 
 test("sale prices: per-part salePrices override legacy suggested; total is their sum", () => {

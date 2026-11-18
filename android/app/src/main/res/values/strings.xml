@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">تاجر</string>
-    <string name="title_activity_main">تاجر</string>
+    <string name="app_name">الكُتًبٍية</string>
+    <string name="title_activity_main">الكُتًبٍية</string>
     <string name="package_name">com.sufyan.booktracker</string>
     <string name="custom_url_scheme">com.sufyan.booktracker</string>
 </resources>

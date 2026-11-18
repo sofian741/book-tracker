@@ -4,14 +4,16 @@ import "./style.css";
 import "./tajer.css";
 import * as M from "./model.js";
 import * as DB from "./storage.js";
-import { Capacitor } from "@capacitor/core";
+import { Capacitor, registerPlugin } from "@capacitor/core";
 import { Filesystem, Directory } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
 import { esc, num, cash, cashText, pounds, partsWord, owned } from "./fmt.js";
 import { createPricing } from "./pricing.js";
 import { createNav } from "./nav.js";
 
-const VERSION = "1.1.0";
+const ContactPicker = registerPlugin("ContactPicker");
+
+const VERSION = "1.2.0";
 let state,
   tab = "home",
   sub = null,
@@ -36,6 +38,37 @@ let modalEl = null,
   closeArmed = false,
   toastTimer;
 const app = document.querySelector("#app");
+const VIEW_KEY = "kotobiya-view-v1";
+function persistView() {
+  try { localStorage.setItem(VIEW_KEY, JSON.stringify({ tab, sub, resTab, showHistory, query, filter, sort, sQuery, sFilter, peopleKind, peopleFilter, peopleQuery, period, from, to })); } catch {}
+}
+window.addEventListener("pagehide", persistView);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") persistView(); });
+function restoreView() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(VIEW_KEY) || "null");
+    if (!saved || typeof saved !== "object") return;
+    if (["home", "books", "short", "res"].includes(saved.tab)) tab = saved.tab;
+    if (saved.sub && ["settings", "people", "detail", "sold"].includes(saved.sub.t) && (saved.sub.t !== "detail" || state.books.some((b) => b.id === saved.sub.id))) sub = saved.sub;
+    if (["customer", "supplier"].includes(saved.resTab)) resTab = saved.resTab;
+    for (const key of ["showHistory", "query", "filter", "sort", "sQuery", "sFilter", "peopleKind", "peopleFilter", "peopleQuery", "period", "from", "to"]) {
+      if (saved[key] !== undefined) {
+        if (key === "showHistory") showHistory = saved[key];
+        else if (key === "query") query = saved[key];
+        else if (key === "filter") filter = saved[key];
+        else if (key === "sort") sort = saved[key];
+        else if (key === "sQuery") sQuery = saved[key];
+        else if (key === "sFilter") sFilter = saved[key];
+        else if (key === "peopleKind") peopleKind = saved[key];
+        else if (key === "peopleFilter") peopleFilter = saved[key];
+        else if (key === "peopleQuery") peopleQuery = saved[key];
+        else if (key === "period") period = saved[key];
+        else if (key === "from") from = saved[key];
+        else if (key === "to") to = saved[key];
+      }
+    }
+  } catch {}
+}
 const errorMessage = (error) => {
   const message = typeof error?.message === "string" ? error.message.trim() : "";
   return message || "حدث خطأ غير معروف. حاول مرة أخرى.";
@@ -106,15 +139,17 @@ function render() {
   if (!state) return;
   if (!userName()) return onboarding();
   const nm = { home: home, books: books, short: shortages, res: reservations };
-  const content = sub?.t === "settings" ? settings() : sub?.t === "people" ? peopleAnalytics() : sub?.t === "detail" && bookOf(sub.id) ? detail() : ((sub = null), nm[tab]());
+  const content = sub?.t === "settings" ? settings() : sub?.t === "people" ? peopleAnalytics() : sub?.t === "sold" ? soldBooks() : sub?.t === "detail" && bookOf(sub.id) ? detail() : ((sub = null), nm[tab]());
   const t = M.totals(state);
   const badge = (n) => (n ? `<i class="dot">${num(n)}</i>` : "");
   app.innerHTML =
-    `<header><div class="brand">${icon("books")}<div><strong>تاجر</strong><small>كل كتاب… وحسابه</small></div></div>` +
+    `<header><div class="brand">${icon("books")}<div><strong>الكُتًبٍية</strong><small>كل كتاب… وحسابه</small></div></div>` +
     (sub?.t === "people"
       ? button("‹ المحجوزات", "back", 'class="subtle header-link"')
       : tab === "res" && !sub
         ? button("الإحصائيات", "people-stats", 'class="subtle header-link"')
+        : tab === "books" && !sub
+          ? button("الكتب المباعة", "sold-books", 'class="subtle header-link"')
         : tab === "home" && !sub
           ? `<button type="button" class="icon-btn" data-action="settings" aria-label="الإعدادات">${icon("settings")}</button>`
           : `<span class="local">محفوظ على جهازك</span>`) +
@@ -128,9 +163,10 @@ function render() {
       .map(([k, l, n]) => `<button type="button" data-tab="${k}" class="${tab === k && !sub ? "active" : ""}">${icon(k)}<span>${l}</span>${badge(n)}</button>`)
       .join("") +
     `</nav><div id="toast" role="status"></div><dialog id="modal"></dialog>`;
+  persistView();
 }
 function onboarding() {
-  app.innerHTML = `<main class="welcome"><div class="logo">${icon("books")}</div><h1>أهلًا بك في تاجر</h1><p>اكتب اسمك لنبدأ. هيتحفظ على جهازك فقط.</p><form id="name-form" novalidate><label>اسمك<input name="userName" autocomplete="name" maxlength="100"></label><p id="form-error" role="alert"></p><button class="primary wide" type="submit">ابدأ</button></form></main><div id="toast" role="status"></div>`;
+  app.innerHTML = `<main class="welcome"><div class="logo">${icon("books")}</div><h1>أهلًا بك في الكُتًبٍية</h1><p>اكتب اسمك لنبدأ. هيتحفظ على جهازك فقط.</p><form id="name-form" novalidate><label>اسمك<input name="userName" autocomplete="name" maxlength="100"></label><p id="form-error" role="alert"></p><button class="primary wide" type="submit">ابدأ</button></form></main><div id="toast" role="status"></div>`;
   const form = app.querySelector("#name-form");
   form.onsubmit = async (e) => {
     e.preventDefault();
@@ -185,7 +221,7 @@ function home() {
     stat("قيمة المخزون", cash(st.stock), "بتكلفة الشراء · الآن") +
     stat("قيمة المشتريات", cash(st.spent), "كل ما اشتريته فعليًا") +
     stat("عدد الكتب", `${num(st.books)}`, `${num(st.complete)} مكتمل · ${num(st.incomplete)} غير مكتمل`, "", "books") +
-    stat("الأجزاء الناقصة", `${num(st.missingParts)}`, `في ${num(st.incomplete)} كتاب`, "", "short") +
+    stat("النسخ الناقصة", `${num(st.missingParts)}`, `لإكمال نسختين من ${num(st.incomplete)} كتاب`, "", "short") +
     `</div><div class="section-title"><h2>الحجوزات</h2><span>لا تدخل في الأرباح قبل التأكيد</span></div><div class="stats">` +
     stat("حجوزات العملاء", num(st.customerReservations), `ربح متوقع ${cashText(expProfit)}`, "", "res-customer") +
     stat("حجوزات الموردين", num(st.supplierReservations), `قيمة متوقعة ${cashText(supTotal)}`, "", "res-supplier") +
@@ -199,29 +235,31 @@ function home() {
 function searchBox(id, value, ph) {
   return `<label class="search">بحث بالعنوان أو دار النشر<input id="${id}" type="search" placeholder="${ph}" value="${esc(value)}"></label>`;
 }
-function bookCard(b, short = false) {
+function bookCard(b, short = false, sold = false) {
   const st = M.bookStatus(state, b.id),
     q = M.sellable(state, b.id),
     phys = M.available(state, b.id),
     held = M.reserved(state, b.id),
     multi = b.partsTotal > 1,
     total = state.batches.filter((x) => x.book === b.id).reduce((n, x) => n + x.qty, 0);
-  const badge = multi
-    ? `${owned(st.present.length, b.partsTotal)} · ${st.complete ? "مكتمل" : "غير مكتمل"}`
-    : phys > 0 ? `متاح ${num(phys)} ${phys === 1 ? "نسخة" : "نسخ"}` : "تم بيعه";
+  const badge = sold ? "تم بيع كل النسخ" : st.complete
+    ? "مكتمل نسختين"
+    : st.sets > 0 ? `نسخة مكتملة واحدة · ناقص ${num(st.missingCopies)} ${st.missingCopies === 1 ? "نسخة" : "نسخ"}`
+    : `غير مكتمل · ناقص ${num(st.missingCopies)} ${st.missingCopies === 1 ? "نسخة" : "نسخ"}`;
   return (
     `<article class="book"><button type="button" class="book-title" data-book="${b.id}"><span class="book-mark">${icon("books")}</span><span><strong>${esc(b.title)}</strong><small>${bookMetadata(b)}${multi ? " · " + num(b.partsTotal) + " أجزاء" : ""}</small></span></button>` +
-    `<div class="book-info"><span class="badge ${(multi ? st.complete : phys > 0) ? "" : "muted"}">${badge}</span><span>${num(q)} قطعة للبيع${held ? " · محجوز " + num(held) : ""} · تكلفة المتبقي ${cash(bookStock(b.id))}</span></div>` +
-    (short ? `<p class="miss">الأجزاء الناقصة: ${st.missing.map(num).join("، ")}</p>` : "") +
+    `<div class="book-info"><span class="badge ${st.complete && !sold ? "" : "muted"}">${badge}</span><span>${num(q)} قطعة للبيع${held ? " · محجوز " + num(held) : ""} · تكلفة المتبقي ${cash(bookStock(b.id))}</span></div>` +
+    (short ? `<p class="miss">المطلوب لإكمال نسختين: ${st.missing.map((p) => `الجزء ${num(p)} (ناقص ${num(2 - st.quantities[p - 1])})`).join("، ")}</p>` : "") +
     `<div class="actions">` +
-    (short ? button("إضافة", "add-missing", `data-id="${b.id}" class="primary"`) : q ? button("تسجيل بيع", "sell", `data-id="${b.id}" class="primary"`) : "") +
+    (sold ? button("إضافة كتاب مشابه", "copy-book", `data-id="${b.id}" class="primary"`) : short ? button("إضافة نسخة ناقصة", "add-missing", `data-id="${b.id}" class="primary"`) : q ? button("تسجيل بيع", "sell", `data-id="${b.id}" class="primary"`) : "") +
     button("تفاصيل", "detail", `data-id="${b.id}" class="subtle"`) +
     `</div>${short ? "" : `<small class="hint">${num(total)} قطعة تم شراؤها إجمالًا</small>`}</article>`
   );
 }
 function books() {
-  const ok = { all: () => true, available: (b) => M.available(state, b.id) > 0, sold: (b) => M.available(state, b.id) === 0, complete: (b) => M.bookStatus(state, b.id).complete, incomplete: (b) => { const s = M.bookStatus(state, b.id); return s.present.length > 0 && s.missing.length > 0; } };
-  let list = state.books.filter((b) => (b.title + " " + b.publisher).includes(query)).filter(ok[filter] || ok.all);
+  const hidden = (b) => M.available(state, b.id) > 0 && M.sellable(state, b.id) === 0 && M.reserved(state, b.id) > 0;
+  const ok = { all: () => true, available: (b) => M.sellable(state, b.id) > 0, complete: (b) => M.bookStatus(state, b.id).complete, incomplete: (b) => { const s = M.bookStatus(state, b.id); return s.present.length > 0 && !s.complete; } };
+  let list = state.books.filter((b) => M.available(state, b.id) > 0 && !hidden(b) && (b.title + " " + b.publisher).includes(query)).filter(ok[filter] || ok.all);
   if (sort === "name") list = list.slice().sort((a, b) => a.title.localeCompare(b.title, "ar"));
   else list = list.slice().reverse();
   const opt = (v, l, cur) => `<option value="${v}" ${v === cur ? "selected" : ""}>${l}</option>`;
@@ -230,17 +268,22 @@ function books() {
     `<div class="heading"><p class="eyebrow">مكتبتك التجارية</p><h1>الكتب</h1><p>كل عنوان وأجزاؤه، في مكان واحد.</p></div>` +
     button("+ إضافة كتاب", "add", 'class="primary wide"') +
     searchBox("search", query, "ابحث عن كتاب…") +
-    `<div class="toolbar"><select id="filter" aria-label="حالة المخزون">${[["all", "كل الكتب"], ["available", "المتاح"], ["complete", "المكتمل"], ["incomplete", "غير المكتمل"], ["sold", "المباع بالكامل"]].map(([v, l]) => opt(v, l, filter)).join("")}</select><select id="sort" aria-label="ترتيب الكتب">${opt("new", "الأحدث", sort)}${opt("name", "الاسم", sort)}</select></div>` +
+    `<div class="toolbar"><select id="filter" aria-label="حالة المخزون">${[["all", "كل الكتب"], ["available", "المتاح للبيع"], ["complete", "مكتمل نسختين"], ["incomplete", "يحتاج استكمالًا"]].map(([v, l]) => opt(v, l, filter)).join("")}</select><select id="sort" aria-label="ترتيب الكتب">${opt("new", "الأحدث", sort)}${opt("name", "الاسم", sort)}</select></div>` +
     `<div id="book-list">${list.length ? list.map((b) => bookCard(b)).join("") : `<div class="empty"><h2>لا توجد كتب هنا بعد</h2><p>أضف كتابك الأول أو غيّر البحث والفلتر.</p></div>`}</div>` +
     `</div>`
   );
 }
+function soldBooks() {
+  const list = state.books.filter((b) => state.batches.some((x) => x.book === b.id) && M.available(state, b.id) === 0 && M.reserved(state, b.id) === 0)
+    .filter((b) => (b.title + " " + b.publisher).includes(query));
+  return `<div class="books-page sold-books-page"><div class="heading"><p class="eyebrow">أرشيف المخزون المنتهي</p><h1>الكتب المباعة</h1><p>من هنا تقدر تضيف كتابًا مشابهًا ببياناته الأساسية وتعدّلها قبل الحفظ.</p></div>${searchBox("search", query, "ابحث عن كتاب مباع…")}${list.length ? list.slice().reverse().map((b) => bookCard(b, false, true)).join("") : `<div class="empty"><h2>مفيش كتب مباعة بالكامل</h2><p>الكتب اللي يخلص مخزونها هتظهر هنا تلقائيًا.</p></div>`}</div>`;
+}
 function shortages() {
-  const ok = { all: () => true, one: (b) => M.bookStatus(state, b.id).missing.length === 1, many: (b) => M.bookStatus(state, b.id).missing.length > 1 };
+  const ok = { all: () => true, one: (b) => M.bookStatus(state, b.id).missingCopies === 1, many: (b) => M.bookStatus(state, b.id).missingCopies > 1 };
   const list = M.missingBooks(state).filter((b) => (b.title + " " + b.publisher).includes(sQuery)).filter(ok[sFilter] || ok.all);
   const opt = (v, l) => `<option value="${v}" ${v === sFilter ? "selected" : ""}>${l}</option>`;
   return (
-    `<div class="shortages-page"><div class="heading"><p class="eyebrow">كتب ينقصها أجزاء</p><h1>النواقص</h1><p>الكتاب يختفي من هنا بمجرد اكتمال أجزائه.</p></div>` +
+    `<div class="shortages-page"><div class="heading"><p class="eyebrow">كتب ينقصها أجزاء</p><h1>النواقص</h1><p>الكتاب يختفي من هنا بمجرد اكتمال نسختين كاملتين منه.</p></div>` +
     searchBox("s-search", sQuery, "ابحث في النواقص…") +
     `<div class="toolbar"><select id="s-filter" aria-label="فلترة النواقص">${opt("all", "كل النواقص")}${opt("one", "ناقص جزء واحد")}${opt("many", "ناقص أكثر من جزء")}</select></div>` +
     (list.length ? list.map((b) => bookCard(b, true)).join("") : `<div class="empty"><h2>لا توجد نواقص</h2><p>كل كتبك في المخزون مكتملة${sQuery || sFilter !== "all" ? " (أو غيّر البحث والفلتر)" : ""}.</p></div>`) +
@@ -278,21 +321,19 @@ function detail() {
   const chip = (part) => {
     const c = M.available(state, b.id, part),
       r = M.reserved(state, b.id, part);
-    return `<span class="part-chip ${c ? "owned" : "missing"}"><b>الجزء ${num(part)}</b><small>${c ? "متاح · " + num(c) + (c === 1 ? " نسخة" : " نسخ") + (r ? " (محجوز " + num(r) + ")" : "") : "غير موجود"}</small></span>`;
+    const status = c >= 2 ? "متاح " + num(c) + " نسخ" : c === 1 ? "معاك نسخة · ناقص نسخة" : "غير موجود · ناقص نسختين";
+    return '<span class="part-chip ' + (c >= 2 ? "owned" : "missing") + '"><b>الجزء ' + num(part) + '</b><small>' + status + (r ? " (محجوز " + num(r) + ")" : "") + '</small></span>';
   };
   return (
-    button("‹ العودة", "back", 'class="subtle"') +
+    `<div class="book-detail">` + button("‹ العودة", "back", 'class="subtle"') +
     `<h1>${esc(b.title)}</h1><p>${bookMetadata(b)}${multi ? " · " + num(b.partsTotal) + " أجزاء إجمالًا" : ""}</p>` +
     (b.note ? `<p>${esc(b.note)}</p>` : "") +
     `<div class="panel"><dl>` +
-    (multi ? `<dt>الأجزاء الموجودة</dt><dd>${num(st.present.length)} من ${num(b.partsTotal)}</dd><dt>حالة الكتاب</dt><dd>${st.complete ? "مكتمل" : "غير مكتمل"}</dd>` : "") +
+    `<dt>النسخ المكتملة</dt><dd>${st.sets >= 2 ? "مكتمل نسختين" : st.sets === 1 ? "نسخة مكتملة واحدة" : "لا توجد نسخة مكتملة"}</dd><dt>حالة المخزون</dt><dd>${st.complete ? "مكتمل" : "يحتاج استكمالًا"}</dd><dt>النسخ المطلوبة لإكمال نسختين</dt><dd>${num(st.missingCopies)}</dd>` +
     `<dt>عدد القطع المتاحة للبيع</dt><dd>${num(q)}${held ? " (محجوز " + num(held) + ")" : ""}</dd><dt>تكلفة المخزون المتبقي</dt><dd>${cash(bookStock(b.id))}</dd><dt>${gain < 0 ? "الخسارة المحققة" : "صافي الربح المحقق"}</dt><dd>${cash(Math.abs(gain))}</dd>` +
     (M.bookSaleTotal(b) ? `<dt>سعر البيع المسجل للكتاب · ليس إيرادًا</dt><dd>${cash(M.bookSaleTotal(b))}</dd>` : "") +
     `</dl></div>` +
-    (multi
-      ? `<h2>الأجزاء الموجودة</h2><div class="parts-grid">${st.present.map(chip).join("") || '<p class="hint">لا توجد أجزاء متاحة.</p>'}</div><h2>الأجزاء الناقصة</h2>` +
-        (st.missing.length ? `<div class="parts-grid">${st.missing.map(chip).join("")}</div>` : '<p class="good-text">كل أجزاء الكتاب متوفرة عندك 🎉</p>')
-      : "") +
+    `<h2>تفاصيل النسخ حسب الجزء</h2><div class="parts-grid">${Array.from({ length: b.partsTotal }, (_, i) => chip(i + 1)).join("")}</div>` +
     `<div class="actions">` +
     (q ? button("تسجيل بيع", "sell", `data-id="${b.id}" class="primary"`) : "") +
     (tab === "short" && st.missing.length ? button("إضافة الأجزاء الناقصة", "add-missing", `data-id="${b.id}" class="primary"`) : "") +
@@ -300,7 +341,7 @@ function detail() {
     (!sales.length ? button("حذف الكتاب", "delete-book", `data-id="${b.id}" class="danger"`) : "") +
     `</div><h2>دفعات الشراء</h2>` +
     batches.map((x) => `<article class="row"><div><strong>${multi ? "الجزء " + num(x.part) + " · " : ""}${num(x.qty)} ${x.qty === 1 ? "نسخة" : "نسخ"} · ${cash(x.unit)} للنسخة</strong><small>${x.date} · مصاريف الدفعة ${cash(x.extra)}</small><small>الإجمالي ${cash(x.unit * x.qty + x.extra)}</small></div>${button("تصحيح", "edit-batch", `data-id="${x.id}"`)}</article>`).join("") +
-    `<h2>سجل المبيعات</h2>` + saleList(sales)
+    `<h2>سجل المبيعات</h2>` + saleList(sales) + `</div>`
   );
 }
 function resCard(r, history = false) {
@@ -426,7 +467,7 @@ function settings() {
     `<section class="panel"><h2>اسمك</h2><label>الاسم الظاهر في الرئيسية<input id="name-input" value="${esc(userName())}" maxlength="100" autocomplete="name"></label>${button("حفظ الاسم", "save-name", 'class="primary wide"')}</section>` +
     `<section class="panel"><h2>نسخة معك، خارج التطبيق</h2><p>بياناتك محلية على هذا الجهاز. احفظ نسخة احتياطية بانتظام، وقبل حذف التطبيق أو تغيير الهاتف.</p>${button("تصدير نسخة احتياطية", "export", 'class="primary wide"')}<p class="hint">على Android اختر مكان حفظ النسخة أو شاركها من نافذة المشاركة. تأكد من الاحتفاظ بالملف خارج التطبيق.</p><label class="file-button">استرجاع نسخة احتياطية<input id="import" type="file" accept="application/json,.json"></label><p class="hint">الاسترجاع يستبدل كل البيانات بعد التحقق من الملف والتأكيد.</p></section>` +
     `<section class="panel"><h2>كيف تُحسب الأرباح؟</h2><p>تُباع النسخ الأقدم شراءً أولًا (FIFO). الربح = قيمة المبيع − تكلفة الكتب − مصاريف البيع وشحن البائع. الحجز لا يُحسب ربحًا قبل التأكيد، والنسخة المحجوزة لا تُباع لغير صاحبها.</p></section>` +
-    `<section class="panel"><h2>تاجر <bdi>${VERSION}</bdi></h2><p>بسيط، خاص، ويعمل دون إنترنت. بلا حسابات مستخدمين أو تتبع.</p><p class="hint">${Capacitor.isNativePlatform() ? "التخزين: SQLite على الجهاز" : "التخزين في المتصفح: IndexedDB. مسح بيانات الموقع يحذف الدفتر."}</p></section>`
+    `<section class="panel"><h2>الكُتًبٍية <bdi>${VERSION}</bdi></h2><p>بسيط، خاص، ويعمل دون إنترنت. بلا حسابات مستخدمين أو تتبع.</p><p class="hint">${Capacitor.isNativePlatform() ? "التخزين: SQLite على الجهاز" : "التخزين في المتصفح: IndexedDB. مسح بيانات الموقع يحذف الدفتر."}</p></section>`
   );
 }
 
@@ -579,48 +620,74 @@ const dateOf = (f, name, label) => {
 const chips = (parts, sel, attr = "data-part") =>
   parts.map((p) => `<label class="pick"><input type="checkbox" ${attr}="${p}" ${sel.has(p) ? "checked" : ""}><span>${num(p)}</span></label>`).join("");
 function personFields(kind) {
-  const people = M.peopleSummary(state, kind).filter((person) => person.phone || person.name !== "بدون اسم");
-  const names = [...new Set(people.map((person) => person.name).filter(Boolean))];
-  const phones = new Map();
-  for (const person of people) {
-    try {
-      const phone = M.normalizeStoredPhone(person.phone);
-      if (phone) phones.set(phone, person.name);
-    } catch {}
-  }
-  const label = kind === "customer" ? "العميل" : "المورد";
   return `<div class="person-fields">
-    <label>اسم ${label} *<input name="${kind}Name" list="${kind}-names" maxlength="200" autocomplete="off" required placeholder="اكتب الاسم أو اختاره"></label>
-    <datalist id="${kind}-names">${names.map((name) => `<option value="${esc(name)}"></option>`).join("")}</datalist>
-    <label>رقم هاتف ${label} * (11 رقمًا)<input name="${kind}Phone" type="tel" inputmode="numeric" maxlength="11" pattern="[0-9٠-٩۰-۹]{11}" list="${kind}-phones" autocomplete="off" required placeholder="مثال: 01012345678"></label>
-    <datalist id="${kind}-phones">${[...phones].map(([phone, name]) => `<option value="${esc(phone)}" label="${esc(name)}"></option>`).join("")}</datalist>
-    <p class="hint">اختيار اسم أو رقم مسجل يكمّل بيانات الشخص تلقائيًا. رقم الهاتف مطلوب من 11 رقمًا.</p>
+    <label>اسم ${kind === "customer" ? "العميل" : "المورد"} (اختياري)
+      <div class="person-input-row"><input name="${kind}Name" maxlength="200" autocomplete="off" placeholder="اكتب الاسم أو اختاره">${kind === "customer" ? `<button type="button" class="contact-pick" data-contact-pick="customer">جهات الاتصال</button>` : ""}</div>
+      <div class="person-suggestions" data-suggestions="${kind}" hidden></div>
+    </label>
+    <label>رقم هاتف ${kind === "customer" ? "العميل" : "المورد"} (اختياري)<input name="${kind}Phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="50" placeholder="رقم الهاتف كاملًا"></label>
+    <p class="hint">الاسم ورقم الهاتف اختياريان. اكتب الرقم كاملًا بأي صيغة محلية أو دولية.</p>
   </div>`;
 }
 function contactData(f, kind) {
   const name = String(f.get(kind + "Name") || "").trim();
   const rawPhone = String(f.get(kind + "Phone") || "").trim();
-  if (!name) throw Error(`اكتب اسم ${kind === "customer" ? "العميل" : "المورد"}`);
-  if (!rawPhone) throw Error(`اكتب رقم هاتف ${kind === "customer" ? "العميل" : "المورد"}`);
   return { name, phone: M.normalizePhone(rawPhone) };
 }
 function bindPersonSuggestions(d, kind) {
   const people = M.peopleSummary(state, kind).filter((person) => person.phone || person.name !== "بدون اسم");
   const nameInput = d.querySelector(`[name="${kind}Name"]`);
   const phoneInput = d.querySelector(`[name="${kind}Phone"]`);
-  if (!nameInput || !phoneInput) return;
+  const suggestions = d.querySelector(`[data-suggestions="${kind}"]`);
+  if (!nameInput || !phoneInput || !suggestions) return;
+  let matches = [];
+  nameInput.addEventListener("input", () => {
+    const query = nameInput.value.trim().toLocaleLowerCase("ar");
+    matches = query ? people.filter((person) => person.name !== "بدون اسم" && person.name.toLocaleLowerCase("ar").includes(query)).slice(0, 6) : [];
+    suggestions.innerHTML = matches.map((person, index) => `<button type="button" class="person-suggestion" data-person-index="${index}"><strong>${esc(person.name)}</strong><small>${esc(person.phone || "بدون رقم هاتف")}</small></button>`).join("");
+    suggestions.hidden = matches.length === 0;
+  });
+  suggestions.addEventListener("click", (event) => {
+    const choice = event.target.closest("[data-person-index]");
+    if (!choice) return;
+    const person = matches[Number(choice.dataset.personIndex)];
+    if (!person) return;
+    nameInput.value = person.name;
+    phoneInput.value = person.phone || "";
+    suggestions.hidden = true;
+  });
+  nameInput.addEventListener("blur", () => setTimeout(() => { suggestions.hidden = true; }, 150));
   nameInput.addEventListener("change", () => {
     const value = nameInput.value.trim().toLocaleLowerCase("ar");
-    const matches = people.filter((item) => item.name.toLocaleLowerCase("ar") === value && item.phone);
-    if (matches.length !== 1 || phoneInput.value) return;
-    try { phoneInput.value = M.normalizeStoredPhone(matches[0].phone); } catch {}
+    const matchesByName = people.filter((person) => person.name.toLocaleLowerCase("ar") === value && person.phone);
+    if (matchesByName.length === 1 && !phoneInput.value) phoneInput.value = matchesByName[0].phone;
   });
   phoneInput.addEventListener("change", () => {
-    let digits = "";
-    try { digits = M.normalizePhone(phoneInput.value); } catch {}
-    const person = people.find((item) => item.phone === digits);
+    let digits;
+    try { digits = M.normalizePhone(phoneInput.value); } catch { return; }
+    if (!digits) return;
+    const person = people.find((item) => {
+      try { return M.normalizePhone(item.phone) === digits; } catch { return false; }
+    });
     if (person && !nameInput.value.trim()) nameInput.value = person.name;
   });
+  d.addEventListener("click", (event) => {
+    const pick = event.target.closest("[data-contact-pick]");
+    if (pick) chooseContact(pick.dataset.contactPick);
+  });
+}
+async function chooseContact(kind) {
+  if (!Capacitor.isNativePlatform()) return toast("اختيار جهات الاتصال متاح من تطبيق أندرويد فقط");
+  try {
+    const contact = await ContactPicker.pickContact();
+    if (!contact) return;
+    const name = modalEl?.querySelector(`[name="${kind}Name"]`);
+    const phone = modalEl?.querySelector(`[name="${kind}Phone"]`);
+    if (name) name.value = contact.name || "";
+    if (phone) phone.value = contact.phone || "";
+    name?.dispatchEvent(new Event("input", { bubbles: true }));
+    phone?.dispatchEvent(new Event("input", { bubbles: true }));
+  } catch (error) { toast("تعذر فتح جهات الاتصال: " + errorMessage(error)); }
 }
 const reserveFields = (kind) =>
   `<label class="check"><input type="checkbox" name="reserve" id="reserve"><span>إضافة كمحجوز ${kind === "customer" ? "للعميل" : "من المورد"}</span></label><div id="reserve-box" hidden>${field("تاريخ الحجز", "rdate", M.today(), { type: "date" })}</div>`;
@@ -657,22 +724,31 @@ const sortedSet = (s) => [...s].sort((a, b) => a - b);
 const partPricing = (root, o) => createPricing(root, { partLabel: (k) => `سعر الجزء ${num(k)}`, toast, ...o });
 
 /* ---------------- إضافة وتعديل كتاب ---------------- */
-function bookDialog(editId) {
+function bookDialog(editId, copyFrom = null) {
   const old = editId ? bookOf(editId) : null;
-  let N = old ? old.partsTotal : 1,
+  const seed = old || copyFrom;
+  let N = seed ? seed.partsTotal : 1,
     buy = null,
     sell,
     d;
   const picked = new Set();
+  const copies = [];
+  let copiesFinished = false;
   const keys = () => Array.from({ length: N }, (_, i) => i + 1);
-  const buyKeys = () => (N > 1 ? sortedSet(picked) : [1]);
-  const oldPrices = old ? M.bookSalePrices(old) : [];
+  const selectedCounts = () => {
+    const counts = new Map();
+    for (const round of copies) for (const part of round) counts.set(part, (counts.get(part) || 0) + 1);
+    if (!copiesFinished) for (const part of picked) counts.set(part, (counts.get(part) || 0) + 1);
+    return counts;
+  };
+  const buyKeys = () => N > 1 ? [...selectedCounts().keys()].sort((a, b) => a - b) : [1];
+  const oldPrices = seed ? M.bookSalePrices(seed) : [];
   const defs = () => new Map(keys().map((k) => [k, pounds(oldPrices[k - 1] ?? 0)]));
   const html =
-    field("اسم الكتاب *", "title", old?.title || "", { max: 200 }) +
-    field("المحقق", "editor", old?.editor || "", { max: 200 }) +
-    field("المؤلف", "author", old?.author || "", { max: 200 }) +
-    field("دار النشر", "publisher", old?.publisher || "", { max: 200 }) +
+    field("اسم الكتاب *", "title", seed?.title || "", { max: 200 }) +
+    field("المحقق", "editor", seed?.editor || "", { max: 200 }) +
+    field("المؤلف", "author", seed?.author || "", { max: 200 }) +
+    field("دار النشر", "publisher", seed?.publisher || "", { max: 200 }) +
     field("عدد أجزاء الكتاب بالكامل *", "partsTotal", N, { num: 1, max: 4 }) +
     (old ? "" : `<div id="owned-box"></div><div id="buy-box"></div><details class="more"><summary>مصاريف الشراء</summary>${field("تكاليف شراء إضافية للدفعة بالكامل (ج)", "extra", "0", { num: 1 })}${field("تاريخ الشراء", "date", M.today(), { type: "date" })}</details><details class="more" id="supplier-contact" open><summary>بيانات المورد</summary>${personFields("supplier")}</details>`) +
     `<div id="sell-box"></div>` +
@@ -680,10 +756,13 @@ function bookDialog(editId) {
   function renderOwned() {
     const box = d.querySelector("#owned-box");
     if (!box) return;
-    box.innerHTML =
-      N > 1
-        ? `<div class="section-label">اختر الأجزاء اللي معاك دلوقتي *</div><div class="pick-grid">${chips(keys(), picked)}</div><div class="selection-tools"><button type="button" data-pick="all">تحديد الكل</button><button type="button" data-pick="none">إلغاء التحديد</button></div>`
-        : field("عدد النسخ", "qty", "1", { num: 1, max: 6 });
+    if (N > 1) {
+      box.innerHTML = copiesFinished
+        ? `<p class="copy-round-summary">تم تحديد ${num(copies.length)} نسخ من الكتاب</p><button type="button" class="subtle small" data-copy-edit="true">تعديل اختيار النسخ</button>`
+        : `<div class="section-label">اختار أجزاء النسخة رقم ${num(copies.length + 1)} *</div><div class="pick-grid">${chips(keys(), picked)}</div><div class="selection-tools"><button type="button" data-pick="all">تحديد الكل</button><button type="button" data-pick="none">إلغاء التحديد</button></div>${picked.size ? `<div class="copy-question"><span>هل توجد نسخ أخرى من الكتاب؟</span><div><button type="button" data-copy-next="yes">نعم</button><button type="button" data-copy-next="no" class="primary">لا</button></div></div>` : ""}${copies.length ? `<p class="hint">تم تحديد ${num(copies.length)} نسخة حتى الآن.</p>` : ""}`;
+    } else {
+      box.innerHTML = field("عدد النسخ", "qty", "1", { num: 1, max: 6 });
+    }
   }
   function preview() {
     const p = d?.querySelector("#preview");
@@ -691,7 +770,7 @@ function bookDialog(editId) {
     try {
       const r = buy.peek(),
         f = new FormData(d.querySelector("form")),
-        n = N > 1 ? picked.size : count(f, "qty");
+        n = N > 1 ? [...selectedCounts().values()].reduce((sum, qty) => sum + qty, 0) : count(f, "qty");
       p.innerHTML = r.blank ? "أدخل سعر الشراء لعرض الإجمالي" : `إجمالي الدفعة: ${cash(r.total * 100 + readCents(f, "extra"))} · عدد القطع: ${num(n)}`;
     } catch {
       p.textContent = "أدخل السعر والكمية لعرض الإجمالي";
@@ -703,12 +782,13 @@ function bookDialog(editId) {
     if (!Number.isInteger(n) || n < 1 || n > 1000 || n === N) return;
     N = n;
     for (const p of [...picked]) if (p > N) picked.delete(p);
+    for (const round of copies) for (const p of [...round]) if (p > N) round.splice(round.indexOf(p), 1);
     renderOwned();
     buy?.setItems(buyKeys());
-    sell.setItems(keys(), old ? defs() : null);
+    sell.setItems(keys(), seed ? defs() : null);
     preview();
   }
-  d = modal(old ? "تعديل بيانات الكتاب" : "إضافة كتاب", html, async (f) => {
+  d = modal(old ? "تعديل بيانات الكتاب" : seed ? "إضافة كتاب مشابه" : "إضافة كتاب", html, async (f) => {
     const title = (f.get("title") || "").trim();
     if (!title) throw Error("اكتب اسم الكتاب");
     const n = structuredClone(state),
@@ -726,15 +806,15 @@ function bookDialog(editId) {
       await commit(n, "تم تعديل بيانات الكتاب");
       return;
     }
+    if (N > 1 && !copiesFinished) throw Error("حدد هل توجد نسخ أخرى باختيار نعم أو لا");
     const parts = buyKeys();
     if (!parts.length) throw Error("اختر الجزء أو الأجزاء اللي معاك");
-    const br = buy.read();
-    const entries = N > 1 ? br.keys.map((p, i) => ({ part: p, qty: 1, cents: br.prices[i] * 100 })) : [{ part: 1, qty: count(f, "qty", 1, "اكتب عدد النسخ"), cents: br.total * 100 }];
+    const br = buy.read(), counts = selectedCounts();
+    const entries = N > 1 ? br.keys.map((p, i) => ({ part: p, qty: counts.get(p) || 1, cents: br.prices[i] * 100 })) : [{ part: 1, qty: count(f, "qty", 1, "اكتب عدد النسخ"), cents: br.total * 100 }];
     const extra = readCents(f, "extra"),
       b = { id: M.id(), note: "", suggested: 0, ...base };
     if (f.get("reserve") === "on") {
       const rd = reserveData(f, "supplier");
-      if (!rd.name) throw Error("اكتب اسم المورد للحجز");
       const items = entries.map((e) => ({ part: e.part, qty: e.qty, unit: Math.floor(e.cents / e.qty) }));
       const rem = entries.reduce((s, e) => s + e.cents - Math.floor(e.cents / e.qty) * e.qty, 0);
       M.addSupplierReservation(n, { id: M.id(), book: b.id, newBook: { title, editor: base.editor, author: base.author, publisher: base.publisher, note: "", partsTotal: N, suggested: 0, salePrices }, name: rd.name, phone: rd.phone, date: rd.date, items, extra: extra + rem });
@@ -756,11 +836,26 @@ function bookDialog(editId) {
       const p = e.target.dataset?.part;
       if (p) {
         e.target.checked ? picked.add(+p) : picked.delete(+p);
+        renderOwned();
         buy.setItems(buyKeys());
         preview();
       }
     },
     onClick: (e) => {
+      if (e.target.closest("[data-copy-edit]")) {
+        copiesFinished = false;
+        const last = copies.pop() || [];
+        last.forEach((part) => picked.add(part));
+        renderOwned(); buy.setItems(buyKeys()); preview(); return;
+      }
+      const next = e.target.closest("[data-copy-next]")?.dataset.copyNext;
+      if (next) {
+        if (!picked.size) return toast("اختر أجزاء النسخة أولًا");
+        copies.push(sortedSet(picked));
+        picked.clear();
+        copiesFinished = next === "no";
+        renderOwned(); buy.setItems(buyKeys()); preview(); return;
+      }
       const k = e.target.closest("[data-pick]")?.dataset.pick;
       if (!k) return;
       picked.clear();
@@ -777,7 +872,7 @@ function bookDialog(editId) {
     bindReserve(d, "حفظ");
   }
   sell = partPricing(d.querySelector("#sell-box"), { name: "sellTotal", totalLabel: "سعر بيع الكتاب (ج)", detailsLabel: "تفاصيل بيع إضافية", partLabel: (k) => `سعر بيع الجزء ${num(k)}` });
-  sell.setItems(keys(), old ? defs() : null);
+  sell.setItems(keys(), seed ? defs() : null);
   preview();
 }
 
@@ -800,7 +895,7 @@ function addMissingDialog(bookId) {
   };
   const html =
     `<p>${esc(b.title)}</p><div class="section-label">الأجزاء الناقصة — اختر ما اشتريته *</div><div class="pick-grid">${chips(st.missing, picked)}</div>` +
-    (st.present.length ? `<details class="more"><summary>نسخة إضافية من جزء موجود</summary><p class="hint">لو اشتريت نسخة ثانية من جزء عندك بالفعل، اخترها هنا.</p><div class="pick-grid">${chips(st.present, picked)}</div></details>` : "") +
+    (st.present.some((part) => !st.missing.includes(part)) ? `<details class="more"><summary>نسخة إضافية من جزء مكتمل</summary><p class="hint">اختر جزءًا تريد شراء نسخة إضافية منه.</p><div class="pick-grid">${chips(st.present.filter((part) => !st.missing.includes(part)), picked)}</div></details>` : "") +
     `<div id="buy-box"></div><details class="more"><summary>مصاريف الشراء</summary>${field("تكاليف شراء إضافية للدفعة بالكامل (ج)", "extra", "0", { num: 1 })}${field("تاريخ الشراء", "date", M.today(), { type: "date" })}</details><details class="more" open><summary>بيانات المورد</summary>${personFields("supplier")}</details>${reserveFields("supplier")}<p id="preview" class="preview"></p>`;
   d = modal("إضافة أجزاء ناقصة", html, async (f) => {
     if (!picked.size) throw Error("اختر جزءًا واحدًا على الأقل");
@@ -809,7 +904,6 @@ function addMissingDialog(bookId) {
       entries = r.keys.map((p, i) => ({ part: p, qty: 1, cents: r.prices[i] * 100 }));
     if (f.get("reserve") === "on") {
       const rd = reserveData(f, "supplier");
-      if (!rd.name) throw Error("اكتب اسم المورد للحجز");
       M.addSupplierReservation(n, { id: M.id(), book: b.id, name: rd.name, phone: rd.phone, date: rd.date, items: entries.map((e) => ({ part: e.part, qty: 1, unit: e.cents })), extra: readCents(f, "extra") });
       selectTab("res");
       resTab = "supplier";
@@ -873,7 +967,11 @@ function sellDialog(bookId) {
     reserveFields("customer") +
     `<p id="preview" class="preview"></p>`;
   function build(f, final) {
-    const r = final ? price.read() : price.peek();
+    const r = price.peek();
+    if (final && multi) {
+      const inputs = [...d.querySelectorAll("#price-box input[data-pw=price]")];
+      r.prices = inputs.map((input, index) => input.value.trim() === "" ? r.prices[index] ?? 0 : M.wholeMoney(input.value));
+    }
     let items;
     if (!multi) items = [{ part: 1, qty: count(f, "qty", 1, "اكتب عدد النسخ"), unit: r.total * 100 }];
     else {
@@ -911,7 +1009,6 @@ function sellDialog(bookId) {
     x.customerPhone = contact.phone;
     if (f.get("reserve") === "on") {
       const rd = reserveData(f, "customer");
-      if (!rd.name) throw Error("اكتب اسم العميل للحجز");
       M.addCustomerReservation(n, { id: M.id(), book: b.id, name: rd.name, phone: rd.phone, date: rd.date, items: x.items, expenses: x.expenses, shipping: x.shipping, note: x.note });
       selectTab("res");
       resTab = "customer";
@@ -1097,10 +1194,10 @@ function supplierConfirmDialog(r) {
 async function exportBackup() {
   try {
     const raw = JSON.stringify(M.validate(state), null, 2),
-      name = `tajer-backup-${M.today()}.json`;
+      name = `kotobiya-backup-${M.today()}.json`;
     if (Capacitor.isNativePlatform()) {
       const file = await Filesystem.writeFile({ path: `backups/${name}`, recursive: true, data: raw, directory: Directory.Cache, encoding: "utf8" });
-      await Share.share({ title: "نسخة تاجر", url: file.uri, dialogTitle: "احفظ نسخة خارج التطبيق" });
+      await Share.share({ title: "نسخة الكُتًبٍية", url: file.uri, dialogTitle: "احفظ نسخة خارج التطبيق" });
     } else {
       const url = URL.createObjectURL(new Blob([raw], { type: "application/json" })),
         a = document.createElement("a");
@@ -1132,6 +1229,8 @@ async function importFile(imp) {
 /* ---------------- الأحداث والتشغيل ---------------- */
 const actions = {
   add: () => bookDialog(),
+  "sold-books": () => openSub({ t: "sold" }),
+  "copy-book": (id) => bookDialog(null, bookOf(id)),
   settings: () => openSub({ t: "settings" }),
   back: () => history.back(),
   detail: (id) => openSub({ t: "detail", id }),
@@ -1142,7 +1241,7 @@ const actions = {
   "edit-batch": (id) => editBatchDialog(id),
   "res-confirm": resConfirm,
   "res-cancel": resCancel,
-  "people-stats": () => openSub({ t: "people" }),
+  "people-stats": () => { peopleFilter = "all"; peopleQuery = ""; openSub({ t: "people" }); },
   "toggle-history": () => {
     showHistory = !showHistory;
     render();
@@ -1246,11 +1345,12 @@ document.addEventListener("focusin", (e) => {
   }
   if (el.closest?.("dialog")) setTimeout(() => el.scrollIntoView?.({ block: "center" }), 250);
 });
-app.innerHTML = '<div class="empty"><h1>تاجر</h1><p>جارٍ فتح دفترك…</p></div>';
+app.innerHTML = '<div class="empty"><h1>الكُتًبٍية</h1><p>جارٍ فتح دفترك…</p></div>';
 async function init() {
   try {
     await DB.open();
     state = await DB.read();
+    restoreView();
     nav = createNav({ onBack, toast });
     render();
   } catch (e) {

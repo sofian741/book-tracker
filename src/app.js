@@ -1107,7 +1107,13 @@ function editSaleDialog(id) {
     `<details class="more"><summary>مصاريف وتفاصيل إضافية</summary>${field("مصاريف البيع (ج)", "expenses", pounds(x.expenses), { num: 1 })}${field("شحن يتحمله البائع (ج)", "shipping", pounds(x.shipping), { num: 1 })}${field("ملاحظة قصيرة", "note", x.note, { max: 300 })}</details><p class="notice">تعديل سطر البيع ده فقط. باقي الأجزاء في نفس العملية مش هتتغير.</p>`;
   modal("تعديل بيع", html, async (f) => {
     const n = structuredClone(state),
-      line = { ...x, part: multi ? count(f, "part", 1, "رقم الجزء غير صالح") : x.part, qty: count(f, "qty", 1, "اكتب عدد النسخ"), unit: readCents(f, "unit", x.unit), expenses: readCents(f, "expenses", x.expenses), shipping: readCents(f, "shipping", x.shipping), date: dateOf(f, "date", "تاريخ البيع"), note: (f.get("note") || "").trim() };
+      readVisibleMoney = (name, original) => {
+        const raw = String(d.querySelector(`input[name="${name}"]`)?.value ?? "").trim();
+        if (!raw) return 0;
+        if (raw === String(pounds(original))) return original;
+        return whole(raw, "أدخل مبلغًا بأرقام صحيحة فقط") * 100;
+      },
+      line = { ...x, part: multi ? count(f, "part", 1, "رقم الجزء غير صالح") : x.part, qty: count(f, "qty", 1, "اكتب عدد النسخ"), unit: readVisibleMoney("unit", x.unit), expenses: readVisibleMoney("expenses", x.expenses), shipping: readVisibleMoney("shipping", x.shipping), date: dateOf(f, "date", "تاريخ البيع"), note: (f.get("note") || "").trim() };
     if (line.unit < 1) throw Error("اكتب سعر البيع (أكبر من صفر)");
     n.sales[n.sales.findIndex((s) => s.id === id)] = line;
     M.recalculate(n);

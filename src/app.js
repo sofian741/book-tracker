@@ -725,8 +725,16 @@ function bookDialog(editId, copyFrom = null) {
     sell,
     d;
   const picked = new Set();
+  const copies = [];
+  let copiesFinished = false;
   const keys = () => Array.from({ length: N }, (_, i) => i + 1);
-  const buyKeys = () => (N > 1 ? sortedSet(picked) : [1]);
+  const selectedCounts = () => {
+    const counts = new Map();
+    for (const round of copies) for (const part of round) counts.set(part, (counts.get(part) || 0) + 1);
+    if (!copiesFinished) for (const part of picked) counts.set(part, (counts.get(part) || 0) + 1);
+    return counts;
+  };
+  const buyKeys = () => N > 1 ? [...selectedCounts().keys()].sort((a, b) => a - b) : [1];
   const oldPrices = seed ? M.bookSalePrices(seed) : [];
   const defs = () => new Map(keys().map((k) => [k, pounds(oldPrices[k - 1] ?? 0)]));
   const html =
@@ -741,10 +749,13 @@ function bookDialog(editId, copyFrom = null) {
   function renderOwned() {
     const box = d.querySelector("#owned-box");
     if (!box) return;
-    box.innerHTML =
-      N > 1
-        ? `<div class="section-label">اختر الأجزاء اللي معاك دلوقتي *</div><div class="pick-grid">${chips(keys(), picked)}</div><div class="selection-tools"><button type="button" data-pick="all">تحديد الكل</button><button type="button" data-pick="none">إلغاء التحديد</button></div>`
-        : field("عدد النسخ", "qty", "1", { num: 1, max: 6 });
+    if (N > 1) {
+      box.innerHTML = copiesFinished
+        ? `<p class="copy-round-summary">تم تحديد ${num(copies.length)} نسخ من الكتاب</p><button type="button" class="subtle small" data-copy-edit="true">تعديل اختيار النسخ</button>`
+        : `<div class="section-label">اختار أجزاء النسخة رقم ${num(copies.length + 1)} *</div><div class="pick-grid">${chips(keys(), picked)}</div><div class="selection-tools"><button type="button" data-pick="all">تحديد الكل</button><button type="button" data-pick="none">إلغاء التحديد</button></div>${picked.size ? `<div class="copy-question"><span>هل توجد نسخ أخرى من الكتاب؟</span><div><button type="button" data-copy-next="yes">نعم</button><button type="button" data-copy-next="no" class="primary">لا</button></div></div>` : ""}${copies.length ? `<p class="hint">تم تحديد ${num(copies.length)} نسخة حتى الآن.</p>` : ""}`;
+    } else {
+      box.innerHTML = field("عدد النسخ", "qty", "1", { num: 1, max: 6 });
+    }
   }
   function preview() {
     const p = d?.querySelector("#preview");
@@ -752,7 +763,7 @@ function bookDialog(editId, copyFrom = null) {
     try {
       const r = buy.peek(),
         f = new FormData(d.querySelector("form")),
-        n = N > 1 ? picked.size : count(f, "qty");
+        n = N > 1 ? [...selectedCounts().values()].reduce((sum, qty) => sum + qty, 0) : count(f, "qty");
       p.innerHTML = r.blank ? "أدخل سعر الشراء لعرض الإجمالي" : `إجمالي الدفعة: ${cash(r.total * 100 + readCents(f, "extra"))} · عدد القطع: ${num(n)}`;
     } catch {
       p.textContent = "أدخل السعر والكمية لعرض الإجمالي";
@@ -764,6 +775,7 @@ function bookDialog(editId, copyFrom = null) {
     if (!Number.isInteger(n) || n < 1 || n > 1000 || n === N) return;
     N = n;
     for (const p of [...picked]) if (p > N) picked.delete(p);
+    for (const round of copies) for (const p of [...round]) if (p > N) round.splice(round.indexOf(p), 1);
     renderOwned();
     buy?.setItems(buyKeys());
     sell.setItems(keys(), seed ? defs() : null);
@@ -787,10 +799,11 @@ function bookDialog(editId, copyFrom = null) {
       await commit(n, "تم تعديل بيانات الكتاب");
       return;
     }
+    if (N > 1 && !copiesFinished) throw Error("حدد هل توجد نسخ أخرى باختيار نعم أو لا");
     const parts = buyKeys();
     if (!parts.length) throw Error("اختر الجزء أو الأجزاء اللي معاك");
-    const br = buy.read();
-    const entries = N > 1 ? br.keys.map((p, i) => ({ part: p, qty: 1, cents: br.prices[i] * 100 })) : [{ part: 1, qty: count(f, "qty", 1, "اكتب عدد النسخ"), cents: br.total * 100 }];
+    const br = buy.read(), counts = selectedCounts();
+    const entries = N > 1 ? br.keys.map((p, i) => ({ part: p, qty: counts.get(p) || 1, cents: br.prices[i] * 100 })) : [{ part: 1, qty: count(f, "qty", 1, "اكتب عدد النسخ"), cents: br.total * 100 }];
     const extra = readCents(f, "extra"),
       b = { id: M.id(), note: "", suggested: 0, ...base };
     if (f.get("reserve") === "on") {
@@ -816,11 +829,26 @@ function bookDialog(editId, copyFrom = null) {
       const p = e.target.dataset?.part;
       if (p) {
         e.target.checked ? picked.add(+p) : picked.delete(+p);
+        renderOwned();
         buy.setItems(buyKeys());
         preview();
       }
     },
     onClick: (e) => {
+      if (e.target.closest("[data-copy-edit]")) {
+        copiesFinished = false;
+        const last = copies.pop() || [];
+        last.forEach((part) => picked.add(part));
+        renderOwned(); buy.setItems(buyKeys()); preview(); return;
+      }
+      const next = e.target.closest("[data-copy-next]")?.dataset.copyNext;
+      if (next) {
+        if (!picked.size) return toast("اختر أجزاء النسخة أولًا");
+        copies.push(sortedSet(picked));
+        picked.clear();
+        copiesFinished = next === "no";
+        renderOwned(); buy.setItems(buyKeys()); preview(); return;
+      }
       const k = e.target.closest("[data-pick]")?.dataset.pick;
       if (!k) return;
       picked.clear();

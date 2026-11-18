@@ -456,9 +456,7 @@ export function peopleSummary(s, kind) {
   const ensure = (name, phone, fallback) => {
     const cleanName = String(name ?? "").trim();
     const digits = phoneDigits(phone);
-    const displayPhone = digits.length === 12 && digits.startsWith("20")
-      ? "0" + digits.slice(2)
-      : digits;
+    const displayPhone = normalizeStoredPhone(phone);
     const normalizedName = cleanName.toLocaleLowerCase("ar").replace(/\s+/g, " ");
     const key = digits ? "phone:" + digits : normalizedName ? "name:" + normalizedName : "record:" + fallback;
     if (!people.has(key)) people.set(key, {

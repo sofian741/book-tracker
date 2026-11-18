@@ -47,7 +47,11 @@ async function addBook(page, o = {}) {
 }
 async function fillCustomer(page, name = "عميل تجريبي", phone = "01011112222") {
   await dlg(page).locator('input[name=customerName]').fill(name);
-  await dlg(page).locator('input[name=customerPhone]').fill(phone);
+  const phoneInput = dlg(page).locator('input[name=customerPhone]');
+  await phoneInput.fill(phone);
+  await expect(phoneInput).toHaveValue(phone);
+  const submittedPhone = await dlg(page).locator("form").evaluate((form) => new FormData(form).get("customerPhone"));
+  expect(submittedPhone).toBe(phone);
 }
 async function rateReview(page, rating = 5, note = "تم التعامل بنجاح") {
   await dlg(page).locator(`input[name=reviewRating][value="${rating}"]`).check({ force: true });

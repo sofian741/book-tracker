@@ -646,7 +646,7 @@ function personFields(kind) {
   return `<div class="person-fields">
     <div class="person-name-field"><label for="${kind}-name">اسم ${label} (اختياري)</label><div class="person-input-row"><input id="${kind}-name" name="${kind}Name" maxlength="200" autocomplete="off" placeholder="اكتب الاسم هنا"><button type="button" class="contact-pick" data-contact-pick="${kind}">👤 جهات الاتصال</button></div></div>
     <div class="person-suggestions" data-suggestions="${kind}" hidden></div>
-    <label>رقم هاتف ${label} (اختياري)<input name="${kind}Phone" type="tel" inputmode="tel" autocomplete="off" maxlength="50" placeholder="رقم الهاتف كاملًا"></label>
+    <label>رقم هاتف ${label} (اختياري)<input name="${kind}Phone" type="text" inputmode="tel" autocomplete="off" maxlength="50" placeholder="رقم الهاتف كاملًا"></label>
     <p class="hint">الاسم ورقم الهاتف اختياريان. اضغط «جهات الاتصال» بجوار الاسم لاختيارهما تلقائيًا.</p>
   </div>`;
 }

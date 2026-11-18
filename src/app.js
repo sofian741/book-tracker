@@ -1190,7 +1190,7 @@ function supplierConfirmDialog(r) {
 async function exportBackup() {
   try {
     const raw = JSON.stringify(M.validate(state), null, 2),
-      name = `tajer-backup-${M.today()}.json`;
+      name = `kotobiya-backup-${M.today()}.json`;
     if (Capacitor.isNativePlatform()) {
       const file = await Filesystem.writeFile({ path: `backups/${name}`, recursive: true, data: raw, directory: Directory.Cache, encoding: "utf8" });
       await Share.share({ title: "نسخة الكُتًبٍية", url: file.uri, dialogTitle: "احفظ نسخة خارج التطبيق" });

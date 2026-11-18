@@ -1051,6 +1051,7 @@ function editSaleDialog(id) {
     const n = structuredClone(state),
       line = { ...x, part: multi ? count(f, "part", 1, "رقم الجزء غير صالح") : x.part, qty: count(f, "qty", 1, "اكتب عدد النسخ"), unit: readCents(f, "unit", x.unit), expenses: readCents(f, "expenses", x.expenses), shipping: readCents(f, "shipping", x.shipping), date: dateOf(f, "date", "تاريخ البيع"), note: (f.get("note") || "").trim() };
     if (line.unit < 1) throw Error("اكتب سعر البيع (أكبر من صفر)");
+    if (line.expenses > 1000000 || line.shipping > 1000000) throw Error("DEBUG edit sale values: expenses=" + line.expenses + ", shipping=" + line.shipping + ", unit=" + line.unit);
     n.sales[n.sales.findIndex((s) => s.id === id)] = line;
     M.recalculate(n);
     await commit(n, "تم تعديل البيع وإعادة حساب الأرباح");

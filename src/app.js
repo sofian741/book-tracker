@@ -42,6 +42,8 @@ const VIEW_KEY = "kotobiya-view-v1";
 function persistView() {
   try { localStorage.setItem(VIEW_KEY, JSON.stringify({ tab, sub, resTab, showHistory, query, filter, sort, sQuery, sFilter, peopleKind, peopleFilter, peopleQuery, period, from, to })); } catch {}
 }
+window.addEventListener("pagehide", persistView);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") persistView(); });
 function restoreView() {
   try {
     const saved = JSON.parse(localStorage.getItem(VIEW_KEY) || "null");

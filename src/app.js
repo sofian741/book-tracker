@@ -143,7 +143,7 @@ function render() {
   const t = M.totals(state);
   const badge = (n) => (n ? `<i class="dot">${num(n)}</i>` : "");
   app.innerHTML =
-    `<header><div class="brand">${icon("books")}<div><strong>الكُتًبٍية</strong><small>كل كتاب… وحسابه</small></div></div>` +
+    `<header><div class="brand">${icon("books")}<div><strong>الكتبية</strong><small>كل كتاب… وحسابه</small></div></div>` +
     (sub?.t === "people"
       ? button("‹ المحجوزات", "back", 'class="subtle header-link"')
       : tab === "res" && !sub
@@ -166,7 +166,7 @@ function render() {
   persistView();
 }
 function onboarding() {
-  app.innerHTML = `<main class="welcome"><div class="logo">${icon("books")}</div><h1>أهلًا بك في الكُتًبٍية</h1><p>اكتب اسمك لنبدأ. هيتحفظ على جهازك فقط.</p><form id="name-form" novalidate><label>اسمك<input name="userName" autocomplete="name" maxlength="100"></label><p id="form-error" role="alert"></p><button class="primary wide" type="submit">ابدأ</button></form></main><div id="toast" role="status"></div>`;
+  app.innerHTML = `<main class="welcome"><div class="logo">${icon("books")}</div><h1>أهلًا بك في الكتبية</h1><p>اكتب اسمك لنبدأ. هيتحفظ على جهازك فقط.</p><form id="name-form" novalidate><label>اسمك<input name="userName" autocomplete="name" maxlength="100"></label><p id="form-error" role="alert"></p><button class="primary wide" type="submit">ابدأ</button></form></main><div id="toast" role="status"></div>`;
   const form = app.querySelector("#name-form");
   form.onsubmit = async (e) => {
     e.preventDefault();
@@ -489,7 +489,7 @@ function settings() {
     `<section class="panel"><h2>اسمك</h2><label>الاسم الظاهر في الرئيسية<input id="name-input" value="${esc(userName())}" maxlength="100" autocomplete="name"></label>${button("حفظ الاسم", "save-name", 'class="primary wide"')}</section>` +
     `<section class="panel"><h2>نسخة معك، خارج التطبيق</h2><p>بياناتك محلية على هذا الجهاز. احفظ نسخة احتياطية بانتظام، وقبل حذف التطبيق أو تغيير الهاتف.</p>${button("تصدير نسخة احتياطية", "export", 'class="primary wide"')}<p class="hint">على Android اختر مكان حفظ النسخة أو شاركها من نافذة المشاركة. تأكد من الاحتفاظ بالملف خارج التطبيق.</p><label class="file-button">استرجاع نسخة احتياطية<input id="import" type="file" accept="application/json,.json"></label><p class="hint">الاسترجاع يستبدل كل البيانات بعد التحقق من الملف والتأكيد.</p></section>` +
     `<section class="panel"><h2>كيف تُحسب الأرباح؟</h2><p>تُباع النسخ الأقدم شراءً أولًا (FIFO). الربح = قيمة المبيع − تكلفة الكتب − مصاريف البيع وشحن البائع. الحجز لا يُحسب ربحًا قبل التأكيد، والنسخة المحجوزة لا تُباع لغير صاحبها.</p></section>` +
-    `<section class="panel"><h2>الكُتًبٍية <bdi>${VERSION}</bdi></h2><p>بسيط، خاص، ويعمل دون إنترنت. بلا حسابات مستخدمين أو تتبع.</p><p class="hint">${Capacitor.isNativePlatform() ? "التخزين: SQLite على الجهاز" : "التخزين في المتصفح: IndexedDB. مسح بيانات الموقع يحذف الدفتر."}</p></section>`
+    `<section class="panel"><h2>الكتبية <bdi>${VERSION}</bdi></h2><p>بسيط، خاص، ويعمل دون إنترنت. بلا حسابات مستخدمين أو تتبع.</p><p class="hint">${Capacitor.isNativePlatform() ? "التخزين: SQLite على الجهاز" : "التخزين في المتصفح: IndexedDB. مسح بيانات الموقع يحذف الدفتر."}</p></section>`
   );
 }
 
@@ -1255,7 +1255,7 @@ async function exportBackup() {
       name = `kotobiya-backup-${M.today()}.json`;
     if (Capacitor.isNativePlatform()) {
       const file = await Filesystem.writeFile({ path: `backups/${name}`, recursive: true, data: raw, directory: Directory.Cache, encoding: "utf8" });
-      await Share.share({ title: "نسخة الكُتًبٍية", url: file.uri, dialogTitle: "احفظ نسخة خارج التطبيق" });
+      await Share.share({ title: "نسخة الكتبية", url: file.uri, dialogTitle: "احفظ نسخة خارج التطبيق" });
     } else {
       const url = URL.createObjectURL(new Blob([raw], { type: "application/json" })),
         a = document.createElement("a");
@@ -1403,7 +1403,7 @@ document.addEventListener("focusin", (e) => {
   }
   if (el.closest?.("dialog")) setTimeout(() => el.scrollIntoView?.({ block: "center" }), 250);
 });
-app.innerHTML = '<div class="empty"><h1>الكُتًبٍية</h1><p>جارٍ فتح دفترك…</p></div>';
+app.innerHTML = '<div class="empty"><h1>الكتبية</h1><p>جارٍ فتح دفترك…</p></div>';
 async function init() {
   try {
     await DB.open();

@@ -18,10 +18,8 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 public class ContactPickerPlugin extends Plugin {
     @PluginMethod
     public void pickContact(PluginCall call) {
-        Intent intent = new Intent(
-            Intent.ACTION_PICK,
-            ContactsContract.CommonDataKinds.Phone.CONTENT_URI
-        );
+        Intent intent = new Intent(Intent.ACTION_PICK);
+        intent.setType(ContactsContract.CommonDataKinds.Phone.CONTENT_TYPE);
         startActivityForResult(call, intent, "contactPicked");
     }
 

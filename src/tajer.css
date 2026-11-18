@@ -341,3 +341,57 @@ input.manual { border-color: var(--gold); background: #fffaf0; }
   .book-detail dl { grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
   .book-detail dd { max-width: 52%; }
 }
+
+
+/* تفاصيل الكتاب: بطاقات مختصرة وواضحة بدل قائمة أرقام متزاحمة */
+.book-detail { display: flex; flex-direction: column; gap: 8px; }
+.detail-title { margin: 6px 0 10px; }
+.detail-title h1 { margin-top: 2px; }
+.detail-meta { display: flex; flex-direction: column; gap: 3px; color: var(--muted); font-size: .82rem; }
+.detail-note { padding: 12px 14px; border-right: 3px solid var(--gold); border-radius: 8px; background: #f5f2e9; }
+.detail-section { margin: 18px 0 8px; }
+.detail-section > h2 { margin: 0 0 12px; font-size: 1.04rem; }
+.detail-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.detail-metric {
+  min-width: 0; min-height: 112px; display: flex; flex-direction: column;
+  justify-content: center; gap: 5px; padding: 14px;
+  border: 1px solid var(--line); border-radius: 15px; background: #fff;
+}
+.detail-metric small { color: var(--muted); font-size: .76rem; font-weight: 700; }
+.detail-metric strong { color: var(--ink); font-size: 1.42rem; line-height: 1.45; font-weight: 800; overflow-wrap: anywhere; }
+.detail-metric span { color: #7b857f; font-size: .68rem; line-height: 1.6; }
+.detail-metric.complete-metric { border-color: #d0e1d2; background: #f1f7f1; }
+.detail-metric.complete-metric strong { color: var(--green); }
+.detail-metric.short-metric { border-color: #eadbc8; background: #fff8ef; }
+.detail-metric.short-metric strong { color: #96652f; }
+.financial-metrics .detail-metric { min-height: 102px; }
+.part-detail-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.part-detail-card { min-width: 0; padding: 13px; border: 1px solid var(--line); border-radius: 14px; background: #fff; }
+.part-detail-card.needs-part { border-color: #e8d8c5; background: #fffaf4; }
+.part-detail-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 9px; border-bottom: 1px solid var(--line); }
+.part-detail-head strong { font-size: .92rem; }
+.part-detail-head span { color: var(--muted); font-size: .72rem; }
+.part-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 8px; padding-top: 10px; }
+.part-detail-grid div { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.part-detail-grid small { color: var(--muted); font-size: .67rem; }
+.part-detail-grid b { color: var(--ink); font-size: .92rem; }
+.part-detail-card.needs-part .part-detail-grid div:nth-child(3) b { color: #96652f; }
+.shortage-summary { display: flex; flex-direction: column; gap: 4px; margin: 10px 0; padding: 11px 13px; border: 1px solid #eadbc8; border-radius: 11px; background: #fff8ef; }
+.shortage-summary strong { color: #8c5c2e; font-size: .82rem; }
+.shortage-summary span { color: #6d716b; font-size: .76rem; line-height: 1.75; }
+.missing-parts-list { display: grid; gap: 8px; margin: 14px 0; }
+.missing-part-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 13px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+.missing-part-row > span { display: flex; flex-direction: column; gap: 3px; }
+.missing-part-row strong { font-size: .88rem; }
+.missing-part-row small { color: var(--muted); font-size: .72rem; }
+.missing-part-row input { width: 94px; min-width: 94px; margin: 0; text-align: center; }
+.contact-pick { display: block; width: 100%; margin: 10px 0 6px; border: 1px solid #cddfd1; border-radius: 12px; background: #eff6ef; color: var(--green); font-size: .84rem; }
+.person-fields .contact-pick { min-height: 48px; }
+@media (max-width: 390px) {
+  .detail-metric { min-height: 104px; padding: 12px 10px; }
+  .detail-metric strong { font-size: 1.22rem; }
+  .part-detail-list { grid-template-columns: 1fr; }
+  .missing-part-row input { width: 82px; min-width: 82px; }
+}
+
+.person-input-row .contact-pick { width: auto; min-width: 108px; min-height: 46px; margin: 0; padding-inline: 10px; font-size: .76rem; white-space: nowrap; }

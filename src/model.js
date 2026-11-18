@@ -173,34 +173,51 @@ export function bookStatus(s, bookId) {
   const total = b ? b.partsTotal : 0;
   const quantities = Array.from({ length: total }, (_, i) => available(s, bookId, i + 1));
   const present = quantities.map((qty, i) => qty > 0 ? i + 1 : 0).filter(Boolean);
-  // A complete title means two complete physical copies, not merely one copy of each part.
-  const missing = quantities.map((qty, i) => qty < 2 ? i + 1 : 0).filter(Boolean);
-  const missingCopies = quantities.reduce((sum, qty) => sum + Math.max(0, 2 - qty), 0);
-  const sets = quantities.length ? Math.min(...quantities) : 0;
-  return { total, present, missing, missingCopies, quantities, sets, complete: !!total && missing.length === 0 };
+
+  // One complete copy contains exactly one of every declared part.
+  const completeCopies = quantities.length ? Math.min(...quantities) : 0;
+  // Leftover parts after allocating complete copies form incomplete copies.
+  const extraParts = quantities.map((qty) => qty - completeCopies);
+  const incompleteCopies = extraParts.length ? Math.max(...extraParts) : 0;
+  // How many of each part are still needed to complete all leftover copies.
+  const missingCounts = extraParts.map((qty) => incompleteCopies - qty);
+  const missing = missingCounts.map((qty, i) => qty > 0 ? i + 1 : 0).filter(Boolean);
+  const missingParts = missingCounts.reduce((sum, qty) => sum + qty, 0);
+
+  return {
+    total,
+    present,
+    quantities,
+    completeCopies,
+    incompleteCopies,
+    extraParts,
+    missingCounts,
+    missing,
+    missingParts,
+    // Backwards-compatible fields for existing callers and old UI code.
+    sets: completeCopies,
+    missingCopies: missingParts,
+    complete: !!total && completeCopies > 0,
+  };
 }
-/** Titles with at least one physical item that still need copies to make two complete sets. */
+/** Titles that have at least one unfinished physical copy, even when a complete copy also exists. */
 export const missingBooks = (s) =>
-  s.books.filter((b) => {
-    const st = bookStatus(s, b.id);
-    return st.present.length > 0 && st.missing.length > 0;
-  });
+  s.books.filter((b) => bookStatus(s, b.id).incompleteCopies > 0);
 export function stats(s) {
   const t = totals(s);
-  let inStock = 0, complete = 0, incomplete = 0, soldOut = 0, missingParts = 0;
+  let inStock = 0, complete = 0, incomplete = 0, soldOut = 0, missingParts = 0, incompleteCopies = 0;
   for (const b of s.books) {
     const st = bookStatus(s, b.id);
     if (!st.present.length) soldOut++;
-    else {
-      inStock++;
-      if (st.complete) complete++;
-      else {
-        incomplete++;
-        missingParts += st.missingCopies;
-      }
+    else inStock++;
+    if (st.complete) complete++;
+    if (st.incompleteCopies > 0) {
+      incomplete++;
+      incompleteCopies += st.incompleteCopies;
+      missingParts += st.missingParts;
     }
   }
-  return { ...t, books: s.books.length, inStock, complete, incomplete, soldOut, missingParts };
+  return { ...t, books: s.books.length, inStock, complete, incomplete, incompleteCopies, soldOut, missingParts };
 }
 
 /* ---------- التخصيص (FIFO) ---------- */

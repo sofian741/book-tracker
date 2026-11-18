@@ -32,6 +32,7 @@ async function addBook(page, o = {}) {
   if (parts > 1) {
     await dlg(page).getByLabel("عدد أجزاء الكتاب بالكامل *").fill(String(parts));
     for (const p of owned) await dlg(page).locator(`[data-part="${p}"]`).check({ force: true });
+    await dlg(page).locator('[data-copy-next="no"]').click();
   } else if (qty) await dlg(page).getByLabel("عدد النسخ", { exact: true }).fill(String(qty));
   await dlg(page).locator("input[name=buyTotal]").fill(buy);
   if (extra) {
@@ -65,7 +66,7 @@ async function sellSingle(page, price = "750", shipping = "30") {
 
 test("first run asks for the name once, greets by name, settings top-left and renamable", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByText("أهلًا بك في تاجر")).toBeVisible();
+  await expect(page.getByText("أهلًا بك في الكُتًبٍية")).toBeVisible();
   await page.locator("input[name=userName]").fill("");
   await page.getByRole("button", { name: "ابدأ", exact: true }).click();
   await expect(page.locator("#form-error")).toContainText("اكتب اسمك");
@@ -124,6 +125,7 @@ test("purchase price distribution: 100 over 3, edit one, redistribute, all manua
   await dlg(page).locator('input[name=supplierPhone]').fill("01022233344");
   await dlg(page).getByLabel("عدد أجزاء الكتاب بالكامل *").fill("3");
   for (const p of [1, 2, 3]) await dlg(page).locator(`[data-part="${p}"]`).check({ force: true });
+  await dlg(page).locator('[data-copy-next="no"]').click();
   await dlg(page).locator("input[name=buyTotal]").fill("100");
   await dlg(page).getByText("تفاصيل شراء إضافية").click();
   const rows = dlg(page).locator("#buy-box input[data-pw=price]");

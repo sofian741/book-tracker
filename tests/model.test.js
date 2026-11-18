@@ -503,25 +503,32 @@ test("legacy international and new local phone formats identify the same person"
   assert.equal(people[0].transactions, 1);
 });
 
-test("a title is complete only after two full physical copies exist", () => {
+test("one of every part is one complete book; an extra single part is an incomplete copy", () => {
   const s = setup();
-  s.books[0].partsTotal = 2;
+  s.books[0].partsTotal = 3;
   s.batches.push(
-    { id: "copy-a1", book: "book", part: 1, unit: 1000, qty: 1, extra: 0, date: "2026-01-01" },
-    { id: "copy-a2", book: "book", part: 2, unit: 1000, qty: 1, extra: 0, date: "2026-01-01" },
+    { id: "complete-1", book: "book", part: 1, unit: 1000, qty: 1, extra: 0, date: "2026-01-01" },
+    { id: "complete-2", book: "book", part: 2, unit: 1000, qty: 1, extra: 0, date: "2026-01-01" },
+    { id: "complete-3", book: "book", part: 3, unit: 1000, qty: 1, extra: 0, date: "2026-01-01" },
+    { id: "extra-part-2", book: "book", part: 2, unit: 1000, qty: 1, extra: 0, date: "2026-01-02" },
   );
   let status = M.bookStatus(s, "book");
-  assert.equal(status.complete, false);
-  assert.equal(status.sets, 1);
-  assert.equal(status.missingCopies, 2);
-  assert.deepEqual(status.missing, [1, 2]);
+  assert.equal(status.complete, true);
+  assert.equal(status.completeCopies, 1);
+  assert.equal(status.incompleteCopies, 1);
+  assert.deepEqual(status.extraParts, [0, 1, 0]);
+  assert.deepEqual(status.missingCounts, [1, 0, 1]);
+  assert.deepEqual(status.missing, [1, 3]);
+  assert.equal(status.missingParts, 2);
+  assert.deepEqual(M.missingBooks(s).map((item) => item.id), ["book"]);
+
   s.batches.push(
-    { id: "copy-b1", book: "book", part: 1, unit: 1000, qty: 1, extra: 0, date: "2026-01-02" },
-    { id: "copy-b2", book: "book", part: 2, unit: 1000, qty: 1, extra: 0, date: "2026-01-02" },
+    { id: "extra-part-1", book: "book", part: 1, unit: 1000, qty: 1, extra: 0, date: "2026-01-03" },
+    { id: "extra-part-3", book: "book", part: 3, unit: 1000, qty: 1, extra: 0, date: "2026-01-03" },
   );
   status = M.bookStatus(s, "book");
-  assert.equal(status.complete, true);
-  assert.equal(status.sets, 2);
-  assert.equal(status.missingCopies, 0);
+  assert.equal(status.completeCopies, 2);
+  assert.equal(status.incompleteCopies, 0);
   assert.deepEqual(status.missing, []);
+  assert.equal(M.missingBooks(s).length, 0);
 });

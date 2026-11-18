@@ -632,6 +632,8 @@ function personFields(kind) {
 function contactData(f, kind) {
   const name = String(f.get(kind + "Name") || "").trim();
   const rawPhone = String(f.get(kind + "Phone") || "").trim();
+  const domPhone = String(modalEl?.querySelector(`[name="${kind}Phone"]`)?.value || "").trim();
+  if (domPhone && !rawPhone) throw Error("DEBUG contact FormData missed phone input: " + domPhone);
   return { name, phone: M.normalizePhone(rawPhone) };
 }
 function bindPersonSuggestions(d, kind) {

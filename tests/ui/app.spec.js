@@ -66,7 +66,7 @@ async function sellSingle(page, price = "750", shipping = "30") {
 
 test("first run asks for the name once, greets by name, settings top-left and renamable", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByText("أهلًا بك في الكُتًبٍية")).toBeVisible();
+  await expect(page.getByText("أهلًا بك في الكتبية")).toBeVisible();
   await page.locator("input[name=userName]").fill("");
   await page.getByRole("button", { name: "ابدأ", exact: true }).click();
   await expect(page.locator("#form-error")).toContainText("اكتب اسمك");

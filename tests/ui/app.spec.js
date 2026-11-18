@@ -368,7 +368,7 @@ test("customer reservation: no sale/profit, stock held, confirm once, then real 
   await expect(page.locator(".res")).toContainText("كتاب محجوز");
   await expect(page.locator(".res")).toContainText("أحمد");
   await nav(page, "الرئيسية");
-  await expect(page.locator(".stat.green")).toContainText("0");
+  await expect(page.locator(".home-page")).toContainText("0");
   await expect(page.locator("main")).toContainText("ربح متوقع 200 ج");
   await nav(page, "الكتب");
   await expect(page.locator(".book")).toContainText("1 قطعة للبيع");
@@ -389,7 +389,7 @@ test("customer reservation: no sale/profit, stock held, confirm once, then real 
   await closed(page);
   await expect(page.locator(".res")).toHaveCount(0);
   await nav(page, "الرئيسية");
-  await expect(page.locator(".stat.green")).toContainText("400");
+  await expect(page.locator(".home-page")).toContainText("400");
   await expect(page.locator("main")).toContainText("حجوزات العملاء");
 });
 

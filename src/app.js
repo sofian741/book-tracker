@@ -632,8 +632,6 @@ function personFields(kind) {
 function contactData(f, kind) {
   const name = String(f.get(kind + "Name") || "").trim();
   const rawPhone = String(f.get(kind + "Phone") || "").trim();
-  const domPhone = String(modalEl?.querySelector(`[name="${kind}Phone"]`)?.value || "").trim();
-  if (domPhone && !rawPhone) throw Error("DEBUG contact FormData missed phone input: " + domPhone);
   return { name, phone: M.normalizePhone(rawPhone) };
 }
 function bindPersonSuggestions(d, kind) {
@@ -980,7 +978,7 @@ function sellDialog(bookId) {
       if (!r.keys.length) throw Error("اختر جزءًا واحدًا على الأقل");
       items = r.keys.map((k, i) => ({ part: k, qty: 1, unit: r.prices[i] * 100 }));
     }
-    if (items.some((i) => i.unit < 1)) throw Error("DEBUG sell values: mode=" + mode + "; keys=" + r.keys.join(",") + "; prices=" + r.prices.join(",") + "; inputs=" + [...d.querySelectorAll("#price-box input[data-pw=price]")].map((el) => el.value).join(",") + "; items=" + items.map((i) => i.unit).join(","));
+    if (items.some((i) => i.unit < 1)) throw Error("اكتب سعر البيع (أكبر من صفر)");
     return { items, expenses: readCents(f, "expenses"), shipping: readCents(f, "shipping"), date: dateOf(f, "date", "تاريخ البيع"), note: (f.get("note") || "").trim() };
   }
   function preview() {
@@ -1053,7 +1051,6 @@ function editSaleDialog(id) {
     const n = structuredClone(state),
       line = { ...x, part: multi ? count(f, "part", 1, "رقم الجزء غير صالح") : x.part, qty: count(f, "qty", 1, "اكتب عدد النسخ"), unit: readCents(f, "unit", x.unit), expenses: readCents(f, "expenses", x.expenses), shipping: readCents(f, "shipping", x.shipping), date: dateOf(f, "date", "تاريخ البيع"), note: (f.get("note") || "").trim() };
     if (line.unit < 1) throw Error("اكتب سعر البيع (أكبر من صفر)");
-    if (line.expenses > 1000000 || line.shipping > 1000000) throw Error("DEBUG edit sale values: expenses=" + line.expenses + ", shipping=" + line.shipping + ", unit=" + line.unit);
     n.sales[n.sales.findIndex((s) => s.id === id)] = line;
     M.recalculate(n);
     await commit(n, "تم تعديل البيع وإعادة حساب الأرباح");

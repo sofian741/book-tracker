@@ -32,7 +32,6 @@ async function addBook(page, o = {}) {
   if (parts > 1) {
     await dlg(page).getByLabel("عدد أجزاء الكتاب بالكامل *").fill(String(parts));
     for (const p of owned) await dlg(page).locator(`[data-part="${p}"]`).check({ force: true });
-    await dlg(page).locator('[data-copy-next="no"]').click();
   } else if (qty) await dlg(page).getByLabel("عدد النسخ", { exact: true }).fill(String(qty));
   await dlg(page).locator("input[name=buyTotal]").fill(buy);
   if (extra) {
@@ -269,55 +268,70 @@ test("default numeric values are selected on focus so typing replaces them", asy
   await expect(ship).toHaveValue("0");
 });
 
-test("shortages track the copies needed to build two complete sets", async ({ page }) => {
+test("one complete book plus an extra single part is shown as one incomplete copy", async ({ page }) => {
   await start(page);
-  await addBook(page, { title: "موسوعة العلوم", parts: 2, owned: [1], buy: "100", extra: "", publisher: "دار التجربة", editor: "محقق التجربة", author: "مؤلف التجربة" });
-  await addBook(page, { title: "كتاب مكتمل", qty: 2, buy: "50", extra: "" });
+  await page.getByRole("button", { name: "+ إضافة كتاب" }).first().click();
+  await dlg(page).getByLabel("اسم الكتاب *").fill("موسوعة بأجزاء");
+  await dlg(page).getByLabel("عدد أجزاء الكتاب بالكامل *").fill("3");
+  for (const part of [1, 2, 3]) await dlg(page).locator(`[data-part="${part}"]`).check({ force: true });
+  await dlg(page).locator('[data-copy-next="yes"]').click();
+  await dlg(page).locator('[data-part="2"]').check({ force: true });
+  await expect(dlg(page).getByText("هل توجد نسخ أخرى من الكتاب؟")).toBeVisible();
+  // Do not press نعم or لا: saving must finish the selected copy as لا.
+  await dlg(page).locator("input[name=buyTotal]").fill("120");
+  await save(page);
+  await closed(page);
+
+  await nav(page, "الكتب");
+  await expect(page.locator(".book")).toContainText("1 كتاب كامل · 1 نسخة ناقصة");
   await nav(page, "النواقص");
   await expect(page.locator(".book")).toHaveCount(1);
-  await expect(page.locator(".book")).toContainText("موسوعة العلوم");
-  await expect(page.locator(".book")).toContainText("ناقص 3 نسخ");
-  await expect(page.locator(".shortages-page .book")).toHaveCSS("border-radius", "16px");
-  await expect(page.locator(".shortages-page .book-metadata .metadata-line")).toHaveCount(3);
-  await expect(page.locator(".shortages-page .book-metadata")).toHaveCSS("flex-direction", "column");
-  await expect(page.locator("main")).not.toContainText("كتاب مكتمل");
+  await expect(page.locator(".book")).toContainText("1 نسخة غير مكتملة");
+  await expect(page.locator(".book")).toContainText("الجزء 1: ناقص 1");
+  await expect(page.locator(".book")).toContainText("الجزء 3: ناقص 1");
 
-  await page.getByRole("button", { name: "إضافة نسخة ناقصة", exact: true }).click();
-  await expect(dlg(page).locator(".pick-grid").first().locator(".pick")).toHaveCount(2);
-  await dlg(page).locator('[data-part="2"]').check({ force: true });
-  await dlg(page).locator("input[name=buyTotal]").fill("40");
-  await dlg(page).locator('input[name=supplierName]').fill("مورد النواقص");
+  await page.getByRole("button", { name: "إضافة الأجزاء الناقصة", exact: true }).click();
+  await dlg(page).locator('input[name="missingQty1"]').fill("1");
+  await dlg(page).locator('input[name="missingQty3"]').fill("1");
+  await dlg(page).locator("input[name=buyTotal]").fill("80");
+  await dlg(page).locator('input[name=supplierName]').fill("مورد الاستكمال");
   await dlg(page).locator('input[name=supplierPhone]').fill("01055566677");
   await save(page);
   await closed(page);
-  await expect(page.locator(".book")).toContainText("ناقص 2 نسخ");
-
-  await page.getByRole("button", { name: "إضافة نسخة ناقصة", exact: true }).click();
-  for (const part of [1, 2]) await dlg(page).locator(`[data-part="${part}"]`).check({ force: true });
-  await dlg(page).locator('input[name=supplierName]').fill("مورد النسخ الثانية");
-  await dlg(page).locator('input[name=supplierPhone]').fill("01077788899");
-  await dlg(page).locator("input[name=buyTotal]").fill("100");
-  await save(page);
-  await closed(page);
-  await expect(page.locator(".book")).toHaveCount(0);
-  await expect(page.getByText("لا توجد نواقص")).toBeVisible();
+  await expect(page.locator(".shortages-page")).toContainText("لا توجد نواقص");
   await nav(page, "الكتب");
-  await expect(page.locator(".book").first()).toContainText("مكتمل نسختين");
+  await expect(page.locator(".book")).toContainText("2 كتاب كامل");
 });
 
-test("an extra copy of a part completes its second-copy target", async ({ page }) => {
+test("multiple incomplete copies show the required quantity for each missing part", async ({ page }) => {
   await start(page);
-  await addBook(page, { title: "كتاب ثلاثة", parts: 3, owned: [1], buy: "30", extra: "" });
-  await nav(page, "النواقص");
-  await page.getByRole("button", { name: "إضافة نسخة ناقصة", exact: true }).click();
-  await dlg(page).locator('.pick-grid').first().locator('[data-part="1"]').check({ force: true });
-  await dlg(page).locator("input[name=buyTotal]").fill("35");
-  await dlg(page).locator('input[name=supplierName]').fill("مورد النسخ");
-  await dlg(page).locator('input[name=supplierPhone]').fill("01066677788");
+  await page.getByRole("button", { name: "+ إضافة كتاب" }).first().click();
+  await dlg(page).getByLabel("اسم الكتاب *").fill("ثلاث نسخ غير مكتملة");
+  await dlg(page).getByLabel("عدد أجزاء الكتاب بالكامل *").fill("3");
+  for (const part of [1, 2, 3]) await dlg(page).locator(`[data-part="${part}"]`).check({ force: true });
+  await dlg(page).locator('[data-copy-next="yes"]').click();
+  await dlg(page).locator('[data-part="2"]').check({ force: true });
+  await dlg(page).locator('[data-copy-next="yes"]').click();
+  await dlg(page).locator('[data-part="2"]').check({ force: true });
+  // Last selected copy is saved as the final (لا) round automatically.
+  await dlg(page).locator("input[name=buyTotal]").fill("150");
   await save(page);
   await closed(page);
-  await page.getByRole("button", { name: "تفاصيل", exact: true }).click();
-  await expect(page.locator(".part-chip.owned")).toContainText("متاح 2 نسخ");
+
+  await nav(page, "النواقص");
+  await expect(page.locator(".book")).toContainText("2 نسخة غير مكتملة");
+  await expect(page.locator(".book")).toContainText("الجزء 1: ناقص 2");
+  await expect(page.locator(".book")).toContainText("الجزء 3: ناقص 2");
+
+  await page.getByRole("button", { name: "إضافة الأجزاء الناقصة", exact: true }).click();
+  await dlg(page).locator('input[name="missingQty1"]').fill("2");
+  await dlg(page).locator('input[name="missingQty3"]').fill("2");
+  await dlg(page).locator("input[name=buyTotal]").fill("160");
+  await save(page);
+  await closed(page);
+  await expect(page.locator(".shortages-page")).toContainText("لا توجد نواقص");
+  await nav(page, "الكتب");
+  await expect(page.locator(".book")).toContainText("3 كتاب كامل");
 });
 
 test("partial and whole sales of a multi-part book with exact profit", async ({ page }) => {

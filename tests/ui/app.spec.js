@@ -218,7 +218,7 @@ test("customer contact picker button is visible beside the contact fields", asyn
   await start(page);
   await addBook(page, { title: "كتاب اختيار العميل", buy: "100", extra: "" });
   await page.getByRole("button", { name: "تسجيل بيع", exact: true }).first().click();
-  const picker = dlg(page).getByRole("button", { name: /جهات الاتصالات/ });
+  const picker = dlg(page).getByRole("button", { name: /جهات الاتصال/ });
   await expect(picker).toBeVisible();
   await picker.click();
   await expect(dlg(page).locator("#form-error")).toContainText("تطبيق أندرويد فقط");

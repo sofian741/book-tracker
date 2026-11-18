@@ -1099,13 +1099,14 @@ function editSaleDialog(id) {
   const x = state.sales.find((s) => s.id === id),
     b = bookOf(x.book),
     multi = b.partsTotal > 1;
+  let d;
   const html =
     `<p>${esc(b.title)}</p>` + (multi ? field("رقم الجزء", "part", x.part, { num: 1, max: 4 }) : "") +
     field("عدد النسخ المباعة *", "qty", x.qty, { num: 1, max: 6 }) +
     field("سعر بيع النسخة الواحدة (ج) *", "unit", pounds(x.unit), { num: 1 }) +
     field("تاريخ البيع *", "date", x.date, { type: "date" }) +
     `<details class="more"><summary>مصاريف وتفاصيل إضافية</summary>${field("مصاريف البيع (ج)", "expenses", pounds(x.expenses), { num: 1 })}${field("شحن يتحمله البائع (ج)", "shipping", pounds(x.shipping), { num: 1 })}${field("ملاحظة قصيرة", "note", x.note, { max: 300 })}</details><p class="notice">تعديل سطر البيع ده فقط. باقي الأجزاء في نفس العملية مش هتتغير.</p>`;
-  modal("تعديل بيع", html, async (f) => {
+  d = modal("تعديل بيع", html, async (f) => {
     const n = structuredClone(state),
       readVisibleMoney = (name, original) => {
         const raw = String(d.querySelector(`input[name="${name}"]`)?.value ?? "").trim();

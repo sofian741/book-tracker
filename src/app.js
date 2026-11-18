@@ -697,22 +697,23 @@ const sortedSet = (s) => [...s].sort((a, b) => a - b);
 const partPricing = (root, o) => createPricing(root, { partLabel: (k) => `سعر الجزء ${num(k)}`, toast, ...o });
 
 /* ---------------- إضافة وتعديل كتاب ---------------- */
-function bookDialog(editId) {
+function bookDialog(editId, copyFrom = null) {
   const old = editId ? bookOf(editId) : null;
-  let N = old ? old.partsTotal : 1,
+  const seed = old || copyFrom;
+  let N = seed ? seed.partsTotal : 1,
     buy = null,
     sell,
     d;
   const picked = new Set();
   const keys = () => Array.from({ length: N }, (_, i) => i + 1);
   const buyKeys = () => (N > 1 ? sortedSet(picked) : [1]);
-  const oldPrices = old ? M.bookSalePrices(old) : [];
+  const oldPrices = seed ? M.bookSalePrices(seed) : [];
   const defs = () => new Map(keys().map((k) => [k, pounds(oldPrices[k - 1] ?? 0)]));
   const html =
-    field("اسم الكتاب *", "title", old?.title || "", { max: 200 }) +
-    field("المحقق", "editor", old?.editor || "", { max: 200 }) +
-    field("المؤلف", "author", old?.author || "", { max: 200 }) +
-    field("دار النشر", "publisher", old?.publisher || "", { max: 200 }) +
+    field("اسم الكتاب *", "title", seed?.title || "", { max: 200 }) +
+    field("المحقق", "editor", seed?.editor || "", { max: 200 }) +
+    field("المؤلف", "author", seed?.author || "", { max: 200 }) +
+    field("دار النشر", "publisher", seed?.publisher || "", { max: 200 }) +
     field("عدد أجزاء الكتاب بالكامل *", "partsTotal", N, { num: 1, max: 4 }) +
     (old ? "" : `<div id="owned-box"></div><div id="buy-box"></div><details class="more"><summary>مصاريف الشراء</summary>${field("تكاليف شراء إضافية للدفعة بالكامل (ج)", "extra", "0", { num: 1 })}${field("تاريخ الشراء", "date", M.today(), { type: "date" })}</details><details class="more" id="supplier-contact" open><summary>بيانات المورد</summary>${personFields("supplier")}</details>`) +
     `<div id="sell-box"></div>` +
@@ -748,7 +749,7 @@ function bookDialog(editId) {
     sell.setItems(keys(), old ? defs() : null);
     preview();
   }
-  d = modal(old ? "تعديل بيانات الكتاب" : "إضافة كتاب", html, async (f) => {
+  d = modal(old ? "تعديل بيانات الكتاب" : seed ? "إضافة كتاب مشابه" : "إضافة كتاب", html, async (f) => {
     const title = (f.get("title") || "").trim();
     if (!title) throw Error("اكتب اسم الكتاب");
     const n = structuredClone(state),
@@ -1172,6 +1173,8 @@ async function importFile(imp) {
 /* ---------------- الأحداث والتشغيل ---------------- */
 const actions = {
   add: () => bookDialog(),
+  "sold-books": () => openSub({ t: "sold" }),
+  "copy-book": (id) => bookDialog(null, bookOf(id)),
   settings: () => openSub({ t: "settings" }),
   back: () => history.back(),
   detail: (id) => openSub({ t: "detail", id }),

@@ -220,7 +220,7 @@ function home() {
     `</div><div class="section-title"><h2>المخزون</h2></div><div class="stats">` +
     stat("قيمة المخزون", cash(st.stock), "بتكلفة الشراء · الآن") +
     stat("قيمة المشتريات", cash(st.spent), "كل ما اشتريته فعليًا") +
-    stat("عدد الكتب", `${num(st.books)}`, `${num(st.complete)} مكتمل · ${num(st.incomplete)} غير مكتمل`, "", "books") +
+    stat("عدد الكتب", `${num(st.books)}`, `${num(st.complete)} له كتاب كامل · ${num(st.incomplete)} له نسخ ناقصة`, "", "books") +
     stat("النسخ غير المكتملة", `${num(st.incompleteCopies)}`, `${num(st.missingParts)} جزء ناقص لإكمالها`, "", "short") +
     `</div><div class="section-title"><h2>الحجوزات</h2><span>لا تدخل في الأرباح قبل التأكيد</span></div><div class="stats">` +
     stat("حجوزات العملاء", num(st.customerReservations), `ربح متوقع ${cashText(expProfit)}`, "", "res-customer") +
@@ -289,8 +289,8 @@ function shortages() {
   return (
     `<div class="shortages-page"><div class="heading"><p class="eyebrow">كتب ينقصها أجزاء</p><h1>النواقص</h1><p>قد يكون للكتاب نسخة كاملة، ومع ذلك تظهر هنا أي نسخة إضافية غير مكتملة منه.</p></div>` +
     searchBox("s-search", sQuery, "ابحث في النواقص…") +
-    `<div class="toolbar"><select id="s-filter" aria-label="فلترة النواقص">${opt("all", "كل النواقص")}${opt("one", "ناقص جزء واحد")}${opt("many", "ناقص أكثر من جزء")}</select></div>` +
-    (list.length ? list.map((b) => bookCard(b, true)).join("") : `<div class="empty"><h2>لا توجد نواقص</h2><p>كل كتبك في المخزون مكتملة${sQuery || sFilter !== "all" ? " (أو غيّر البحث والفلتر)" : ""}.</p></div>`) +
+    `<div class="toolbar"><select id="s-filter" aria-label="فلترة النواقص">${opt("all", "كل النواقص")}${opt("one", "نسخة ناقصة واحدة")}${opt("many", "أكثر من نسخة ناقصة")}</select></div>` +
+    (list.length ? list.map((b) => bookCard(b, true)).join("") : `<div class="empty"><h2>لا توجد نواقص</h2><p>لا توجد نسخ غير مكتملة في المخزون${sQuery || sFilter !== "all" ? " (أو غيّر البحث والفلتر)" : ""}.</p></div>`) +
     `</div>`
   );
 }

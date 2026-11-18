@@ -999,7 +999,6 @@ function sellDialog(bookId) {
     x.customerPhone = contact.phone;
     if (f.get("reserve") === "on") {
       const rd = reserveData(f, "customer");
-      if (!rd.name) throw Error("اكتب اسم العميل للحجز");
       M.addCustomerReservation(n, { id: M.id(), book: b.id, name: rd.name, phone: rd.phone, date: rd.date, items: x.items, expenses: x.expenses, shipping: x.shipping, note: x.note });
       selectTab("res");
       resTab = "customer";

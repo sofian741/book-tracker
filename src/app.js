@@ -644,11 +644,10 @@ const chips = (parts, sel, attr = "data-part") =>
 function personFields(kind) {
   const label = kind === "customer" ? "العميل" : "المورد";
   return `<div class="person-fields">
-    <label>اسم ${label} (اختياري)<input name="${kind}Name" maxlength="200" autocomplete="off" placeholder="اكتب الاسم هنا"></label>
+    <label>اسم ${label} (اختياري)<div class="person-input-row"><input name="${kind}Name" maxlength="200" autocomplete="off" placeholder="اكتب الاسم هنا"><button type="button" class="contact-pick" data-contact-pick="${kind}">👤 جهات الاتصال</button></div></label>
     <div class="person-suggestions" data-suggestions="${kind}" hidden></div>
     <label>رقم هاتف ${label} (اختياري)<input name="${kind}Phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="50" placeholder="رقم الهاتف كاملًا"></label>
-    <button type="button" class="contact-pick wide" data-contact-pick="${kind}">👤 اختيار الاسم والرقم من جهات الاتصال</button>
-    <p class="hint">الاسم ورقم الهاتف اختياريان. يمكنك كتابتهما أو اختيارهما مباشرة من جهات الاتصال.</p>
+    <p class="hint">الاسم ورقم الهاتف اختياريان. اضغط «جهات الاتصال» بجوار الاسم لاختيارهما تلقائيًا.</p>
   </div>`;
 }
 function contactData(f, kind) {

@@ -322,30 +322,48 @@ function detail() {
     q = M.sellable(state, b.id),
     gain = sales.reduce((n, x) => n + M.profit(x), 0),
     held = M.reserved(state, b.id);
-  const chip = (part) => {
-    const c = M.available(state, b.id, part),
-      r = M.reserved(state, b.id, part);
-    const status = c >= 2 ? "متاح " + num(c) + " نسخ" : c === 1 ? "معاك نسخة · ناقص نسخة" : "غير موجود · ناقص نسختين";
-    return '<span class="part-chip ' + (c >= 2 ? "owned" : "missing") + '"><b>الجزء ' + num(part) + '</b><small>' + status + (r ? " (محجوز " + num(r) + ")" : "") + '</small></span>';
-  };
+  const parts = Array.from({ length: b.partsTotal }, (_, index) => {
+    const part = index + 1,
+      physical = st.quantities[index],
+      reserved = M.reserved(state, b.id, part),
+      extra = st.extraParts[index],
+      missing = st.missingCounts[index],
+      sellable = M.sellable(state, b.id, part);
+    return `<article class="part-detail-card ${missing ? "needs-part" : ""}">
+      <div class="part-detail-head"><strong>الجزء ${num(part)}</strong><span>${num(physical)} في المخزون</span></div>
+      <div class="part-detail-grid">
+        <div><small>داخل كتب كاملة</small><b>${num(st.completeCopies)}</b></div>
+        <div><small>داخل نسخ ناقصة</small><b>${num(extra)}</b></div>
+        <div><small>ناقص لإكمالها</small><b>${num(missing)}</b></div>
+        <div><small>متاح للبيع</small><b>${num(sellable)}</b></div>
+        <div><small>محجوز</small><b>${num(reserved)}</b></div>
+      </div>
+    </article>`;
+  }).join("");
   return (
     `<div class="book-detail">` + button("‹ العودة", "back", 'class="subtle"') +
-    `<h1>${esc(b.title)}</h1><p>${bookMetadata(b)}${multi ? " · " + num(b.partsTotal) + " أجزاء إجمالًا" : ""}</p>` +
-    (b.note ? `<p>${esc(b.note)}</p>` : "") +
-    `<div class="panel"><dl>` +
-    `<dt>النسخ المكتملة</dt><dd>${st.sets >= 2 ? "مكتمل نسختين" : st.sets === 1 ? "نسخة مكتملة واحدة" : "لا توجد نسخة مكتملة"}</dd><dt>حالة المخزون</dt><dd>${st.complete ? "مكتمل" : "يحتاج استكمالًا"}</dd><dt>النسخ المطلوبة لإكمال نسختين</dt><dd>${num(st.missingCopies)}</dd>` +
-    `<dt>عدد القطع المتاحة للبيع</dt><dd>${num(q)}${held ? " (محجوز " + num(held) + ")" : ""}</dd><dt>تكلفة المخزون المتبقي</dt><dd>${cash(bookStock(b.id))}</dd><dt>${gain < 0 ? "الخسارة المحققة" : "صافي الربح المحقق"}</dt><dd>${cash(Math.abs(gain))}</dd>` +
-    (M.bookSaleTotal(b) ? `<dt>سعر البيع المسجل للكتاب · ليس إيرادًا</dt><dd>${cash(M.bookSaleTotal(b))}</dd>` : "") +
-    `</dl></div>` +
-    `<h2>تفاصيل النسخ حسب الجزء</h2><div class="parts-grid">${Array.from({ length: b.partsTotal }, (_, i) => chip(i + 1)).join("")}</div>` +
+    `<div class="detail-title"><p class="eyebrow">تفاصيل المخزون</p><h1>${esc(b.title)}</h1><div class="detail-meta">${bookMetadata(b)}${multi ? `<span class="metadata-line">عدد أجزاء الكتاب: ${num(b.partsTotal)}</span>` : ""}</div></div>` +
+    (b.note ? `<p class="detail-note">${esc(b.note)}</p>` : "") +
+    `<section class="detail-section"><h2>ملخص النسخ</h2><div class="detail-metrics">
+      <article class="detail-metric complete-metric"><small>كتب كاملة</small><strong>${num(st.completeCopies)}</strong><span>كل جزء موجود مرة لكل كتاب</span></article>
+      <article class="detail-metric ${st.incompleteCopies ? "short-metric" : ""}"><small>نسخ غير مكتملة</small><strong>${num(st.incompleteCopies)}</strong><span>نسخ زائدة ينقصها جزء أو أكثر</span></article>
+      <article class="detail-metric"><small>أجزاء ناقصة</small><strong>${num(st.missingParts)}</strong><span>لاستكمال النسخ الزائدة</span></article>
+      <article class="detail-metric"><small>أجزاء متاحة للبيع</small><strong>${num(q)}</strong><span>${held ? `منها ${num(held)} جزء محجوز` : "غير محجوزة"}</span></article>
+    </div></section>` +
+    `<section class="detail-section"><h2>المخزون حسب الجزء</h2><p class="hint">كل مجموعة أجزاء كاملة تُحسب كتابًا واحدًا. والكمية الزائدة من أي جزء تُكوّن نسخة غير مكتملة تظهر في صفحة النواقص.</p><div class="part-detail-list">${parts}</div></section>` +
+    `<section class="detail-section"><h2>الأرقام المالية</h2><div class="detail-metrics financial-metrics">
+      <article class="detail-metric"><small>تكلفة المخزون المتبقي</small><strong>${cash(bookStock(b.id))}</strong><span>قيمة ما لم يُبع بعد</span></article>
+      <article class="detail-metric ${gain < 0 ? "short-metric" : "complete-metric"}"><small>${gain < 0 ? "الخسارة المحققة" : "صافي الربح المحقق"}</small><strong>${cash(Math.abs(gain))}</strong><span>من المبيعات الفعلية</span></article>
+      ${M.bookSaleTotal(b) ? `<article class="detail-metric"><small>سعر البيع المسجل</small><strong>${cash(M.bookSaleTotal(b))}</strong><span>سعر مقترح، وليس إيرادًا</span></article>` : ""}
+    </div></section>` +
     `<div class="actions">` +
     (q ? button("تسجيل بيع", "sell", `data-id="${b.id}" class="primary"`) : "") +
-    (tab === "short" && st.missing.length ? button("إضافة الأجزاء الناقصة", "add-missing", `data-id="${b.id}" class="primary"`) : "") +
+    (st.incompleteCopies ? button("إضافة الأجزاء الناقصة", "add-missing", `data-id="${b.id}" class="primary"`) : "") +
     button("تعديل الكتاب", "edit-book", `data-id="${b.id}"`) +
-    (!sales.length ? button("حذف الكتاب", "delete-book", `data-id="${b.id}" class="danger"`) : "") +
-    `</div><h2>دفعات الشراء</h2>` +
-    batches.map((x) => `<article class="row"><div><strong>${multi ? "الجزء " + num(x.part) + " · " : ""}${num(x.qty)} ${x.qty === 1 ? "نسخة" : "نسخ"} · ${cash(x.unit)} للنسخة</strong><small>${x.date} · مصاريف الدفعة ${cash(x.extra)}</small><small>الإجمالي ${cash(x.unit * x.qty + x.extra)}</small></div>${button("تصحيح", "edit-batch", `data-id="${x.id}"`)}</article>`).join("") +
-    `<h2>سجل المبيعات</h2>` + saleList(sales) + `</div>`
+    (!sales.length && !batches.length ? button("حذف الكتاب", "delete-book", `data-id="${b.id}" class="danger"`) : "") +
+    `</div><section class="detail-section"><h2>دفعات الشراء</h2>` +
+    (batches.length ? batches.map((x) => `<article class="row"><div><strong>${multi ? "الجزء " + num(x.part) + " · " : ""}${num(x.qty)} ${x.qty === 1 ? "نسخة" : "نسخ"} · ${cash(x.unit)} للنسخة</strong><small>${x.date} · مصاريف الدفعة ${cash(x.extra)}</small><small>الإجمالي ${cash(x.unit * x.qty + x.extra)}</small></div>${button("تصحيح", "edit-batch", `data-id="${x.id}"`)}</article>`).join("") : '<p class="hint">لا توجد دفعات شراء مسجلة.</p>') +
+    `</section><section class="detail-section"><h2>سجل المبيعات</h2>` + saleList(sales) + `</section></div>`
   );
 }
 function resCard(r, history = false) {

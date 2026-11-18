@@ -194,7 +194,7 @@ test("multi-part book entry repeats the copy question until the user finishes", 
   await save(page);
   await closed(page);
   await nav(page, "الكتب");
-  await expect(page.locator(".book")).toContainText("مكتمل نسختين");
+  await expect(page.locator(".book")).toContainText("2 كتاب كامل");
 });
 
 test("sold books move to their archive and can be copied into a new editable book", async ({ page }) => {
@@ -212,6 +212,16 @@ test("sold books move to their archive and can be copied into a new editable boo
   await save(page);
   await closed(page);
   await expect(page.locator(".books-page")).toContainText("كتاب مشابه جديد");
+});
+
+test("customer contact picker button is visible beside the contact fields", async ({ page }) => {
+  await start(page);
+  await addBook(page, { title: "كتاب اختيار العميل", buy: "100", extra: "" });
+  await page.getByRole("button", { name: "تسجيل بيع", exact: true }).first().click();
+  const picker = dlg(page).getByRole("button", { name: "اختيار الاسم والرقم من جهات الاتصال" });
+  await expect(picker).toBeVisible();
+  await picker.click();
+  await expect(dlg(page).locator("#form-error")).toContainText("Android فقط");
 });
 
 test("customer name and phone are optional and long pasted numbers are preserved", async ({ page }) => {
@@ -589,8 +599,8 @@ test("missing parts can be reserved from a supplier for an existing book, then c
   await start(page);
   await addBook(page, { title: "موسوعة", parts: 3, owned: [1], buy: "30", extra: "" });
   await nav(page, "النواقص");
-  await page.getByRole("button", { name: "إضافة نسخة ناقصة", exact: true }).click();
-  await dlg(page).locator('[data-part="2"]').check({ force: true });
+  await page.getByRole("button", { name: "إضافة الأجزاء الناقصة", exact: true }).click();
+  await dlg(page).locator('input[name="missingQty2"]').fill("1");
   await dlg(page).locator("input[name=buyTotal]").fill("40");
   await dlg(page).locator("#reserve").check();
   await dlg(page).locator('input[name=supplierName]').fill("مورد");
@@ -599,15 +609,15 @@ test("missing parts can be reserved from a supplier for an existing book, then c
   await closed(page);
   await expect(page.locator(".res")).toContainText("الجزء 2");
   await nav(page, "النواقص");
-  await expect(page.locator(".book")).toContainText("الجزء 1 (ناقص 1)");
+  await expect(page.locator(".book")).toContainText("الجزء 3: ناقص 1");
   await nav(page, "المحجوزات");
   await page.locator(".res").getByRole("button", { name: "تأكيد", exact: true }).click();
   await rateReview(page, 5, "التزم بموعد التوريد");
   await dlg(page).getByRole("button", { name: "تأكيد الشراء", exact: true }).click();
   await closed(page);
   await nav(page, "النواقص");
-  await expect(page.locator(".book")).toContainText("غير مكتمل");
-  await expect(page.locator(".book")).toContainText("الجزء 3 (ناقص 2)");
+  await expect(page.locator(".book")).toContainText("1 نسخة غير مكتملة");
+  await expect(page.locator(".book")).toContainText("الجزء 3: ناقص 1");
 });
 
 test("book metadata and customer supplier analytics show saved people", async ({ page }) => {

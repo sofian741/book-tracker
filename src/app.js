@@ -1340,6 +1340,7 @@ async function init() {
   try {
     await DB.open();
     state = await DB.read();
+    restoreView();
     nav = createNav({ onBack, toast });
     render();
   } catch (e) {

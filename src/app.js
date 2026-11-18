@@ -496,7 +496,7 @@ function settings() {
 /* ---------------- النوافذ والتنقل ---------------- */
 function modal(title, html, submit, opts = {}) {
   const d = document.querySelector("#modal");
-  d.innerHTML = `<form novalidate><div class="modal-head"><h2>${title}</h2><button type="button" id="close" aria-label="إغلاق">×</button></div><div class="modal-body">${html}<p id="form-error" role="alert"></p></div>${opts.noSubmit ? "" : `<div class="modal-footer"><button class="primary wide" type="submit">${opts.submitLabel || "حفظ"}</button></div>`}</form>`;
+  d.innerHTML = `<form novalidate autocomplete="off"><div class="modal-head"><h2>${title}</h2><button type="button" id="close" aria-label="إغلاق">×</button></div><div class="modal-body">${html}<p id="form-error" role="alert"></p></div>${opts.noSubmit ? "" : `<div class="modal-footer"><button class="primary wide" type="submit">${opts.submitLabel || "حفظ"}</button></div>`}</form>`;
   modalEl = d;
   dirty = false;
   closeArmed = false;

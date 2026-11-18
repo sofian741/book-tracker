@@ -221,7 +221,7 @@ test("customer contact picker button is visible beside the contact fields", asyn
   const picker = dlg(page).getByRole("button", { name: "اختيار الاسم والرقم من جهات الاتصال" });
   await expect(picker).toBeVisible();
   await picker.click();
-  await expect(dlg(page).locator("#form-error")).toContainText("Android فقط");
+  await expect(dlg(page).locator("#form-error")).toContainText("تطبيق أندرويد فقط");
 });
 
 test("customer name and phone are optional and long pasted numbers are preserved", async ({ page }) => {
@@ -402,7 +402,7 @@ test("customer reservation: no sale/profit, stock held, confirm once, then real 
   await expect(page.locator(".home-page")).toContainText("0");
   await expect(page.locator("main")).toContainText("ربح متوقع 200 ج");
   await nav(page, "الكتب");
-  await expect(page.locator(".book")).toContainText("1 قطعة للبيع");
+  await expect(page.locator(".book")).toContainText("1 جزء متاح للبيع");
   await expect(page.locator(".book")).toContainText("محجوز 1");
   await sellSingle(page, "300", "0");
   await expect(page.getByRole("button", { name: "تسجيل بيع", exact: true })).toHaveCount(0);

@@ -148,7 +148,10 @@ export function createPricing(root, o) {
           if (el.value.trim() !== (hide ? "" : String(st.total))) setTotal(el.value.trim(), true);
         } else {
           const i = Number(el.dataset.i);
-          if (el.value.trim() !== (hide ? "" : String(st.prices[i] ?? 0))) setPrice(i, el.value.trim(), true);
+          const raw = el.value.trim();
+          // Treat the rendered input values as the final source of truth on submit.
+          // This also closes a blur/input timing gap on mobile WebViews.
+          if (raw !== "") setPrice(i, raw, true);
         }
       }
       paint();

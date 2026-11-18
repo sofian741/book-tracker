@@ -241,7 +241,7 @@ function bookCard(b, short = false, sold = false) {
     multi = b.partsTotal > 1,
     total = state.batches.filter((x) => x.book === b.id).reduce((n, x) => n + x.qty, 0);
   const badge = sold ? "تم بيع كل النسخ" : st.complete
-    ? `مكتمل ${num(st.sets)} ${st.sets === 2 ? "نسختين" : "نسخ"}`
+    ? "مكتمل نسختين"
     : st.sets > 0 ? `نسخة مكتملة واحدة · ناقص ${num(st.missingCopies)} نسخة`
     : `غير مكتمل · ناقص ${num(st.missingCopies)} نسخة`;
   return (
@@ -327,7 +327,7 @@ function detail() {
     `<h1>${esc(b.title)}</h1><p>${bookMetadata(b)}${multi ? " · " + num(b.partsTotal) + " أجزاء إجمالًا" : ""}</p>` +
     (b.note ? `<p>${esc(b.note)}</p>` : "") +
     `<div class="panel"><dl>` +
-    `<dt>النسخ المكتملة</dt><dd>${num(st.sets)} ${st.sets === 2 ? "نسختين" : "نسخ"}</dd><dt>حالة المخزون</dt><dd>${st.complete ? "مكتمل" : "يحتاج استكمالًا"}</dd><dt>النسخ المطلوبة لإكمال نسختين</dt><dd>${num(st.missingCopies)}</dd>` +
+    `<dt>النسخ المكتملة</dt><dd>${st.sets >= 2 ? "مكتمل نسختين" : st.sets === 1 ? "نسخة مكتملة واحدة" : "لا توجد نسخة مكتملة"}</dd><dt>حالة المخزون</dt><dd>${st.complete ? "مكتمل" : "يحتاج استكمالًا"}</dd><dt>النسخ المطلوبة لإكمال نسختين</dt><dd>${num(st.missingCopies)}</dd>` +
     `<dt>عدد القطع المتاحة للبيع</dt><dd>${num(q)}${held ? " (محجوز " + num(held) + ")" : ""}</dd><dt>تكلفة المخزون المتبقي</dt><dd>${cash(bookStock(b.id))}</dd><dt>${gain < 0 ? "الخسارة المحققة" : "صافي الربح المحقق"}</dt><dd>${cash(Math.abs(gain))}</dd>` +
     (M.bookSaleTotal(b) ? `<dt>سعر البيع المسجل للكتاب · ليس إيرادًا</dt><dd>${cash(M.bookSaleTotal(b))}</dd>` : "") +
     `</dl></div>` +

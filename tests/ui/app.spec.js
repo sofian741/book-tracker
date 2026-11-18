@@ -86,6 +86,34 @@ test("first run asks for the name once, greets by name, settings top-left and re
   await expect(page.locator(".heading h1")).toHaveText("أهلًا أ/ سفيان");
 });
 
+test("last page and open book details are restored after reopening", async ({ page }) => {
+  await start(page);
+  await addBook(page, { title: "استعادة الصفحة", buy: "100", extra: "" });
+  await nav(page, "الكتب");
+  await page.getByRole("button", { name: "تفاصيل", exact: true }).click();
+  await page.reload();
+  await expect(page.locator(".book-detail h1")).toHaveText("استعادة الصفحة");
+  await page.getByRole("button", { name: "‹ العودة" }).click();
+  await nav(page, "النواقص");
+  await page.reload();
+  await expect(page.locator(".shortages-page h1")).toHaveText("النواقص");
+});
+
+test("customer suggestions appear only while typing and fill the saved phone", async ({ page }) => {
+  await start(page);
+  await addBook(page, { title: "نسختان للبيع", qty: 2, buy: "100", extra: "", sell: "200" });
+  await sellSingle(page, "200", "0");
+  await page.getByRole("button", { name: "تسجيل بيع", exact: true }).first().click();
+  const name = dlg(page).locator('input[name=customerName]');
+  const phone = dlg(page).locator('input[name=customerPhone]');
+  await expect(dlg(page).locator(".person-suggestion")).toHaveCount(0);
+  await name.fill("عميل");
+  await expect(dlg(page).locator(".person-suggestion")).toHaveCount(1);
+  await dlg(page).locator(".person-suggestion").click();
+  await expect(name).toHaveValue("عميل تجريبي");
+  await expect(phone).toHaveValue("01011112222");
+});
+
 test("single-part book stays simple; English digits; 500+50 then 750-30 gives 170", async ({ page }) => {
   await start(page);
   await page.getByRole("button", { name: "+ إضافة كتاب" }).first().click();

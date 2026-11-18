@@ -52,33 +52,22 @@ function text(v, max = 500) {
   if (typeof v !== "string" || v.length > max)
     throw Error("النص غير صالح أو طويل جدًا");
 }
-/** Normalize newly entered mobile numbers to exactly 11 digits. */
+/** Normalize phone input without imposing a country-specific length. */
 export function normalizePhone(value) {
   const raw = String(value ?? "").trim()
     .replace(/[٠-٩]/g, (c) => "٠١٢٣٤٥٦٧٨٩".indexOf(c))
     .replace(/[۰-۹]/g, (c) => "۰۱۲۳۴۵۶۷۸۹".indexOf(c));
   if (!raw) return "";
-  if (!/^[+0-9\s()-]+$/.test(raw))
-    throw Error("رقم الهاتف لازم يحتوي على أرقام فقط");
+  if (!/^[+0-9\s().-]+$/.test(raw))
+    throw Error("رقم الهاتف يحتوي على رموز غير صالحة");
   const digits = raw.replace(/\D/g, "");
-  if (digits.length !== 11)
-    throw Error("رقم الهاتف لازم يتكوّن من 11 رقمًا بالضبط");
-  return digits;
+  if (!digits) return "";
+  return (raw.startsWith("+") ? "+" : "") + digits;
 }
 
-/** Read older saved contacts (including +20 format) without changing stored data. */
+/** Older backups may contain local or international phone formats. */
 export function normalizeStoredPhone(value) {
-  const raw = String(value ?? "").trim()
-    .replace(/[٠-٩]/g, (c) => "٠١٢٣٤٥٦٧٨٩".indexOf(c))
-    .replace(/[۰-۹]/g, (c) => "۰۱۲۳۴۵۶۷۸۹".indexOf(c));
-  if (!raw) return "";
-  if (!/^[+0-9\s()-]+$/.test(raw))
-    throw Error("رقم الهاتف المسجل غير صالح");
-  const digits = raw.replace(/\D/g, "");
-  if (digits.length === 11) return digits;
-  if (digits.length === 12 && digits.startsWith("20"))
-    return "0" + digits.slice(2);
-  throw Error("رقم الهاتف المسجل غير صالح");
+  return normalizePhone(value);
 }
 
 
@@ -180,12 +169,15 @@ export const bookSaleTotal = (book) => bookSalePrices(book).reduce((a, b) => a +
 export function bookStatus(s, bookId) {
   const b = s.books.find((x) => x.id === bookId);
   const total = b ? b.partsTotal : 0;
-  const present = availableParts(s, bookId).map((x) => x.part);
-  const have = new Set(present);
-  const missing = Array.from({ length: total }, (_, i) => i + 1).filter((p) => !have.has(p));
-  return { total, present, missing, complete: !!total && !missing.length };
+  const quantities = Array.from({ length: total }, (_, i) => available(s, bookId, i + 1));
+  const present = quantities.map((qty, i) => qty > 0 ? i + 1 : 0).filter(Boolean);
+  // A complete title means two complete physical copies, not merely one copy of each part.
+  const missing = quantities.map((qty, i) => qty < 2 ? i + 1 : 0).filter(Boolean);
+  const missingCopies = quantities.reduce((sum, qty) => sum + Math.max(0, 2 - qty), 0);
+  const sets = quantities.length ? Math.min(...quantities) : 0;
+  return { total, present, missing, missingCopies, quantities, sets, complete: !!total && missing.length === 0 };
 }
-/** كتب في المخزون (فيها جزء على الأقل) وينقصها جزء أو أكثر */
+/** Titles with at least one physical item that still need copies to make two complete sets. */
 export const missingBooks = (s) =>
   s.books.filter((b) => {
     const st = bookStatus(s, b.id);
@@ -202,7 +194,7 @@ export function stats(s) {
       if (st.complete) complete++;
       else {
         incomplete++;
-        missingParts += st.missing.length;
+        missingParts += st.missingCopies;
       }
     }
   }

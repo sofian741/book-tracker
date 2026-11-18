@@ -617,48 +617,70 @@ const dateOf = (f, name, label) => {
 const chips = (parts, sel, attr = "data-part") =>
   parts.map((p) => `<label class="pick"><input type="checkbox" ${attr}="${p}" ${sel.has(p) ? "checked" : ""}><span>${num(p)}</span></label>`).join("");
 function personFields(kind) {
-  const people = M.peopleSummary(state, kind).filter((person) => person.phone || person.name !== "بدون اسم");
-  const names = [...new Set(people.map((person) => person.name).filter(Boolean))];
-  const phones = new Map();
-  for (const person of people) {
-    try {
-      const phone = M.normalizeStoredPhone(person.phone);
-      if (phone) phones.set(phone, person.name);
-    } catch {}
-  }
-  const label = kind === "customer" ? "العميل" : "المورد";
   return `<div class="person-fields">
-    <label>اسم ${label} *<input name="${kind}Name" list="${kind}-names" maxlength="200" autocomplete="off" required placeholder="اكتب الاسم أو اختاره"></label>
-    <datalist id="${kind}-names">${names.map((name) => `<option value="${esc(name)}"></option>`).join("")}</datalist>
-    <label>رقم هاتف ${label} * (11 رقمًا)<input name="${kind}Phone" type="tel" inputmode="numeric" maxlength="11" pattern="[0-9٠-٩۰-۹]{11}" list="${kind}-phones" autocomplete="off" required placeholder="مثال: 01012345678"></label>
-    <datalist id="${kind}-phones">${[...phones].map(([phone, name]) => `<option value="${esc(phone)}" label="${esc(name)}"></option>`).join("")}</datalist>
-    <p class="hint">اختيار اسم أو رقم مسجل يكمّل بيانات الشخص تلقائيًا. رقم الهاتف مطلوب من 11 رقمًا.</p>
+    <label>اسم ${kind === "customer" ? "العميل" : "المورد"} (اختياري)
+      <div class="person-input-row"><input name="${kind}Name" maxlength="200" autocomplete="off" placeholder="اكتب الاسم أو اختاره">${kind === "customer" ? `<button type="button" class="contact-pick" data-contact-pick="customer">جهات الاتصال</button>` : ""}</div>
+      <div class="person-suggestions" data-suggestions="${kind}" hidden></div>
+    </label>
+    <label>رقم هاتف ${kind === "customer" ? "العميل" : "المورد"} (اختياري)<input name="${kind}Phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="رقم الهاتف كاملًا"></label>
+    <p class="hint">الاسم ورقم الهاتف اختياريان. اكتب الرقم كاملًا بأي صيغة محلية أو دولية.</p>
   </div>`;
 }
 function contactData(f, kind) {
   const name = String(f.get(kind + "Name") || "").trim();
   const rawPhone = String(f.get(kind + "Phone") || "").trim();
-  if (!name) throw Error(`اكتب اسم ${kind === "customer" ? "العميل" : "المورد"}`);
-  if (!rawPhone) throw Error(`اكتب رقم هاتف ${kind === "customer" ? "العميل" : "المورد"}`);
   return { name, phone: M.normalizePhone(rawPhone) };
 }
 function bindPersonSuggestions(d, kind) {
   const people = M.peopleSummary(state, kind).filter((person) => person.phone || person.name !== "بدون اسم");
   const nameInput = d.querySelector(`[name="${kind}Name"]`);
   const phoneInput = d.querySelector(`[name="${kind}Phone"]`);
-  if (!nameInput || !phoneInput) return;
+  const suggestions = d.querySelector(`[data-suggestions="${kind}"]`);
+  if (!nameInput || !phoneInput || !suggestions) return;
+  let matches = [];
+  nameInput.addEventListener("input", () => {
+    const query = nameInput.value.trim().toLocaleLowerCase("ar");
+    matches = query ? people.filter((person) => person.name !== "بدون اسم" && person.name.toLocaleLowerCase("ar").includes(query)).slice(0, 6) : [];
+    suggestions.innerHTML = matches.map((person, index) => `<button type="button" class="person-suggestion" data-person-index="${index}"><strong>${esc(person.name)}</strong><small>${esc(person.phone || "بدون رقم هاتف")}</small></button>`).join("");
+    suggestions.hidden = matches.length === 0;
+  });
+  suggestions.addEventListener("click", (event) => {
+    const choice = event.target.closest("[data-person-index]");
+    if (!choice) return;
+    const person = matches[Number(choice.dataset.personIndex)];
+    if (!person) return;
+    nameInput.value = person.name;
+    phoneInput.value = person.phone || "";
+    suggestions.hidden = true;
+  });
+  nameInput.addEventListener("blur", () => setTimeout(() => { suggestions.hidden = true; }, 150));
   nameInput.addEventListener("change", () => {
     const value = nameInput.value.trim().toLocaleLowerCase("ar");
-    const matches = people.filter((item) => item.name.toLocaleLowerCase("ar") === value && item.phone);
-    if (matches.length !== 1 || phoneInput.value) return;
-    try { phoneInput.value = M.normalizeStoredPhone(matches[0].phone); } catch {}
+    const matchesByName = people.filter((person) => person.name.toLocaleLowerCase("ar") === value && person.phone);
+    if (matchesByName.length === 1 && !phoneInput.value) phoneInput.value = matchesByName[0].phone;
   });
   phoneInput.addEventListener("change", () => {
-    let digits = "";
-    try { digits = M.normalizePhone(phoneInput.value); } catch {}
-    const person = people.find((item) => item.phone === digits);
+    const digits = M.normalizePhone(phoneInput.value);
+    const person = people.find((item) => M.normalizePhone(item.phone) === digits);
     if (person && !nameInput.value.trim()) nameInput.value = person.name;
   });
+  d.addEventListener("click", (event) => {
+    const pick = event.target.closest("[data-contact-pick]");
+    if (pick) chooseContact(pick.dataset.contactPick);
+  });
+}
+async function chooseContact(kind) {
+  if (!Capacitor.isNativePlatform()) return toast("اختيار جهات الاتصال متاح من تطبيق أندرويد فقط");
+  try {
+    const contact = await ContactPicker.pickContact();
+    if (!contact) return;
+    const name = modalEl?.querySelector(`[name="${kind}Name"]`);
+    const phone = modalEl?.querySelector(`[name="${kind}Phone"]`);
+    if (name) name.value = contact.name || "";
+    if (phone) phone.value = contact.phone || "";
+    name?.dispatchEvent(new Event("input", { bubbles: true }));
+    phone?.dispatchEvent(new Event("input", { bubbles: true }));
+  } catch (error) { toast("تعذر فتح جهات الاتصال: " + errorMessage(error)); }
 }
 const reserveFields = (kind) =>
   `<label class="check"><input type="checkbox" name="reserve" id="reserve"><span>إضافة كمحجوز ${kind === "customer" ? "للعميل" : "من المورد"}</span></label><div id="reserve-box" hidden>${field("تاريخ الحجز", "rdate", M.today(), { type: "date" })}</div>`;

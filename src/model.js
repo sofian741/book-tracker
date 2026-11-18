@@ -67,7 +67,9 @@ export function normalizePhone(value) {
 
 /** Older backups may contain local or international phone formats. */
 export function normalizeStoredPhone(value) {
-  return normalizePhone(value);
+  const normalized = normalizePhone(value);
+  const digits = normalized.replace(/\D/g, "");
+  return digits.length === 12 && digits.startsWith("20") ? "0" + digits.slice(2) : normalized;
 }
 
 

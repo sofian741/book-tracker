@@ -920,16 +920,16 @@ function addMissingDialog(bookId) {
     st = M.bookStatus(state, b.id);
   if (!st.incompleteCopies || !st.missing.length) return toast("لا توجد أجزاء ناقصة في هذا الكتاب");
   let buy, d;
-  const selected = () => st.missing.filter((part) => {
-    const value = String(d.querySelector(`[name="missingQty${part}"]`)?.value || "0").trim();
-    return value !== "" && Number(value) > 0;
-  });
-  const quantities = () => new Map(st.missing.map((part) => {
+  const partQuantity = (part) => {
     const raw = String(d.querySelector(`[name="missingQty${part}"]`)?.value || "0").trim();
     const quantity = raw === "" ? 0 : M.wholeMoney(raw);
-    if (quantity < 0 || quantity > 1000) throw Error("عدد النسخ المطلوب غير صالح");
-    return [part, quantity];
-  }));
+    if (quantity > 1000) throw Error("عدد النسخ المطلوب غير صالح");
+    return quantity;
+  };
+  const selected = () => st.missing.filter((part) => {
+    try { return partQuantity(part) > 0; } catch { return false; }
+  });
+  const quantities = () => new Map(st.missing.map((part) => [part, partQuantity(part)]));
   const syncPricing = () => {
     if (!buy) return;
     const keys = selected();
@@ -950,7 +950,7 @@ function addMissingDialog(bookId) {
   };
   const html =
     `<p>${esc(b.title)}</p><p class="hint">دي أجزاء ناقصة من نسخ إضافية للكتاب. اكتب عدد النسخ اللي اشتريتها من كل جزء، ومش لازم تكمل كل النواقص في مرة واحدة.</p>` +
-    `<div class="missing-parts-list">${st.missing.map((part) => `<label class="missing-part-row"><span><strong>الجزء ${num(part)}</strong><small>محتاج ${num(st.missingCounts[part - 1])} نسخة لإكمال النواقص الحالية</small></span><input name="missingQty${part}" type="number" inputmode="numeric" min="0" max="1000" step="1" value="0" aria-label="عدد نسخ الجزء ${num(part)}"></label>`).join("")}</div>` +
+    `<div class="missing-parts-list">${st.missing.map((part) => `<label class="missing-part-row"><span><strong>الجزء ${num(part)}</strong><small>محتاج ${num(st.missingCounts[part - 1])} نسخة لإكمال النواقص الحالية</small></span><input name="missingQty${part}" type="text" inputmode="numeric" data-select maxlength="4" value="0" aria-label="عدد نسخ الجزء ${num(part)}"></label>`).join("")}</div>` +
     `<div id="buy-box"></div><details class="more"><summary>مصاريف الشراء</summary>${field("تكاليف شراء إضافية للدفعة بالكامل (ج)", "extra", "0", { num: 1 })}${field("تاريخ الشراء", "date", M.today(), { type: "date" })}</details><details class="more" open><summary>بيانات المورد</summary>${personFields("supplier")}</details>${reserveFields("supplier")}<p id="preview" class="preview"></p>`;
   d = modal("إضافة أجزاء للنسخ الناقصة", html, async (f) => {
     const counts = quantities(),

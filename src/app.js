@@ -663,8 +663,12 @@ function bindPersonSuggestions(d, kind) {
     if (matchesByName.length === 1 && !phoneInput.value) phoneInput.value = matchesByName[0].phone;
   });
   phoneInput.addEventListener("change", () => {
-    const digits = M.normalizePhone(phoneInput.value);
-    const person = people.find((item) => M.normalizePhone(item.phone) === digits);
+    let digits;
+    try { digits = M.normalizePhone(phoneInput.value); } catch { return; }
+    if (!digits) return;
+    const person = people.find((item) => {
+      try { return M.normalizePhone(item.phone) === digits; } catch { return false; }
+    });
     if (person && !nameInput.value.trim()) nameInput.value = person.name;
   });
   d.addEventListener("click", (event) => {

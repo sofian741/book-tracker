@@ -330,13 +330,14 @@ test("rejects malformed version 3 reservations without mutating the source", () 
 });
 
 
-test("new phone numbers require 11 digits and legacy +20 contacts remain reusable", () => {
+test("phone numbers accept full local and international values without an 11-digit limit", () => {
   assert.equal(M.normalizePhone("٠١٠١٢٣٤٥٦٧٨"), "01012345678");
   assert.equal(M.normalizePhone("01012345678"), "01012345678");
   assert.equal(M.normalizePhone(""), "");
-  assert.throws(() => M.normalizePhone("201012345678"), /11 رقمًا/);
-  assert.throws(() => M.normalizePhone("010123456789"), /11 رقمًا/);
-  assert.throws(() => M.normalizePhone("010ABC56789"), /أرقام فقط/);
+  assert.equal(M.normalizePhone("201012345678"), "201012345678");
+  assert.equal(M.normalizePhone("+20 10 1234 5678"), "+201012345678");
+  assert.equal(M.normalizePhone("+44 20 1234 5678"), "+442012345678");
+  assert.throws(() => M.normalizePhone("010ABC56789"), /رموز غير صالحة/);
   assert.equal(M.normalizeStoredPhone("201012345678"), "01012345678");
   assert.equal(M.normalizeStoredPhone("+20 10 1234 5678"), "01012345678");
 });
@@ -500,4 +501,27 @@ test("legacy international and new local phone formats identify the same person"
   assert.equal(people.length, 1);
   assert.equal(people[0].phone, "01012345678");
   assert.equal(people[0].transactions, 1);
+});
+
+test("a title is complete only after two full physical copies exist", () => {
+  const s = setup();
+  s.books[0].partsTotal = 2;
+  s.batches.push(
+    { id: "copy-a1", book: "book", part: 1, unit: 1000, qty: 1, extra: 0, date: "2026-01-01" },
+    { id: "copy-a2", book: "book", part: 2, unit: 1000, qty: 1, extra: 0, date: "2026-01-01" },
+  );
+  let status = M.bookStatus(s, "book");
+  assert.equal(status.complete, false);
+  assert.equal(status.sets, 1);
+  assert.equal(status.missingCopies, 2);
+  assert.deepEqual(status.missing, [1, 2]);
+  s.batches.push(
+    { id: "copy-b1", book: "book", part: 1, unit: 1000, qty: 1, extra: 0, date: "2026-01-02" },
+    { id: "copy-b2", book: "book", part: 2, unit: 1000, qty: 1, extra: 0, date: "2026-01-02" },
+  );
+  status = M.bookStatus(s, "book");
+  assert.equal(status.complete, true);
+  assert.equal(status.sets, 2);
+  assert.equal(status.missingCopies, 0);
+  assert.deepEqual(status.missing, []);
 });

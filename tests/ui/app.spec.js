@@ -48,7 +48,7 @@ async function addBook(page, o = {}) {
 async function fillCustomer(page, name = "عميل تجريبي", phone = "01011112222") {
   await dlg(page).locator('input[name=customerName]').fill(name);
   const phoneInput = dlg(page).locator('input[name=customerPhone]');
-  await phoneInput.fill(phone);
+  if (await phoneInput.inputValue() !== phone) await phoneInput.fill(phone);
   await expect(phoneInput).toHaveValue(phone);
   const submittedPhone = await dlg(page).locator("form").evaluate((form) => new FormData(form).get("customerPhone"));
   expect(submittedPhone).toBe(phone);

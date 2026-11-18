@@ -281,7 +281,7 @@ function shortages() {
   const list = M.missingBooks(state).filter((b) => (b.title + " " + b.publisher).includes(sQuery)).filter(ok[sFilter] || ok.all);
   const opt = (v, l) => `<option value="${v}" ${v === sFilter ? "selected" : ""}>${l}</option>`;
   return (
-    `<div class="shortages-page"><div class="heading"><p class="eyebrow">كتب ينقصها أجزاء</p><h1>النواقص</h1><p>الكتاب يختفي من هنا بمجرد اكتمال أجزائه.</p></div>` +
+    `<div class="shortages-page"><div class="heading"><p class="eyebrow">كتب ينقصها أجزاء</p><h1>النواقص</h1><p>الكتاب يختفي من هنا بمجرد اكتمال نسختين كاملتين منه.</p></div>` +
     searchBox("s-search", sQuery, "ابحث في النواقص…") +
     `<div class="toolbar"><select id="s-filter" aria-label="فلترة النواقص">${opt("all", "كل النواقص")}${opt("one", "ناقص جزء واحد")}${opt("many", "ناقص أكثر من جزء")}</select></div>` +
     (list.length ? list.map((b) => bookCard(b, true)).join("") : `<div class="empty"><h2>لا توجد نواقص</h2><p>كل كتبك في المخزون مكتملة${sQuery || sFilter !== "all" ? " (أو غيّر البحث والفلتر)" : ""}.</p></div>`) +

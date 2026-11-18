@@ -23,7 +23,7 @@ jobs:
       - run: npm run build
 
   android-build:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/feature/kotobiya-final-polish' || github.ref == 'refs/heads/main'
     needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 30

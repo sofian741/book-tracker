@@ -679,11 +679,6 @@ function bindPersonSuggestions(d, kind) {
   });
   nameInput.addEventListener("blur", () => setTimeout(() => { suggestions.hidden = true; }, 150));
   phoneInput.addEventListener("focus", () => { if (phoneInput.value) phoneInput.select(); });
-  nameInput.addEventListener("change", () => {
-    const value = nameInput.value.trim().toLocaleLowerCase("ar");
-    const matchesByName = people.filter((person) => person.name.toLocaleLowerCase("ar") === value && person.phone);
-    if (matchesByName.length === 1 && !phoneInput.value) phoneInput.value = matchesByName[0].phone;
-  });
   phoneInput.addEventListener("change", () => {
     let digits;
     try { digits = M.normalizePhone(phoneInput.value); } catch { return; }

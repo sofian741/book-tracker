@@ -766,7 +766,7 @@ function bookDialog(editId, copyFrom = null) {
     for (const p of [...picked]) if (p > N) picked.delete(p);
     renderOwned();
     buy?.setItems(buyKeys());
-    sell.setItems(keys(), old ? defs() : null);
+    sell.setItems(keys(), seed ? defs() : null);
     preview();
   }
   d = modal(old ? "تعديل بيانات الكتاب" : seed ? "إضافة كتاب مشابه" : "إضافة كتاب", html, async (f) => {
@@ -837,7 +837,7 @@ function bookDialog(editId, copyFrom = null) {
     bindReserve(d, "حفظ");
   }
   sell = partPricing(d.querySelector("#sell-box"), { name: "sellTotal", totalLabel: "سعر بيع الكتاب (ج)", detailsLabel: "تفاصيل بيع إضافية", partLabel: (k) => `سعر بيع الجزء ${num(k)}` });
-  sell.setItems(keys(), old ? defs() : null);
+  sell.setItems(keys(), seed ? defs() : null);
   preview();
 }
 

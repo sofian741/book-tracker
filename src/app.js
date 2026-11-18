@@ -232,29 +232,31 @@ function home() {
 function searchBox(id, value, ph) {
   return `<label class="search">بحث بالعنوان أو دار النشر<input id="${id}" type="search" placeholder="${ph}" value="${esc(value)}"></label>`;
 }
-function bookCard(b, short = false) {
+function bookCard(b, short = false, sold = false) {
   const st = M.bookStatus(state, b.id),
     q = M.sellable(state, b.id),
     phys = M.available(state, b.id),
     held = M.reserved(state, b.id),
     multi = b.partsTotal > 1,
     total = state.batches.filter((x) => x.book === b.id).reduce((n, x) => n + x.qty, 0);
-  const badge = multi
-    ? `${owned(st.present.length, b.partsTotal)} · ${st.complete ? "مكتمل" : "غير مكتمل"}`
-    : phys > 0 ? `متاح ${num(phys)} ${phys === 1 ? "نسخة" : "نسخ"}` : "تم بيعه";
+  const badge = st.complete
+    ? `مكتمل ${num(st.sets)} ${st.sets === 2 ? "نسختين" : "نسخ"}`
+    : st.sets > 0 ? `نسخة مكتملة واحدة · ناقص ${num(st.missingCopies)} نسخة`
+    : `غير مكتمل · ناقص ${num(st.missingCopies)} نسخة`;
   return (
     `<article class="book"><button type="button" class="book-title" data-book="${b.id}"><span class="book-mark">${icon("books")}</span><span><strong>${esc(b.title)}</strong><small>${bookMetadata(b)}${multi ? " · " + num(b.partsTotal) + " أجزاء" : ""}</small></span></button>` +
     `<div class="book-info"><span class="badge ${(multi ? st.complete : phys > 0) ? "" : "muted"}">${badge}</span><span>${num(q)} قطعة للبيع${held ? " · محجوز " + num(held) : ""} · تكلفة المتبقي ${cash(bookStock(b.id))}</span></div>` +
-    (short ? `<p class="miss">الأجزاء الناقصة: ${st.missing.map(num).join("، ")}</p>` : "") +
+    (short ? `<p class="miss">المطلوب لإكمال نسختين: ${st.missing.map((p) => `الجزء ${num(p)} (ناقص ${num(2 - st.quantities[p - 1])})`).join("، ")}</p>` : "") +
     `<div class="actions">` +
-    (short ? button("إضافة", "add-missing", `data-id="${b.id}" class="primary"`) : q ? button("تسجيل بيع", "sell", `data-id="${b.id}" class="primary"`) : "") +
+    (sold ? button("إضافة كتاب مشابه", "copy-book", `data-id="${b.id}" class="primary"`) : short ? button("إضافة نسخة ناقصة", "add-missing", `data-id="${b.id}" class="primary"`) : q ? button("تسجيل بيع", "sell", `data-id="${b.id}" class="primary"`) : "") +
     button("تفاصيل", "detail", `data-id="${b.id}" class="subtle"`) +
     `</div>${short ? "" : `<small class="hint">${num(total)} قطعة تم شراؤها إجمالًا</small>`}</article>`
   );
 }
 function books() {
-  const ok = { all: () => true, available: (b) => M.available(state, b.id) > 0, sold: (b) => M.available(state, b.id) === 0, complete: (b) => M.bookStatus(state, b.id).complete, incomplete: (b) => { const s = M.bookStatus(state, b.id); return s.present.length > 0 && s.missing.length > 0; } };
-  let list = state.books.filter((b) => (b.title + " " + b.publisher).includes(query)).filter(ok[filter] || ok.all);
+  const hidden = (b) => M.available(state, b.id) > 0 && M.sellable(state, b.id) === 0 && M.reserved(state, b.id) > 0;
+  const ok = { all: () => true, available: (b) => M.sellable(state, b.id) > 0, complete: (b) => M.bookStatus(state, b.id).complete, incomplete: (b) => { const s = M.bookStatus(state, b.id); return s.present.length > 0 && !s.complete; } };
+  let list = state.books.filter((b) => M.available(state, b.id) > 0 && !hidden(b) && (b.title + " " + b.publisher).includes(query)).filter(ok[filter] || ok.all);
   if (sort === "name") list = list.slice().sort((a, b) => a.title.localeCompare(b.title, "ar"));
   else list = list.slice().reverse();
   const opt = (v, l, cur) => `<option value="${v}" ${v === cur ? "selected" : ""}>${l}</option>`;
@@ -263,10 +265,15 @@ function books() {
     `<div class="heading"><p class="eyebrow">مكتبتك التجارية</p><h1>الكتب</h1><p>كل عنوان وأجزاؤه، في مكان واحد.</p></div>` +
     button("+ إضافة كتاب", "add", 'class="primary wide"') +
     searchBox("search", query, "ابحث عن كتاب…") +
-    `<div class="toolbar"><select id="filter" aria-label="حالة المخزون">${[["all", "كل الكتب"], ["available", "المتاح"], ["complete", "المكتمل"], ["incomplete", "غير المكتمل"], ["sold", "المباع بالكامل"]].map(([v, l]) => opt(v, l, filter)).join("")}</select><select id="sort" aria-label="ترتيب الكتب">${opt("new", "الأحدث", sort)}${opt("name", "الاسم", sort)}</select></div>` +
+    `<div class="toolbar"><select id="filter" aria-label="حالة المخزون">${[["all", "كل الكتب"], ["available", "المتاح للبيع"], ["complete", "مكتمل نسختين"], ["incomplete", "يحتاج استكمالًا"]].map(([v, l]) => opt(v, l, filter)).join("")}</select><select id="sort" aria-label="ترتيب الكتب">${opt("new", "الأحدث", sort)}${opt("name", "الاسم", sort)}</select></div>` +
     `<div id="book-list">${list.length ? list.map((b) => bookCard(b)).join("") : `<div class="empty"><h2>لا توجد كتب هنا بعد</h2><p>أضف كتابك الأول أو غيّر البحث والفلتر.</p></div>`}</div>` +
     `</div>`
   );
+}
+function soldBooks() {
+  const list = state.books.filter((b) => state.batches.some((x) => x.book === b.id) && M.available(state, b.id) === 0 && M.reserved(state, b.id) === 0)
+    .filter((b) => (b.title + " " + b.publisher).includes(query));
+  return `<div class="books-page sold-books-page"><div class="heading"><p class="eyebrow">أرشيف المخزون المنتهي</p><h1>الكتب المباعة</h1><p>من هنا تقدر تضيف كتابًا مشابهًا ببياناته الأساسية وتعدّلها قبل الحفظ.</p></div>${searchBox("search", query, "ابحث عن كتاب مباع…")}${list.length ? list.slice().reverse().map((b) => bookCard(b, false, true)).join("") : `<div class="empty"><h2>مفيش كتب مباعة بالكامل</h2><p>الكتب اللي يخلص مخزونها هتظهر هنا تلقائيًا.</p></div>`}</div>`;
 }
 function shortages() {
   const ok = { all: () => true, one: (b) => M.bookStatus(state, b.id).missing.length === 1, many: (b) => M.bookStatus(state, b.id).missing.length > 1 };

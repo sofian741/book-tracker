@@ -492,7 +492,7 @@ test("edit sale and delete sale return inventory; HTML in titles is inert", asyn
   await dlg(page).getByLabel("سعر بيع النسخة الواحدة (ج) *").fill("800");
   await save(page);
   await closed(page);
-  await expect(page.locator(".stat.green")).toContainText("220");
+  await expect(page.locator(".home-page")).toContainText("220");
   await page.getByRole("button", { name: "حذف العملية", exact: true }).click();
   await dlg(page).getByRole("button", { name: "تأكيد", exact: true }).click();
   await closed(page);

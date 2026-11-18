@@ -678,6 +678,7 @@ function bindPersonSuggestions(d, kind) {
     suggestions.hidden = true;
   });
   nameInput.addEventListener("blur", () => setTimeout(() => { suggestions.hidden = true; }, 150));
+  phoneInput.addEventListener("focus", () => { if (phoneInput.value) phoneInput.select(); });
   nameInput.addEventListener("change", () => {
     const value = nameInput.value.trim().toLocaleLowerCase("ar");
     const matchesByName = people.filter((person) => person.name.toLocaleLowerCase("ar") === value && person.phone);

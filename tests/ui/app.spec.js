@@ -294,6 +294,13 @@ test("one complete book plus an extra single part is shown as one incomplete cop
 
   await nav(page, "الكتب");
   await expect(page.locator(".book")).toContainText("1 كتاب كامل · 1 نسخة ناقصة");
+  await page.getByRole("button", { name: "تفاصيل", exact: true }).click();
+  await expect(page.locator(".detail-metrics .detail-metric")).toHaveCount(6);
+  await expect(page.locator(".detail-metric.complete-metric").first()).toContainText("1");
+  await expect(page.locator(".detail-metric.short-metric").first()).toContainText("1");
+  await expect(page.locator(".part-detail-list .part-detail-card")).toHaveCount(3);
+  await expect(page.locator(".part-detail-list .part-detail-card.needs-part")).toHaveCount(2);
+  await page.getByRole("button", { name: "‹ العودة" }).click();
   await nav(page, "النواقص");
   await expect(page.locator(".book")).toHaveCount(1);
   await expect(page.locator(".book")).toContainText("1 نسخة غير مكتملة");

@@ -978,7 +978,7 @@ function sellDialog(bookId) {
       if (!r.keys.length) throw Error("اختر جزءًا واحدًا على الأقل");
       items = r.keys.map((k, i) => ({ part: k, qty: 1, unit: r.prices[i] * 100 }));
     }
-    if (items.some((i) => i.unit < 1)) throw Error("اكتب سعر البيع (أكبر من صفر)");
+    if (items.some((i) => i.unit < 1)) throw Error("DEBUG sell values: mode=" + mode + "; keys=" + r.keys.join(",") + "; prices=" + r.prices.join(",") + "; inputs=" + [...d.querySelectorAll("#price-box input[data-pw=price]")].map((el) => el.value).join(",") + "; items=" + items.map((i) => i.unit).join(","));
     return { items, expenses: readCents(f, "expenses"), shipping: readCents(f, "shipping"), date: dateOf(f, "date", "تاريخ البيع"), note: (f.get("note") || "").trim() };
   }
   function preview() {
@@ -1242,7 +1242,7 @@ const actions = {
   "edit-batch": (id) => editBatchDialog(id),
   "res-confirm": resConfirm,
   "res-cancel": resCancel,
-  "people-stats": () => openSub({ t: "people" }),
+  "people-stats": () => { peopleFilter = "all"; peopleQuery = ""; openSub({ t: "people" }); },
   "toggle-history": () => {
     showHistory = !showHistory;
     render();

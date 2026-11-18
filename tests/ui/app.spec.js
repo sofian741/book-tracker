@@ -153,6 +153,58 @@ test("purchase price distribution: 100 over 3, edit one, redistribute, all manua
   await expect(page.locator("main")).toContainText("90 ج");
 });
 
+test("multi-part book entry repeats the copy question until the user finishes", async ({ page }) => {
+  await start(page);
+  await page.getByRole("button", { name: "+ إضافة كتاب" }).first().click();
+  await dlg(page).getByLabel("اسم الكتاب *").fill("مجموعتان");
+  await dlg(page).getByLabel("عدد أجزاء الكتاب بالكامل *").fill("2");
+  for (const part of [1, 2]) await dlg(page).locator(`[data-part="${part}"]`).check({ force: true });
+  await expect(dlg(page).getByText("هل توجد نسخ أخرى من الكتاب؟")).toBeVisible();
+  await dlg(page).locator('[data-copy-next="yes"]').click();
+  for (const part of [1, 2]) await dlg(page).locator(`[data-part="${part}"]`).check({ force: true });
+  await dlg(page).locator('[data-copy-next="no"]').click();
+  await dlg(page).locator("input[name=buyTotal]").fill("100");
+  await save(page);
+  await closed(page);
+  await nav(page, "الكتب");
+  await expect(page.locator(".book")).toContainText("مكتمل نسختين");
+});
+
+test("sold books move to their archive and can be copied into a new editable book", async ({ page }) => {
+  await start(page);
+  await addBook(page, { title: "كتاب انتهى", buy: "100", extra: "", sell: "200" });
+  await sellSingle(page, "200", "0");
+  await nav(page, "الكتب");
+  await expect(page.locator(".book")).toHaveCount(0);
+  await page.getByRole("button", { name: "الكتب المباعة", exact: true }).click();
+  await expect(page.locator(".sold-books-page")).toContainText("كتاب انتهى");
+  await page.getByRole("button", { name: "إضافة كتاب مشابه", exact: true }).click();
+  await expect(dlg(page).getByLabel("اسم الكتاب *")).toHaveValue("كتاب انتهى");
+  await dlg(page).getByLabel("اسم الكتاب *").fill("كتاب مشابه جديد");
+  await dlg(page).locator("input[name=buyTotal]").fill("150");
+  await save(page);
+  await closed(page);
+  await expect(page.locator(".books-page")).toContainText("كتاب مشابه جديد");
+});
+
+test("customer name and phone are optional and long pasted numbers are preserved", async ({ page }) => {
+  await start(page);
+  await addBook(page, { title: "بيع بلا بيانات عميل", buy: "100", extra: "", sell: "200" });
+  await page.getByRole("button", { name: "تسجيل بيع", exact: true }).first().click();
+  await dlg(page).getByLabel("سعر بيع النسخة الواحدة (ج) *").fill("200");
+  await save(page, "تأكيد البيع");
+  await closed(page);
+
+  await addBook(page, { title: "رقم دولي", buy: "100", extra: "", sell: "200" });
+  await page.getByRole("button", { name: "تسجيل بيع", exact: true }).first().click();
+  await dlg(page).getByLabel("سعر بيع النسخة الواحدة (ج) *").fill("200");
+  const phone = dlg(page).locator('input[name=customerPhone]');
+  await phone.fill("+44 20 7946 0958");
+  await expect(phone).toHaveValue("+44 20 7946 0958");
+  await save(page, "تأكيد البيع");
+  await closed(page);
+});
+
 test("sale price details work the same way and whole-book price is saved as default", async ({ page }) => {
   await start(page);
   await addBook(page, { title: "كتاب بأجزاء", parts: 3, owned: [1, 2, 3], buy: "90", extra: "", sell: "100" });
